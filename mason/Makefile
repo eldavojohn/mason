@@ -7,7 +7,7 @@
 
 JAVAC = javac ${FLAGS}
 
-FLAGS = -target 1.5 -source 1.5 -g -nowarn 
+FLAGS = -target 1.5 -source 1.5 -g -nowarn
 
 VERSION = 19
 
@@ -83,17 +83,27 @@ sim/portrayal3d/continuous/*.java \
 sim/portrayal3d/network/*.java \
 sim/display3d/*.java \
 
+# The test facilities
+TESTDIRS = \
+tests/sim/field/*.java \
+tests/sim/field/grid/*.java \
+
 
 # Make the main MASON code, not including 3D code
 all:
 	@ echo This makes the 2D MASON code.
 	@ echo To learn about other options, type 'make help'
-	@ echo 
+	@ echo
 	${JAVAC} ${DIRS}
 
 # Make the main MASON code AND the 3D code
 3d:
 	${JAVAC} ${DIRS} ${3DDIRS}
+
+# Make the MASON along with test code
+unit_tests:
+	@ echo This makes the 2D MASON along with tests code.
+	${JAVAC} ${DIRS} ${TESTDIRS}
 
 
 # Delete all jmf gunk, checkpoints, backup emacs gunk classfiles,
@@ -101,7 +111,7 @@ all:
 clean:
 	find . -name "*.class" -exec rm -f {} \;
 	find . -name "jmf.log" -exec rm -f {} \;
-	find . -name ".DS_Store" -exec rm -f {} \; 
+	find . -name ".DS_Store" -exec rm -f {} \;
 	find . -name "*.checkpoint" -exec rm -f {} \;
 	find . -name "*.java*~" -exec rm -f {} \;
 	find . -name ".#*" -exec rm -rf {} \;
@@ -139,15 +149,15 @@ dist: clean 3d indent doc jar
 # Indent to your preferred brace format using emacs.  MASON's default
 # format is Whitesmiths at 4 spaces.  Yes, I know.  Idiosyncratic.
 # Anyway, beware that this is quite slow.  But it works!
-indent: 
+indent:
 	touch ${HOME}/.emacs
 	find . -name "*.java" -print -exec emacs --batch --load ~/.emacs --eval='(progn (find-file "{}") (mark-whole-buffer) (setq indent-tabs-mode nil) (untabify (point-min) (point-max)) (indent-region (point-min) (point-max) nil) (save-buffer))' \;
 
 
 # Print a help message
-help: 
+help:
 	@ echo MASON Makefile options
-	@ echo 
+	@ echo
 	@ echo "make          Builds the model core, utilities, and 2D code/apps only"
 	@ echo "make all        (Same thing)"
 	@ echo "make 3d       Builds the model core, utilities, and both 2D and 3D code/apps"
