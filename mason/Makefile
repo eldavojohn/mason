@@ -85,8 +85,10 @@ sim/display3d/*.java \
 
 # The test facilities
 TESTDIRS = \
+tests/sim/*.java \
 tests/sim/field/*.java \
 tests/sim/field/grid/*.java \
+tests/sim/util/*.java \
 
 
 # Make the main MASON code, not including 3D code
