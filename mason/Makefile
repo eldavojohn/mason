@@ -30,6 +30,7 @@ sim/app/keepaway/*.java \
 sim/app/lsystem/*.java \
 sim/app/lightcycles/*.java \
 sim/app/swarmgame/*.java \
+sim/app/sensor/*.java \
 sim/app/flockers/*.java \
 sim/app/dflockers/*.java \
 sim/app/tutorial1and2/*.java \
