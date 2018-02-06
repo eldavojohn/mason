@@ -23,14 +23,14 @@ public class DDoubleGrid2D extends DoubleGrid2D {
 
 		this.width = width;
 		this.height = height;
-		this.aoi = aoi;
+		this.aoi = aoi;  // area of interest
 		this.partition = partition;
 		comm = partition.comm;
 
 		// Init local storage
 		// Assume divide evenly
-		pw = width / partition.dims[0];
-		ph = height / partition.dims[1];
+		pw = width / partition.dims[0]; // partition width
+		ph = height / partition.dims[1]; // partition height
 		psize = (pw + 2 * aoi) * (ph + 2 * aoi);
 		field = new double[psize];
 		for (int i = 0; i < psize; i++)
@@ -91,6 +91,10 @@ public class DDoubleGrid2D extends DoubleGrid2D {
 		field[lx * (ph + 2 * aoi) + ly] = val;
 	}
 
+	/**
+	 * Exchange information in the area of interest (ghost cells)
+	 * @throws MPIException
+	 */
 	public void sync() throws MPIException {
 		// Prepare data
 		int sendsize = 2 * (pw + ph) * aoi;
@@ -129,6 +133,12 @@ public class DDoubleGrid2D extends DoubleGrid2D {
 		comm.unpack(recvbuf, pos[2], slice(field, idx(0, ph + aoi)), 1, ctype);
 	}
 
+	/**
+	 * Collect data from all processors and send to dst
+	 * @param dst pid
+	 * @return
+	 * @throws MPIException
+	 */
 	public double[] collect(int dst) throws MPIException {
 		double [] ret = null;
 		byte[] buf = null;

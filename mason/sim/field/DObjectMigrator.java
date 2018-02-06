@@ -20,10 +20,10 @@ public class DObjectMigrator implements Iterable<Object> {
 
 	public ArrayList<Object> objects;
 
-	private class AgentOutputStream {
-		ByteArrayOutputStream out;
-		ObjectOutputStream os;
-
+	public class AgentOutputStream {
+		public ByteArrayOutputStream out;
+		public ObjectOutputStream os;
+ 
 		public AgentOutputStream() throws IOException {
 			out = new ByteArrayOutputStream();
 			os = new ObjectOutputStream(out);

@@ -105,6 +105,7 @@ public class DistributedAgentQueue implements Iterable<Steppable> {
 		onRecv(agent);
 	}
 
+	
 	public void setPos(final Steppable a, int x, int y) throws MPIException, IOException {
 		agents.remove(a);
 
@@ -121,7 +122,7 @@ public class DistributedAgentQueue implements Iterable<Steppable> {
 	}
 
 	public void sync() throws MPIException, IOException, ClassNotFoundException {
-		// Migrate |dims| times since it need |dims| steps for an agent to migrate to a diagnol neighbor.
+		// Migrate |dims| times since it need |dims| steps for an agent to migrate to a diagonal neighbor.
 		for (int i = 0; i < partition.dims.length; i++)
 			migrate();
 	}

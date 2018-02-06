@@ -18,15 +18,19 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 	public List<Object> ghosts;
 	List<Object> futureGhosts;
 
-	public DContinuous2D(final double discretization, double width, double height, double aoi, DUniformPartition p, Schedule sched) {
+	public DContinuous2D(final double discretization, double width, double height, double aoi, CommAgent agent, DUniformPartition p, Schedule sched) {
 		super(discretization, width, height);
 		this.aoi = aoi;
 		this.p = p;
 		this.sched = sched;
 		this.f = new HaloFieldContinuous(p, aoi);
+		
 
 		try {
-			this.m = new DObjectMigrator(p);
+			if(agent != null)
+				this.m = new DObjectRawTypeMigrator(p, agent);
+			else
+				this.m = new DObjectMigrator(p);
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.exit(-1);
@@ -101,7 +105,7 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 
 		DUniformPartition p = new DUniformPartition(new int[] {(int)width, (int)height});
 		fakeSchedule sch = new fakeSchedule(p.pid);
-		DContinuous2D f = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, p, sch);
+		DContinuous2D f = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, null, p, sch);
 		DContinuous2DTestObject obj = null;
 		Double2D loc = new Double2D(250, 250);
 		String s = null;
@@ -115,7 +119,7 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 		}
 
 		f.sync();
-
+		
 		s = String.format("PID %d Step %d Total objects %d\n", p.pid, sch.steps, f.size());
 		System.out.print(s);
 
