@@ -4,7 +4,7 @@
   See the file "LICENSE" for more information
 */
 
-package sim.app.dflockers;
+package sim.app.dflockers2;
 import sim.engine.*;
 import sim.util.*;
 import sim.field.continuous.*;
@@ -41,7 +41,7 @@ public class DFlockers extends SimState {
         super.start();
 
         partition = new DUniformPartition(new int[] {(int)width, (int)height});
-        flockers = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, null, partition, this.schedule);
+        flockers = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, new DFlocker(new Double2D(0, 0)), partition, this.schedule);
 
         schedule.scheduleRepeating(Schedule.EPOCH, 0, new Synchronizer(), 1);
 

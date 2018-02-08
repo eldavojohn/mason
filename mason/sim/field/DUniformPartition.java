@@ -3,6 +3,9 @@ package sim.field;
 import java.util.*;
 import mpi.*;
 
+/*
+ * partition the field into nodes in the graph
+ */
 public class DUniformPartition {
 
 	// Field sizes, number of dimensions, number of LPs, and PID
@@ -20,7 +23,7 @@ public class DUniformPartition {
 		this.nd = size.length;
 		this.size = Arrays.copyOf(size, nd);
 
-		dims = new int[nd];
+		dims = new int[nd]; // 
 		coords = new int[nd];
 
 		boolean[] periods = new boolean[nd];
@@ -76,6 +79,11 @@ public class DUniformPartition {
 		return comm.getRank(pc);
 	}
 
+	/**
+	 * Find the ids of direct neighbors.
+	 * @return
+	 * @throws MPIException
+	 */
 	public int[] getNeighborIds() throws MPIException {
 		int[] ret = new int[nNeighbors];
 		for (int d = 0, i = 0; d < nd; d++) {
@@ -94,6 +102,12 @@ public class DUniformPartition {
 	// 	return ret;
 	// }
 
+	/**
+	 * Find the id's of all neighbors (including diagonals)
+	 * @param includeDirectNeighbor
+	 * @return
+	 * @throws MPIException
+	 */
 	public int[] getExtendedNeighborIds(boolean includeDirectNeighbor) throws MPIException {
 		ArrayList<Integer> l = new ArrayList<Integer>();
 		getExtendedNeighborIdsRecursive(l, coords, 0, includeDirectNeighbor);
@@ -113,6 +127,13 @@ public class DUniformPartition {
 		c[d] += 1; getExtendedNeighborIdsRecursive(l, c, d + 1, includeDirectNeighbor); c[d] -= 1;
 	}
 
+	/**
+	 * Find id's of neighbors by shift.
+	 * @param dim
+	 * @param shift
+	 * @return
+	 * @throws MPIException
+	 */
 	public int[] getExtendedNeighborsByShift(int dim, int shift) throws MPIException {
 		if (shift > 1 || shift < -1)
 			throw new IllegalArgumentException(String.format("Shift can only be 1, 0 or -1: got %d", shift));
