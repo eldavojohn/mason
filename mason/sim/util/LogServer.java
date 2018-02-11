@@ -3,37 +3,49 @@ package sim.util;
 import java.util.*;
 import java.net.*;
 import java.io.*;
+import java.text.SimpleDateFormat;
 
 class LogServer extends Thread {
 	private ServerSocket ssock;
 	private Socket csock;
+
+	private PrintStream out;
 
 	public final int port;
 
 	public LogServer(final int port) throws IOException {
 		this.port = port;
 		this.ssock = new ServerSocket(port);
+
+		initOutputFile();
 	}
 
 	public LogServer() throws IOException {
 		this.ssock = new ServerSocket(0);
 		this.port = ssock.getLocalPort();
+
+		initOutputFile();
+	}
+
+	private void initOutputFile() throws IOException {
+		String fn = new SimpleDateFormat("yyyyMMdd-HHmmss").format(Calendar.getInstance().getTime());
+		out = new PrintStream(new File("Log-" + fn));
 	}
 
 	public void run() {
 		while (true) {
 			try {
 				csock = ssock.accept();
-				new LogServerHandler(csock).start();
+				new LogServerHandler(csock, out).start();
 			} catch (IOException e) {
 				break;
 			}
 		}
 
-		if (ssock.isClosed())
-			return;
+		if (!ssock.isClosed())
+			closeSock();
 
-		closeSock();
+		out.close();
 	}
 
 	public void closeSock() {
@@ -62,12 +74,14 @@ class LogServer extends Thread {
 class LogServerHandler extends Thread {
 	Socket socket;
 	BufferedReader br;
+	PrintStream out;
 
-	public LogServerHandler(Socket s) throws IOException {
+	public LogServerHandler(Socket s, PrintStream out) throws IOException {
 		this.socket = s;
 		InputStream in = s.getInputStream();
 		InputStreamReader isr = new InputStreamReader(in);
 		this.br = new BufferedReader(isr);
+		this.out = out;
 	}
 
 	public void run() {
@@ -83,5 +97,6 @@ class LogServerHandler extends Thread {
 
 	private synchronized void handle(String line) {
 		System.out.println(line);
+		out.println(line);
 	}
 }

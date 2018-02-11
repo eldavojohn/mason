@@ -356,7 +356,7 @@ public class SimState implements java.io.Serializable
         sh.setLevel(Level.ALL);
         sh.setFormatter(new java.util.logging.Formatter() {
             public String format(LogRecord rec) {
-                return String.format("[%s][%s][%s:%s][%-7s]\t %s\n",
+                return String.format("[%s][%s][%s:%s][%-7s]\t %s",
                                       new SimpleDateFormat("MM/DD/YYYY HH:mm:ss.SSS").format(new Date(rec.getMillis())),
                                       rec.getLoggerName(),
                                       rec.getSourceClassName(),
