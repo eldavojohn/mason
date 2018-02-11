@@ -27,8 +27,11 @@ public class Launcher {
 	}
 
 	public Launcher(String args[]) {
-		if (args.length < 3)
-			throw new IllegalArgumentException("Not enough arguments");
+		if (args.length < 3) {
+			usage();
+			System.exit(-1);
+			//throw new IllegalArgumentException("Not enough arguments");
+		}
 
 		this.np = Integer.parseInt(args[0]);
 		this.hostfile = args[1];
@@ -49,20 +52,33 @@ public class Launcher {
 	}
 
 	public void startMPIJobs() throws MPIException {
+		/**
+		 * set CLASSPATH env varible to include mpi.jar and mason, or
+		 * pass "-cp "[MASON_PATH]:[MPI_PATH]" to jre
+		 * so that the mpi package can be loaded
+		**/
 		if (MPI.isInitialized())
 			throw new RuntimeException("TODO: MPI can only be initialized once");
 
+		/**
+		 * set LD_LIBRARY_PATH env varible to include libmpi_java, or
+		 * pass "-Djava.library.path=[MPI_LIB_PATH]" to jre
+		 * so that the MPI can be initialized.
+		**/
 		MPI.Init(new String[0]);
 
 		info = new Info();
 		info.set("hostfile", hostfile);
 
 		jobComm = MPI.COMM_WORLD.spawn(jobCommand, getMPIJobArgs(), np, info, 0, null);
-
-		MPI.Finalize();
 	}
 
-	public void tearddown() {
+	public void tearddown() throws MPIException {
+		// Abort MPI jobs
+		if (jobComm != null)
+			jobComm.abort(0);
+		MPI.Finalize();
+
 		// Close the server socket to bring down the LogServer
 		ls.closeSock();
 
@@ -89,6 +105,10 @@ public class Launcher {
 		return allArgs.toArray(new String[0]);
 	}
 
+	public static void usage() {
+		System.out.println("sim.util.Launcher [NP] [Path to Hostfile] [Target Java Class] [Arguments...]");
+	}
+
 	public static void main(String args[]) {
 
 		Launcher l = new Launcher(args);
@@ -112,5 +132,17 @@ public class Launcher {
 		}
 
 		// TODO: Create visualization & control
+
+		// Catch Ctrl+C to clean up
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			public void run() {
+				try {
+					System.out.println("\nShutting down ...\n");
+					l.tearddown();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 }
