@@ -9,7 +9,7 @@ class LogServer extends Thread {
 	private Socket csock;
 
 	public final int port;
-	
+
 	public LogServer(final int port) throws IOException {
 		this.port = port;
 		this.ssock = new ServerSocket(port);
@@ -30,6 +30,13 @@ class LogServer extends Thread {
 			}
 		}
 
+		if (ssock.isClosed())
+			return;
+
+		closeSock();
+	}
+
+	public void closeSock() {
 		try {
 			ssock.close();
 		} catch (IOException e) {
