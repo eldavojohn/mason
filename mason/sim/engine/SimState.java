@@ -10,6 +10,7 @@ import java.util.*;
 import java.io.*;
 import java.util.zip.*;
 import java.text.*;
+import java.util.logging.*;
 
 /** SimState represents the simulation proper.  Your simulations generally will contain one top-level object which subclasses from SimState.
 
@@ -41,6 +42,8 @@ public class SimState implements java.io.Serializable
     Object asynchronousLock = new boolean[1];  // an array is a unique, serializable object
     // Are we cleaning house and replacing the HashSet?
     boolean cleaningAsynchronous = false;
+
+    public static Logger logger;
         
     SimState(long seed, MersenneTwisterFast random, Schedule schedule)
         {
@@ -347,6 +350,57 @@ public class SimState implements java.io.Serializable
         {
         return job;
         }
+
+    private static void initRemoteLogger(String loggerName, String logServAddr, int logServPort) throws IOException {
+        SocketHandler sh = new SocketHandler(logServAddr, logServPort);
+        sh.setLevel(Level.ALL);
+        sh.setFormatter(new java.util.logging.Formatter() {
+            public String format(LogRecord rec) {
+                return String.format("[%s][%s][%s:%s][%-7s]\t %s",
+                                      new SimpleDateFormat("MM/DD/YYYY HH:mm:ss.SSS").format(new Date(rec.getMillis())),
+                                      rec.getLoggerName(),
+                                      rec.getSourceClassName(),
+                                      rec.getSourceMethodName(),
+                                      rec.getLevel().getName(),
+                                      rec.getMessage()
+                                     );
+            }
+        });
+        
+
+        logger = Logger.getLogger(loggerName);
+        logger.setUseParentHandlers(false);
+        logger.setLevel(Level.ALL);
+        logger.addHandler(sh);
+    }
+
+    private static void initLocalLogger(String loggerName) {
+        logger = Logger.getLogger(loggerName);
+        logger.setLevel(Level.ALL);
+    }
+
+    public static void doLoopMPI(final Class c, String[] args) throws mpi.MPIException {
+        mpi.MPI.Init(args);
+
+        // Setup Logger
+        String loggerName = String.format("MPI-Job-%d", mpi.MPI.COMM_WORLD.getRank());
+        String logServAddr = argumentForKey("-logserver", args);
+        String logServPortStr = argumentForKey("-logport", args);
+        if (logServAddr != null && logServPortStr != null)
+            try{
+                initRemoteLogger(loggerName, logServAddr, Integer.parseInt(logServPortStr));
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.exit(-1);
+            }
+        else
+            initLocalLogger(loggerName);
+
+        // start do loop 
+        doLoop(c, args);
+
+        mpi.MPI.Finalize();
+    }
 
     /** Calls doLoop(MakesSimState,args), passing in a MakesSimState which creates
         SimStates of the provided Class c, using the constructor new <simState>(<random seed>). */
