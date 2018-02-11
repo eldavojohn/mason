@@ -111,9 +111,9 @@ public class DHeatBugs extends SimState {
 	}
 
 	public static void main(String[] args) throws MPIException {
-		MPI.Init(args);
-		doLoop(DHeatBugs.class, args);
-		MPI.Finalize();
+		//MPI.Init(args);
+		doLoopMPI(DHeatBugs.class, args);
+		//MPI.Finalize();
 		System.exit(0);
 	}
 
@@ -137,12 +137,13 @@ public class DHeatBugs extends SimState {
 	private class Inspector implements Steppable {
 		public void step( final SimState state ) {
 			DHeatBugs hb = (DHeatBugs)state;
-			String s = String.format("PID %d Step %d Agent Count %d\n", hb.partition.pid, hb.schedule.getSteps(), hb.queue.size());
+			//String s = String.format("PID %d Step %d Agent Count %d\n", hb.partition.pid, hb.schedule.getSteps(), hb.queue.size());
+			state.logger.info(String.format("PID %d Step %d Agent Count %d\n", hb.partition.pid, hb.schedule.getSteps(), hb.queue.size()));
 			// for (Steppable i : hb.queue) {
 			// 	DHeatBug a = (DHeatBug)i;
 			// 	s += a.toString() + "\n";
 			// }
-			System.out.print(s);
+			//System.out.print(s);
 		}
 	}
 }
