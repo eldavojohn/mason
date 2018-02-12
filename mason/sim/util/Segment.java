@@ -46,6 +46,7 @@ public class Segment implements Comparable<Segment> {
         return (this.st <= target) && (this.ed > target);
     }
 
+    // return if the range [this.min, this.max] is covered by this node and its children
     public boolean all() {
         int curr_max = this.ed, curr_min = this.st;
 
