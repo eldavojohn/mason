@@ -28,7 +28,9 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 
 		try {
 			if(agent != null)
+			{
 				this.m = new DObjectRawTypeMigrator(p, agent);
+			}
 			else
 				this.m = new DObjectMigrator(p);
 		} catch (Exception e) {
@@ -95,10 +97,9 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 		m.objects.clear();
 		futureGhosts.clear();
 	}
-
-	public static void main(String args[]) throws MPIException {
-		MPI.Init(args);
-
+	
+	public static void testSerialization()
+	{
 		double width = 1000;
 		double height = 1000;
 		double neighborhood = 10;
@@ -172,7 +173,93 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 		System.out.print(s);
 
 		sch.steps++;
+	}
+	
+	public static void testRawType()
+	{
+		double width = 1000;
+		double height = 1000;
+		double neighborhood = 10;
 
+		DUniformPartition p = new DUniformPartition(new int[] {(int)width, (int)height});
+		fakeSchedule sch = new fakeSchedule(p.pid);
+		DContinuous2DRawTypeTestObject agentTemplate = new DContinuous2DRawTypeTestObject(0, new Double2D(0, 0));
+		DContinuous2D f = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, agentTemplate, p, sch);
+		DContinuous2DRawTypeTestObject obj = null;
+		Double2D loc = new Double2D(250, 250);
+		String s = null;
+
+		assert p.np == 4;
+
+		// step 1 ---------------------------------
+		if (p.pid == 0) {
+			obj = new DContinuous2DRawTypeTestObject(0, loc);
+			f.setObjectLocation(obj, loc);
+		}
+
+		f.sync();
+		
+		s = String.format("PID %d Step %d Total objects %d\n", p.pid, sch.steps, f.size());
+		System.out.print(s);
+
+		sch.steps++;
+
+		// step 2 ---------------------------------
+		if (p.pid == 0) {
+			loc = new Double2D(495, 250);
+			obj.loc = loc;
+			f.setObjectLocation(obj, loc);
+		}
+
+		f.sync();
+
+		s = String.format("PID %d Step %d Total objects %d\n", p.pid, sch.steps, f.size());
+		System.out.print(s);
+
+		sch.steps++;
+
+		// step 3 ---------------------------------
+		if (p.pid == 0) {
+			loc = new Double2D(500, 250);
+			obj.loc = loc;
+			f.setObjectLocation(obj, loc);
+		}
+
+		f.sync();
+
+		s = String.format("PID %d Step %d Total objects %d\n", p.pid, sch.steps, f.size());
+		System.out.print(s);
+
+		sch.steps++;
+
+		// step 4 ---------------------------------
+		if (p.pid == 2) {
+			loc = new Double2D(500, 250);
+			Bag bag = f.getObjectsAtLocation(loc);
+			//f.getAllObjects();
+			assert bag.size() == 1;
+			obj = (DContinuous2DRawTypeTestObject)bag.pop();
+
+			loc = new Double2D(750, 250);
+			obj.loc = loc;
+			f.setObjectLocation(obj, loc);
+		}
+
+		f.sync();
+
+		s = String.format("PID %d Step %d Total objects %d\n", p.pid, sch.steps, f.size());
+		System.out.print(s);
+
+		sch.steps++;
+	}
+
+	public static void main(String args[]) throws MPIException {
+		MPI.Init(args);
+		
+		// test cases
+//		testSerialization();
+		testRawType();
+		
 		MPI.Finalize();
 	}
 

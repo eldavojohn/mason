@@ -40,6 +40,11 @@ public class DObjectMigrator implements Iterable<Object> {
 		public int size() {
 			return out.size();
 		}
+		
+		public void flush() throws IOException
+		{
+			os.flush();
+		}
 
 		public void reset() throws IOException {
 			os.close();
@@ -103,6 +108,7 @@ public class DObjectMigrator implements Iterable<Object> {
 	}
 
 	public void sync() throws MPIException, IOException, ClassNotFoundException {
+		
 		// Migrate |dims| times since it need |dims| steps for an agent to migrate to a diagnol neighbor.
 		for (int i = 0; i < partition.dims.length; i++)
 			sync_step();
@@ -111,6 +117,7 @@ public class DObjectMigrator implements Iterable<Object> {
 	private void sync_step() throws MPIException, IOException, ClassNotFoundException {
 		// Prepare data
 		for (int i = 0, total = 0; i < nc; i++) {
+			outputStreams[i].flush();
 			src_count[i] = outputStreams[i].size();
 			src_displ[i] = total;
 			total += src_count[i];
@@ -121,7 +128,7 @@ public class DObjectMigrator implements Iterable<Object> {
 		for (int i = 0; i < nc; i++)
 			objstream.write(outputStreams[i].toByteArray());
 		byte[] sendbuf = objstream.toByteArray();
-
+		System.out.println("partition id is "+partition.pid + ", sendbuf size is "+sendbuf.length);
 		// First exchange count[] of the send byte buffers with neighbors so that we can setup recvbuf
 		partition.comm.neighborAllToAll(src_count, 1, MPI.INT, dst_count, 1, MPI.INT);
 		for (int i = 0, total = 0; i < nc; i++) {
