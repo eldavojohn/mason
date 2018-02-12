@@ -128,7 +128,7 @@ public class DObjectMigrator implements Iterable<Object> {
 		for (int i = 0; i < nc; i++)
 			objstream.write(outputStreams[i].toByteArray());
 		byte[] sendbuf = objstream.toByteArray();
-		System.out.println("partition id is "+partition.pid + ", sendbuf size is "+sendbuf.length);
+
 		// First exchange count[] of the send byte buffers with neighbors so that we can setup recvbuf
 		partition.comm.neighborAllToAll(src_count, 1, MPI.INT, dst_count, 1, MPI.INT);
 		for (int i = 0, total = 0; i < nc; i++) {
