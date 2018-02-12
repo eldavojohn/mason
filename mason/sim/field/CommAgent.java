@@ -6,6 +6,8 @@ import sim.field.DObjectMigrator.AgentOutputStream;
 
 public class CommAgent implements Cloneable
 {
+	public boolean migrate;
+	
 	public void writePrimitiveTypeData(AgentOutputStream out)
 	{
 		throw new UnsupportedOperationException();
