@@ -679,6 +679,8 @@ public class SimState implements java.io.Serializable
                         long oldClock = System.currentTimeMillis();
                         Schedule schedule = state.schedule;
                         long firstSteps = schedule.getSteps();
+                        double averageRate = 0;
+                        long startClock = oldClock;
                         
                         while((_for == -1 || steps < _for) && schedule.getTime() <= until)
                             {
@@ -698,7 +700,7 @@ public class SimState implements java.io.Serializable
                             if (time > 0 && steps % time == 0)
                                 {
                                 clock = System.currentTimeMillis();
-                                if (!quiet) printlnSynchronized("Job " + job + ": " + "Steps: " + steps + " Time: " + state.schedule.getTimestamp("At Start", "Done") + " Rate: " + rateFormat.format((1000.0 *(steps - firstSteps)) / (clock - oldClock)));
+                                if (!quiet) printlnSynchronized("Job " + job + ": " + "Steps: " + steps + " Time: " + state.schedule.getTimestamp("At Start", "Done") + " Rate: " + rateFormat.format((1000.0 *(steps - firstSteps)) / (clock - oldClock)) + " Mean: " + rateFormat.format(1000.0 * steps / (clock - startClock)));
                                 firstSteps = steps;
                                 oldClock = clock;
                                 }
