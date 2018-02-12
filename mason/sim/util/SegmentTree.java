@@ -2,48 +2,15 @@ package sim.util;
 
 import java.util.*;
 
-class Segment implements Comparable<Segment> {
-
-    public int st, ed, max;
-    public Segment left, right;
-
-    public Segment(int st, int ed) {
-        this.st = st;
-        this.ed = ed;
-        this.max = ed;
-    }
-
-    public String toString() {
-        return "[" + this.st + ", " + this.ed + ")";
-    }
-
-    @Override
-    public int compareTo(Segment other) {
-        if (this.st < other.st)
-            return -1;
-        else if (this.st > other.st)
-            return 1;
-
-        return this.ed <= other.ed ? -1 : 1;
-    }
-
-    /**
-    * overlapWith() and contains() assume the interval to be half-close half-open [st, ed)
-    **/
-
-    public boolean overlapWith(Segment other) {
-        return !((this.st >= other.ed) || (this.ed <= other.st));
-    }
-
-    public boolean contains(int target) {
-        return (this.st <= target) && (this.ed > target);
-    }
-
-}
-
 public class SegmentTree {
 
     public Segment root;
+
+    public boolean all() {
+        if (root == null)
+            return true;
+        return root.all();
+    }
 
     public void insert(int st, int ed) {
         this.insert(new Segment(st, ed));
@@ -62,9 +29,11 @@ public class SegmentTree {
             return;
         }
 
-        if (target.ed > curr.max) {
+        if (target.ed > curr.max)
             curr.max = target.ed;
-        }
+
+        if (target.st < curr.min) 
+            curr.min = target.st;
 
         if (curr.compareTo(target) <= 0) {
             if (curr.right == null) {
@@ -160,5 +129,26 @@ public class SegmentTree {
 
         res = t.contains(9);
         System.out.println("Contains 9 \nResult: " + Arrays.toString(res.toArray()));
+
+        System.out.println("All: " + t.all());
+
+        System.out.println("\nT2...");
+
+        SegmentTree t2 = new SegmentTree();
+
+        t2.insert(4, 10);
+        System.out.println("All: " + t2.all());
+
+        t2.insert(12, 15);
+        System.out.println("All: " + t2.all());
+
+        t2.insert(1, 3);
+        System.out.println("All: " + t2.all());
+
+        t2.insert(8, 12);
+        System.out.println("All: " + t2.all());
+
+        t2.insert(0, 5);
+        System.out.println("All: " + t2.all());
     }
 }
