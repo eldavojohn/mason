@@ -11,7 +11,6 @@ import sim.field.DObjectMigrator.AgentOutputStream;
 import sim.field.continuous.*;
 import sim.util.*;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 

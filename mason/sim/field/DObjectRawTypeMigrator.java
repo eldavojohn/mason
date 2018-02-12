@@ -125,6 +125,7 @@ public class DObjectRawTypeMigrator extends DObjectMigrator {
 			agent.writePrimitiveTypeData(dstMap.get(dst));
 			dstMap.get(dst).os.flush();
 		}
+		bufferList.clear();
 		
 	}
 }
