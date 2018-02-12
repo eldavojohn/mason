@@ -33,6 +33,7 @@ sim/app/swarmgame/*.java \
 sim/app/sensor/*.java \
 sim/app/flockers/*.java \
 sim/app/dflockers/*.java \
+sim/app/dflockers2/*.java \
 sim/app/tutorial1and2/*.java \
 sim/app/tutorial3/*.java \
 sim/app/tutorial4/*.java \

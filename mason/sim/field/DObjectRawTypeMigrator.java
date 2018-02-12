@@ -28,6 +28,7 @@ public class DObjectRawTypeMigrator extends DObjectMigrator {
 			dstMap.get(dst).os.writeBoolean(dContinuousObj.migrate);
 			dstMap.get(dst).os.writeDouble(dContinuousObj.loc.x);
 			dstMap.get(dst).os.writeDouble(dContinuousObj.loc.y);
+			dstMap.get(dst).os.flush();
 			// write agent
 			CommAgent commObj = (CommAgent)dContinuousObj.obj;
 			commObj.writePrimitiveTypeData(dstMap.get(dst));
@@ -58,7 +59,6 @@ public class DObjectRawTypeMigrator extends DObjectMigrator {
 		for (int i = 0; i < nc; i++)
 			objstream.write(outputStreams[i].toByteArray());
 		byte[] sendbuf = objstream.toByteArray();
-//		System.out.println("partition id is "+partition.pid + ", sendbuf size is "+sendbuf.length);
 
 		
 		// First exchange count[] of the send byte buffers with neighbors so that we can setup recvbuf
@@ -83,7 +83,6 @@ public class DObjectRawTypeMigrator extends DObjectMigrator {
 				try {
 					// read destination
 					int dst = is.readInt();
-//					System.out.println("partition id is "+partition.pid + ", dst is "+dst);
 					// read Wrapper data
 					boolean migrate = is.readBoolean();
 					double x = is.readDouble();
@@ -121,8 +120,10 @@ public class DObjectRawTypeMigrator extends DObjectMigrator {
 			dstMap.get(dst).os.writeBoolean(dContinuousObj.migrate);
 			dstMap.get(dst).os.writeDouble(dContinuousObj.loc.x);
 			dstMap.get(dst).os.writeDouble(dContinuousObj.loc.y);
+			dstMap.get(dst).os.flush();
 			CommAgent agent = (CommAgent)dContinuousObj.obj;
 			agent.writePrimitiveTypeData(dstMap.get(dst));
+			dstMap.get(dst).os.flush();
 		}
 		
 	}
