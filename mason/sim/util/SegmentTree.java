@@ -2,12 +2,12 @@ package sim.util;
 
 import java.util.*;
 
-class Interval implements Comparable<Interval> {
+class Segment implements Comparable<Segment> {
 
     public int st, ed, max;
-    public Interval left, right;
+    public Segment left, right;
 
-    public Interval(int st, int ed) {
+    public Segment(int st, int ed) {
         this.st = st;
         this.ed = ed;
         this.max = ed;
@@ -18,7 +18,7 @@ class Interval implements Comparable<Interval> {
     }
 
     @Override
-    public int compareTo(Interval other) {
+    public int compareTo(Segment other) {
         if (this.st < other.st)
             return -1;
         else if (this.st > other.st)
@@ -31,7 +31,7 @@ class Interval implements Comparable<Interval> {
     * overlapWith() and contains() assume the interval to be half-close half-open [st, ed)
     **/
 
-    public boolean overlapWith(Interval other) {
+    public boolean overlapWith(Segment other) {
         return !((this.st >= other.ed) || (this.ed <= other.st));
     }
 
@@ -41,22 +41,22 @@ class Interval implements Comparable<Interval> {
 
 }
 
-public class IntervalTree {
+public class SegmentTree {
 
-    public Interval root;
+    public Segment root;
 
     public void insert(int st, int ed) {
-        this.insert(new Interval(st, ed));
+        this.insert(new Segment(st, ed));
     }
 
-    public void insert(Interval target) {
+    public void insert(Segment target) {
         if (root == null)
             root = target;
         else
             insert(root, target);
     }
 
-    private void insert(Interval curr, Interval target) {
+    private void insert(Segment curr, Segment target) {
         if (curr == null) {
             curr = target;
             return;
@@ -82,12 +82,12 @@ public class IntervalTree {
     }
 
     public void print() {
-        System.out.println("Interval Tree:");
+        System.out.println("Segment Tree:");
         print(root);
         System.out.println();
     }
 
-    private void print(Interval curr) {
+    private void print(Segment curr) {
         if (curr == null) {
             System.out.print("null ");
             return;
@@ -98,17 +98,17 @@ public class IntervalTree {
         print(curr.right);
     }
 
-    public List<Interval> intersect(int st, int ed) {
-        return this.intersect(new Interval(st, ed));
+    public List<Segment> intersect(int st, int ed) {
+        return this.intersect(new Segment(st, ed));
     }
 
-    public List<Interval> intersect(Interval target) {
-        List<Interval> res = new ArrayList<Interval>();
+    public List<Segment> intersect(Segment target) {
+        List<Segment> res = new ArrayList<Segment>();
         intersect(root, target, res);
         return res;
     }
 
-    private void intersect(Interval curr, Interval target, List<Interval> res) {
+    private void intersect(Segment curr, Segment target, List<Segment> res) {
         if (curr == null)
             return;
 
@@ -121,13 +121,13 @@ public class IntervalTree {
         this.intersect(curr.right, target, res);
     }
 
-    public List<Interval> contains(int target) {
-        List<Interval> res = new ArrayList<Interval>();
+    public List<Segment> contains(int target) {
+        List<Segment> res = new ArrayList<Segment>();
         contains(root, target, res);
         return res;
     }
 
-    private void contains(Interval curr, int target, List<Interval> res) {
+    private void contains(Segment curr, int target, List<Segment> res) {
         if (curr == null)
             return;
 
@@ -141,8 +141,8 @@ public class IntervalTree {
     }
 
     public static void main(String[] args) {
-        List<Interval> res;
-        IntervalTree t = new IntervalTree();
+        List<Segment> res;
+        SegmentTree t = new SegmentTree();
 
         t.insert(4, 10);
         t.insert(10, 11);
