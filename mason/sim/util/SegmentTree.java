@@ -12,7 +12,7 @@ public class SegmentTree {
         return root.all();
     }
 
-    public void insert(int st, int ed) {
+    public void insert(double st, double ed) {
         this.insert(new Segment(st, ed));
     }
 
@@ -67,7 +67,7 @@ public class SegmentTree {
         print(curr.right);
     }
 
-    public List<Segment> intersect(int st, int ed) {
+    public List<Segment> intersect(double st, double ed) {
         return this.intersect(new Segment(st, ed));
     }
 
@@ -90,13 +90,13 @@ public class SegmentTree {
         this.intersect(curr.right, target, res);
     }
 
-    public List<Segment> contains(int target) {
+    public List<Segment> contains(double target) {
         List<Segment> res = new ArrayList<Segment>();
         contains(root, target, res);
         return res;
     }
 
-    private void contains(Segment curr, int target, List<Segment> res) {
+    private void contains(Segment curr, double target, List<Segment> res) {
         if (curr == null)
             return;
 

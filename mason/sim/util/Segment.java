@@ -5,17 +5,17 @@ import java.util.*;
 public class Segment implements Comparable<Segment> {
 
     public int pid;
-    public int st, ed, max, min;
+    public double st, ed, max, min;
     public Segment left, right;
 
-    public Segment(int st, int ed) {
+    public Segment(double st, double ed) {
         this.st = st;
         this.ed = ed;
         this.max = ed;
         this.min = st;
     }
 
-    public Segment(int st, int ed, int pid) {
+    public Segment(double st, double ed, int pid) {
         this(st, ed);
         this.pid = pid;
     }
@@ -42,13 +42,13 @@ public class Segment implements Comparable<Segment> {
         return !((this.st >= other.ed) || (this.ed <= other.st));
     }
 
-    public boolean contains(int target) {
+    public boolean contains(double target) {
         return (this.st <= target) && (this.ed > target);
     }
 
     // return if the range [this.min, this.max] is covered by this node and its children
     public boolean all() {
-        int curr_max = this.ed, curr_min = this.st;
+        double curr_max = this.ed, curr_min = this.st;
 
         if (this.left != null) {
             if (!this.left.all() || this.left.max < curr_min)
