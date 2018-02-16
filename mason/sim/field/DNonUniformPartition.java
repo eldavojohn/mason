@@ -89,6 +89,9 @@ public class DNonUniformPartition {
 			}
 	}
 
+	// TODO add another layer of indirection
+	// Currently a LP holds one partition -> a LP holds multiple partitions
+
 	// Insert a partition into the DNonUniformPartition scheme
 	public void insertPartition(Partition p) {
 		if (ps.containsKey(p.pid))
