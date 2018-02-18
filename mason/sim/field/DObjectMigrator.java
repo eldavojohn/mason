@@ -40,6 +40,11 @@ public class DObjectMigrator implements Iterable<Object> {
 		public int size() {
 			return out.size();
 		}
+		
+		public void flush() throws IOException
+		{
+			os.flush();
+		}
 
 		public void reset() throws IOException {
 			os.close();
@@ -103,6 +108,7 @@ public class DObjectMigrator implements Iterable<Object> {
 	}
 
 	public void sync() throws MPIException, IOException, ClassNotFoundException {
+		
 		// Migrate |dims| times since it need |dims| steps for an agent to migrate to a diagnol neighbor.
 		for (int i = 0; i < partition.dims.length; i++)
 			sync_step();
@@ -111,6 +117,7 @@ public class DObjectMigrator implements Iterable<Object> {
 	private void sync_step() throws MPIException, IOException, ClassNotFoundException {
 		// Prepare data
 		for (int i = 0, total = 0; i < nc; i++) {
+			outputStreams[i].flush();
 			src_count[i] = outputStreams[i].size();
 			src_displ[i] = total;
 			total += src_count[i];

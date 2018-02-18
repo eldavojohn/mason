@@ -72,8 +72,8 @@ public class DFlockers extends SimState {
         public void step(SimState state) {
             try {
                 flockers.sync();
-                //String s = String.format("PID %d Steps %d Number of Agents %d\n", partition.pid, schedule.getSteps(), flockers.size() - flockers.ghosts.size());
-                //System.out.print(s);
+//                String s = String.format("PID %d Steps %d Number of Agents %d\n", partition.pid, schedule.getSteps(), flockers.size() - flockers.ghosts.size());
+//                System.out.print(s);
             } catch (Exception e) {
                 e.printStackTrace();
                 System.exit(-1);
