@@ -552,7 +552,8 @@ public class SimState implements java.io.Serializable
 				"-c i              Use the ith constructor printed below to generate the \n" + 
 				"                  simulation instance. If missing, the default constructor to \n" + 
 				"                  use is the first one. \n\n" + 
-				"-a arg1,arg2,...  Comma-sparated arguments that will be passed to the constructor given by -c \n"
+				"-a arg1,arg2,...  Comma-sparated arguments that will be passed to the constructor given by -c \n" + 
+				"                  Do not include seed in the arguments, use -seed if needed. \n\n"
 				);
 
 			Constructor[] cs = generator.getConstructors();
