@@ -445,7 +445,7 @@ public class SimState implements java.io.Serializable
 						Object[] args_obj = new Object[args_primitive_types.length];
 
 						// Get the parameter values given by "-a" and compare its length against the parameter type array
-						// Here Assume the first argument of the constructor will always be the seed
+						// Here we assume the first argument of the constructor will always be the seed
 						// and the seed value will not be included in the "-a"
 						String args_value_s = argumentForKey("-a", args);
 						if (args_value_s == null)
@@ -454,10 +454,14 @@ public class SimState implements java.io.Serializable
 						if (args_value.length != args_primitive_types.length - 1)
 							throw new RuntimeException("incorrect number of arguments is provided to the given constructor Want: " + (args_primitive_types.length - 1) + " Got: " + args_value.length);
 
-						// Create the parameter array based on the type and value
-						// Support Primitive type only
+						// Create the parameter object array based on the type and value
 						args_obj[0] = seed;
 						for(int i = 0; i < args_value.length; i++) {
+							// Support primitive type only
+							if (!args_primitive_types[i + 1].isPrimitive())
+								throw new RuntimeException("Unsupported type: " + args_primitive_types[i + 1] + " Primitive type arguments only.");
+							
+							// Boxing of the primitive types
 							Class args_wrapper_type = map.get(args_primitive_types[i + 1]);
 							Method valueOf_method = args_wrapper_type.getMethod("valueOf", String.class);
 							args_obj[i + 1] = valueOf_method.invoke(args_wrapper_type, args_value[i]);
@@ -548,7 +552,7 @@ public class SimState implements java.io.Serializable
 				"-c i              Use the ith constructor printed below to generate the \n" + 
 				"                  simulation instance. If missing, the default constructor to \n" + 
 				"                  use is the first one. \n\n" + 
-				"-a arg1,arg2,...  Arguments that will be passed to the constructor given by -c \n"
+				"-a arg1,arg2,...  Comma-sparated arguments that will be passed to the constructor given by -c \n"
 				);
 
 			Constructor[] cs = generator.getConstructors();
