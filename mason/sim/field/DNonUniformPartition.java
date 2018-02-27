@@ -1,6 +1,7 @@
 package sim.field;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import sim.util.*;
 
@@ -38,7 +39,7 @@ public class DNonUniformPartition {
 		if (ps.size() != np)
 			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));
 
-		int[] ns = getNeighborIDs(pid);
+		int[] ns = getNeighborIdsInOrder();
 
 		try {
 			// Create a unweighted & undirected graph
@@ -81,8 +82,7 @@ public class DNonUniformPartition {
 				br[i] = ul[i] + psize[i];
 			}
 			insertPartition(ul, br, ps.size());
-		}
-		else
+		} else
 			for (int i = 0; i < dims[curr]; i++) {
 				coord[curr] = i;
 				initUniformlyRecursive(coord, curr + 1, dims, psize);
@@ -115,6 +115,10 @@ public class DNonUniformPartition {
 		// TODO
 	}
 
+	public Partition getMyPartition() {
+		return ps.get(pid);
+	}
+
 	// Stabbing query
 	public int toPartitionId(final double[] c) {
 		Set<Integer> ret = st[0].toPartitions(c[0]);
@@ -143,11 +147,15 @@ public class DNonUniformPartition {
 		return ret;
 	}
 
-	public int[] getNeighborIDs(int pid) {
+	public int[] getNeighborIds() {
+		return getNeighborIds(this.pid);
+	}
+
+	public int[] getNeighborIds(int pid) {
 		Partition sp = ps.get(pid);
 
 		if (sp == null)
-			throw new IllegalArgumentException("Invalid PID " + pid);
+			throw new IllegalArgumentException("PID " + pid + " has no corresponding partition");
 
 		double[] ul = new double[nd], br = new double[nd];
 
@@ -165,12 +173,110 @@ public class DNonUniformPartition {
 		return res.stream().mapToInt(i->i).toArray();
 	}
 
+	public int[] getNeighborIdsInOrder() {
+		List<Integer> ret = new ArrayList<Integer>();
+
+		for (int i = 0; i < nd; i++) 
+			for (int dir : new int[] { -1, 1}) {
+				List<Integer> ids = Arrays.stream(getNeighborIdsShift(i, dir)).boxed().collect(Collectors.toList());
+				final int skip = i;
+				ids.sort(new Comparator<Integer>() {
+					@Override
+					public int compare(Integer self, Integer other) {
+						Partition sp = ps.get(self), op = ps.get(other);
+
+						for (int d = 0; d < nd; d++) {
+							if (d == skip || sp.ul[d] == op.ul[d])
+								continue;
+							if (sp.ul[d] < op.ul[d])
+								return -1;
+							if (sp.ul[d] > op.ul[d])
+								return 1;
+						}
+
+						return 0;
+					}
+				});
+				ret.addAll(ids);
+			}
+
+		return ret.stream().mapToInt(i->i).toArray();
+	}
+
+	public int[] getNumNeighbors() {
+		int[] ret = new int[nd * 2];
+
+		for (int i = 0; i < nd; i++) {
+			ret[i * 2] = getNeighborIdsShift(i, -1).length;
+			ret[i * 2 + 1] = getNeighborIdsShift(i, 1).length;
+		}
+
+		return ret;
+	}
+
+	// Get the neighbor id specified by dimension and direction (forward >=0 / backward < 0)
+	public int[] getNeighborIdsShift(int dim, int dir) {
+		return getNeighborIdsShift(pid, dim, dir);
+	}
+
+	public int[] getNeighborIdsShift(int pid, int dim, int dir) {
+		Partition sp = ps.get(pid);
+
+		if (sp == null)
+			throw new IllegalArgumentException("PID " + pid + " has no corresponding partition");
+
+		double[] ul = Arrays.copyOf(sp.ul, nd);
+		double[] br = Arrays.copyOf(sp.br, nd);
+
+		if (dir >= 0)
+			br[dim] += epsilon;
+		else
+			ul[dim] -= epsilon;
+
+		Set<Integer> res = coveredPartitionIds(ul, br);
+
+		assert res.contains(pid);
+
+		res.remove(pid);
+
+		return res.stream().mapToInt(i->i).toArray();
+	}
+
+	// return [dim, dir] representing topid is on the forward/backward direction of dim dimension, relative to frompid.
+	// assuming topid is one of the neighbors of frompid
+	public int[] getRelativeDirection(int frompid, int topid) {
+		Partition fp = ps.get(frompid), tp = ps.get(topid);
+		assert fp != null && tp != null;
+
+		for (int i = 0; i < nd; i++)
+			if (tp.br[i] <= fp.ul[i]) 		// tp is above fp
+				return new int[] {i, -1};
+			else if (tp.ul[i] >= fp.br[i]) 	// tp is below fp
+				return new int[] {i, 1};
+
+		// Nothing match - return error
+		return null;
+	}
+
 	public static void main(String args[]) throws MPIException {
 		MPI.Init(args);
 
 		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20});
 		assert p.np == 5;
 
+		/**
+		* Create the following partition scheme
+		*
+		*	 0		8		12			20
+		*	0 ---------------------------
+		*	  |		0		|			|
+		*	3 |-------------|	  1		|
+		*	  |		|	4	|			|
+		*	7 |	 3	|-------------------|
+		*	  |		|		 2			|
+		*  10 ---------------------------
+		*
+		**/
 		p.insertPartition(new double[] {0, 0}, new double[] {3, 12}, 0);
 		p.insertPartition(new double[] {0, 12}, new double[] {7, 20}, 1);
 		p.insertPartition(new double[] {7, 8}, new double[] {10, 20}, 2);
@@ -222,8 +328,8 @@ public class DNonUniformPartition {
 			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
 		}
 
-		int id = p.pid;
-		System.out.println("PID " + id + " Neighbors: " + Arrays.toString(p.getNeighborIDs(id)));
+		System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		System.out.println("PID " + p.pid + " Neighbors in order: " + Arrays.toString(p.getNeighborIdsInOrder()));
 
 		p.setMPITopo();
 
@@ -232,16 +338,16 @@ public class DNonUniformPartition {
 		for (int i = 0; i < nsobj.getOutDegree(); i++)
 			ns[i] = nsobj.getDestination(i);
 
-		System.out.println("PID " + id + " MPI Neighbors: " + Arrays.toString(ns));
+		System.out.println("PID " + p.pid + " MPI Neighbors: " + Arrays.toString(ns));
 
-		// // Second test for initUniformly() 
+		// // Second test for initUniformly()
 		// DNonUniformPartition p2 = new DNonUniformPartition(new int[] {12, 24});
 		// assert np == 12;
 
 		// p2.initUniformly();
 
 		// int id = p2.pid;
-		// System.out.println("PID " + id + " Neighbors: " + Arrays.toString(p2.getNeighborIDs(id)));
+		// System.out.println("PID " + id + " Neighbors: " + Arrays.toString(p2.getNeighborIds(id)));
 
 		MPI.Finalize();
 	}
@@ -263,17 +369,5 @@ class AugmentedSegmentTree extends SegmentTree {
 		res.forEach(seg -> s.add(seg.pid));
 
 		return s;
-	}
-}
-
-class Partition {
-	double[] ul;
-	double[] br;
-	int pid;
-
-	public Partition(final double[] ul, final double[] br, final int pid) {
-		this.ul = ul;
-		this.br = br;
-		this.pid = pid;
 	}
 }

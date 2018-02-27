@@ -6,29 +6,44 @@ import mpi.*;
 
 public class HaloFieldGrid {
 
-	DUniformPartition p;
-	int aoi;
-
-	int[] lb, ub, lsize;
+	int aoi, nd;
+	int[] lb, ub, lsize, gsize;
 
 	public HaloFieldGrid(DUniformPartition p, int aoi) {
-		this.p = p;
+		this.nd = p.dims.length;
 		this.aoi = aoi;
 
-		lsize = new int[p.dims.length];
-		lb = new int[p.dims.length];
-		ub = new int[p.dims.length];
-		for (int i = 0; i < p.dims.length; i++) {
+		gsize = Arrays.copyOf(p.size, nd);
+		lsize = new int[nd];
+		lb = new int[nd];
+		ub = new int[nd];
+		for (int i = 0; i < nd; i++) {
 			lsize[i] = p.size[i] / p.dims[i];
 			lb[i] = lsize[i] * p.coords[i];
 			ub[i] = lb[i] + lsize[i];
 		}
 	}
 
+	public HaloFieldGrid(DNonUniformPartition p, int aoi) {
+		this.nd = p.nd;
+		this.aoi = aoi;
+
+		Partition myPart = p.getMyPartition();
+		gsize = Arrays.copyOf(p.size, nd);
+		// lb = Arrays.copyOf(myPart.ul, nd);
+		// ub = Arrays.copyOf(myPart.br, nd);
+		// TODO: fix the type mismatch here
+		lb = Arrays.stream(myPart.ul).mapToInt(x -> (int)x).toArray();
+		ub = Arrays.stream(myPart.br).mapToInt(x -> (int)x).toArray();
+		lsize = new int[nd];
+		for (int i = 0; i < nd; i++) 
+			lsize[i] = ub[i] - lb[i];
+	}
+
 	public boolean inGlobal(int[] c) {
 		boolean ret = true;
 		for (int i = 0; i < c.length; i++)
-			ret &= c[i] >= 0 && c[i] < p.size[i];
+			ret &= c[i] >= 0 && c[i] < gsize[i];
 		return ret;
 	}
 
@@ -66,9 +81,9 @@ public class HaloFieldGrid {
 	public int[] toToroidal(int[] c) {
 		for (int i = 0; i < c.length; i++) {
 			if (c[i] < 0)
-				c[i] += p.size[i];
-			else if (c[i] >= p.size[i])
-				c[i] -= p.size[i];
+				c[i] += gsize[i];
+			else if (c[i] >= gsize[i])
+				c[i] -= gsize[i];
 		}
 		return c;
 	}
@@ -82,9 +97,9 @@ public class HaloFieldGrid {
 	private int toLocalCoord(int c, int i) {
 		int lc = c - lb[i] + aoi;
 		if (lc < 0)
-			lc += p.size[i];
+			lc += gsize[i];
 		else if (lc >= lsize[i] + 2 * aoi)
-			lc -= p.size[i];
+			lc -= gsize[i];
 		return lc;
 	}
 
@@ -96,6 +111,8 @@ public class HaloFieldGrid {
 		MPI.Init(args);
 
 		DUniformPartition p = new DUniformPartition(size);
+		//DNonUniformPartition p = new DNonUniformPartition(size);
+		//p.initUniformly();
 		HaloFieldGrid hf = new HaloFieldGrid(p, aoi);
 
 		assert p.np == 4;
