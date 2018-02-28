@@ -1,7 +1,6 @@
 package sim.field;
 
 import java.util.*;
-import java.util.stream.*;
 
 import sim.util.*;
 
@@ -108,7 +107,7 @@ public class DNonUniformPartition {
 	}
 
 	public void removePartition(final int pid) {
-		//TODO
+		// TODO
 	}
 
 	public void updatePartition(final double[] ul, final double[] br, final int pid) {
@@ -202,22 +201,6 @@ public class DNonUniformPartition {
 		return coveredPartitionIds(exp_ul, exp_br).stream()
 		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
 	}
-
-	// // return [dim, dir] representing topid is on the forward/backward direction of dim dimension, relative to frompid.
-	// // assuming topid is one of the neighbors of frompid
-	// public int[] getRelativeDirection(int frompid, int topid) {
-	// 	IntHyperRect fp = ps.get(frompid), tp = ps.get(topid);
-	// 	assert fp != null && tp != null;
-
-	// 	for (int i = 0; i < nd; i++)
-	// 		if (tp.br[i] <= fp.ul[i]) 		// tp is above fp
-	// 			return new int[] {i, -1};
-	// 		else if (tp.ul[i] >= fp.br[i]) 	// tp is below fp
-	// 			return new int[] {i, 1};
-
-	// 	// Nothing match - return error
-	// 	return null;
-	// }
 
 	public static void main(String args[]) throws MPIException {
 		MPI.Init(args);
