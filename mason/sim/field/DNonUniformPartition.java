@@ -114,7 +114,11 @@ public class DNonUniformPartition {
 		// TODO
 	}
 
-	public IntHyperRect getMyPartition() {
+	public IntHyperRect getPartition() {
+		return getPartition(this.pid);
+	}
+
+	public IntHyperRect getPartition(int pid) {
 		IntHyperRect rect = ps.get(pid);
 
 		if (rect == null)
@@ -160,7 +164,7 @@ public class DNonUniformPartition {
 	}
 
 	public int[] getNeighborIds() {
-		IntHyperRect rect = getMyPartition();
+		IntHyperRect rect = getPartition();
 
 		// TODO Better way?
 		// Expanded all dimensions by epsilon
@@ -188,7 +192,7 @@ public class DNonUniformPartition {
 
 	// Get the neighbor id specified by dimension and direction (forward >=0 / backward < 0)
 	public int[] getNeighborIdsShift(int dim, int dir) {
-		IntHyperRect rect = getMyPartition();
+		IntHyperRect rect = getPartition();
 
 		double[] exp_ul = Arrays.stream(rect.ul.c).mapToDouble(x -> (double)x).toArray();
 		double[] exp_br = Arrays.stream(rect.br.c).mapToDouble(x -> (double)x).toArray();

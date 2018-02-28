@@ -30,7 +30,7 @@ public class HaloFieldGrid {
 		this.nd = p.nd;
 		this.aoi = aoi;
 
-		IntHyperRect myPart = p.getMyPartition();
+		IntHyperRect myPart = p.getPartition();
 		gsize = Arrays.copyOf(p.size, nd);
 		lb = Arrays.copyOf(myPart.ul.c, nd);
 		ub = Arrays.copyOf(myPart.br.c, nd);
