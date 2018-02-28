@@ -2,6 +2,8 @@ package sim.field;
 
 import java.util.Arrays;
 
+import sim.util.IntHyperRect;
+
 import mpi.*;
 
 public class HaloFieldGrid {
@@ -28,13 +30,10 @@ public class HaloFieldGrid {
 		this.nd = p.nd;
 		this.aoi = aoi;
 
-		Partition myPart = p.getMyPartition();
+		IntHyperRect myPart = p.getMyPartition();
 		gsize = Arrays.copyOf(p.size, nd);
-		// lb = Arrays.copyOf(myPart.ul, nd);
-		// ub = Arrays.copyOf(myPart.br, nd);
-		// TODO: fix the type mismatch here
-		lb = Arrays.stream(myPart.ul).mapToInt(x -> (int)x).toArray();
-		ub = Arrays.stream(myPart.br).mapToInt(x -> (int)x).toArray();
+		lb = Arrays.copyOf(myPart.ul.c, nd);
+		ub = Arrays.copyOf(myPart.br.c, nd);
 		lsize = new int[nd];
 		for (int i = 0; i < nd; i++) 
 			lsize[i] = ub[i] - lb[i];

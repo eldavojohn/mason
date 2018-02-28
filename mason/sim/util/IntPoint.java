@@ -79,6 +79,7 @@ public class IntPoint implements Comparable<IntPoint> {
 		return new IntPoint(newc);
 	}
 
+	// Sort the points by their components
 	@Override
 	public int compareTo(IntPoint that) {
 		if (this.nd != that.nd)
@@ -91,5 +92,9 @@ public class IntPoint implements Comparable<IntPoint> {
 		}
 
 		return 0;
+	}
+
+	public String toString() {
+		return Arrays.toString(c);
 	}
 }

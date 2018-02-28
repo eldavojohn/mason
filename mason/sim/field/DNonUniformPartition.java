@@ -1,7 +1,7 @@
 package sim.field;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.stream.*;
 
 import sim.util.*;
 
@@ -11,20 +11,21 @@ public class DNonUniformPartition {
 
 	public int size[], nd, np, pid;
 	public AugmentedSegmentTree st[];
-	public Map<Integer, Partition> ps;
+	// TODO Use IntHyperRect for now, need to use something like generic or create separate files for int and double.
+	public Map<Integer, IntHyperRect> ps;
 	public GraphComm comm;
 
-	public double epsilon = 0.0001;
+	public final double epsilon = 0.0001;
 
 	public DNonUniformPartition(int size[]) {
 		this.nd = size.length;
 		this.size = Arrays.copyOf(size, nd);
 
-		this.st = new AugmentedSegmentTree[this.nd];
+		this.st = new AugmentedSegmentTree[nd];
 		for (int i = 0; i < nd; i++)
 			this.st[i] = new AugmentedSegmentTree();
 
-		ps = new HashMap<Integer, Partition>();
+		ps = new HashMap<Integer, IntHyperRect>();
 
 		try {
 			pid = MPI.COMM_WORLD.getRank();
@@ -36,13 +37,15 @@ public class DNonUniformPartition {
 	}
 
 	public void setMPITopo() {
+		// TODO Currently a LP holds one partition. need to add support for cases that a LP holds multiple partitions
 		if (ps.size() != np)
 			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));
 
-		int[] ns = getNeighborIdsInOrder();
+		// Merge two-d array into one
+		int[] ns = Arrays.stream(getNeighborIdsInOrder()).flatMapToInt(Arrays::stream).toArray();
 
+		// Create a unweighted & undirected graph
 		try {
-			// Create a unweighted & undirected graph
 			comm = MPI.COMM_WORLD.createDistGraphAdjacent(
 			           ns,
 			           ns,
@@ -76,12 +79,16 @@ public class DNonUniformPartition {
 
 	private void initUniformlyRecursive(int[] coord, int curr, int[] dims, int psize[]) {
 		if (curr == nd) {
-			double[] ul = new double[nd], br = new double[nd];
+			int[] ul = new int[nd], br = new int[nd];
 			for (int i = 0; i < nd; i++) {
 				ul[i] = coord[i] * psize[i];
 				br[i] = ul[i] + psize[i];
 			}
-			insertPartition(ul, br, ps.size());
+			insertPartition(new IntHyperRect(
+			                    ps.size(),
+			                    new IntPoint(ul),
+			                    new IntPoint(br)
+			                ));
 		} else
 			for (int i = 0; i < dims[curr]; i++) {
 				coord[curr] = i;
@@ -89,22 +96,15 @@ public class DNonUniformPartition {
 			}
 	}
 
-	// TODO add another layer of indirection
-	// Currently a LP holds one partition -> a LP holds multiple partitions
-
 	// Insert a partition into the DNonUniformPartition scheme
-	public void insertPartition(Partition p) {
-		if (ps.containsKey(p.pid))
+	public void insertPartition(IntHyperRect p) {
+		if (ps.containsKey(p.id))
 			throw new IllegalArgumentException("The partition id to be inserted already exists");
 
 		for (int i = 0; i < nd; i++)
-			st[i].insert(new Segment(p.ul[i], p.br[i], p.pid));
+			st[i].insert(p.getSegment(i));
 
-		ps.put(p.pid, p);
-	}
-
-	public void insertPartition(final double[] ul, final double[] br, final int pid) {
-		insertPartition(new Partition(ul, br, pid));
+		ps.put(p.id, p);
 	}
 
 	public void removePartition(final int pid) {
@@ -115,11 +115,20 @@ public class DNonUniformPartition {
 		// TODO
 	}
 
-	public Partition getMyPartition() {
-		return ps.get(pid);
+	public IntHyperRect getMyPartition() {
+		IntHyperRect rect = ps.get(pid);
+
+		if (rect == null)
+			throw new IllegalArgumentException("PID " + pid + " has no corresponding partition");
+
+		return rect;
 	}
 
 	// Stabbing query
+	public int toPartitionId(final int[] c) {
+		return toPartitionId(Arrays.stream(c).mapToDouble(x -> (double)x).toArray());
+	}
+
 	public int toPartitionId(final double[] c) {
 		Set<Integer> ret = st[0].toPartitions(c[0]);
 
@@ -134,12 +143,16 @@ public class DNonUniformPartition {
 	}
 
 	// Range query
+	public Set<Integer> coveredPartitionIds(final int[] ul, final int[] br) {
+		return coveredPartitionIds(Arrays.stream(ul).mapToDouble(x -> (double)x).toArray(),
+		                           Arrays.stream(br).mapToDouble(x -> (double)x).toArray());
+	}
+
 	public Set<Integer> coveredPartitionIds(final double[] ul, final double[] br) {
 		Set<Integer> ret = st[0].toPartitions(ul[0], br[0]);
 
-		for (int i = 1; i < nd; i++) {
+		for (int i = 1; i < nd; i++)
 			ret.retainAll(st[i].toPartitions(ul[i], br[i]));
-		}
 
 		if (ret.size() < 1)
 			throw new IllegalArgumentException("Rectangle <" + Arrays.toString(ul) + ", " + Arrays.toString(br) + "> covers no pid: " + ret);
@@ -148,67 +161,27 @@ public class DNonUniformPartition {
 	}
 
 	public int[] getNeighborIds() {
-		return getNeighborIds(this.pid);
+		IntHyperRect rect = getMyPartition();
+
+		// TODO Better way?
+		// Expanded all dimensions by epsilon
+		double[] exp_ul = Arrays.stream(rect.ul.c).mapToDouble(x -> (double)x - epsilon).toArray();
+		double[] exp_br = Arrays.stream(rect.br.c).mapToDouble(x -> (double)x + epsilon).toArray();
+
+		// Remove self
+		return coveredPartitionIds(exp_ul, exp_br).stream()
+		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
 	}
 
-	public int[] getNeighborIds(int pid) {
-		Partition sp = ps.get(pid);
+	// Get neighbor ids on each dimension (backward first, then forward)
+	public int[][] getNeighborIdsInOrder() {
+		int[][] ret = new int[nd * 2][];
 
-		if (sp == null)
-			throw new IllegalArgumentException("PID " + pid + " has no corresponding partition");
-
-		double[] ul = new double[nd], br = new double[nd];
-
-		for (int i = 0; i < nd; i++) {
-			ul[i] = sp.ul[i] - epsilon;
-			br[i] = sp.br[i] + epsilon;
-		}
-
-		Set<Integer> res = coveredPartitionIds(ul, br);
-
-		assert res.contains(pid);
-
-		res.remove(pid);
-
-		return res.stream().mapToInt(i->i).toArray();
-	}
-
-	public int[] getNeighborIdsInOrder() {
-		List<Integer> ret = new ArrayList<Integer>();
-
-		for (int i = 0; i < nd; i++) 
-			for (int dir : new int[] { -1, 1}) {
-				List<Integer> ids = Arrays.stream(getNeighborIdsShift(i, dir)).boxed().collect(Collectors.toList());
-				final int skip = i;
-				ids.sort(new Comparator<Integer>() {
-					@Override
-					public int compare(Integer self, Integer other) {
-						Partition sp = ps.get(self), op = ps.get(other);
-
-						for (int d = 0; d < nd; d++) {
-							if (d == skip || sp.ul[d] == op.ul[d])
-								continue;
-							if (sp.ul[d] < op.ul[d])
-								return -1;
-							if (sp.ul[d] > op.ul[d])
-								return 1;
-						}
-
-						return 0;
-					}
-				});
-				ret.addAll(ids);
-			}
-
-		return ret.stream().mapToInt(i->i).toArray();
-	}
-
-	public int[] getNumNeighbors() {
-		int[] ret = new int[nd * 2];
-
-		for (int i = 0; i < nd; i++) {
-			ret[i * 2] = getNeighborIdsShift(i, -1).length;
-			ret[i * 2 + 1] = getNeighborIdsShift(i, 1).length;
+		for (int i = 0; i < nd * 2; i++) {
+			final int curr_dim = i / 2, dir = i % 2 - 1;
+			ret[i] = Arrays.stream(getNeighborIdsShift(curr_dim, dir))
+			         .mapToObj(x -> ps.get(x).reduceDim(curr_dim)).sorted()
+			         .mapToInt(x -> x.id).toArray();
 		}
 
 		return ret;
@@ -216,47 +189,35 @@ public class DNonUniformPartition {
 
 	// Get the neighbor id specified by dimension and direction (forward >=0 / backward < 0)
 	public int[] getNeighborIdsShift(int dim, int dir) {
-		return getNeighborIdsShift(pid, dim, dir);
-	}
+		IntHyperRect rect = getMyPartition();
 
-	public int[] getNeighborIdsShift(int pid, int dim, int dir) {
-		Partition sp = ps.get(pid);
-
-		if (sp == null)
-			throw new IllegalArgumentException("PID " + pid + " has no corresponding partition");
-
-		double[] ul = Arrays.copyOf(sp.ul, nd);
-		double[] br = Arrays.copyOf(sp.br, nd);
+		double[] exp_ul = Arrays.stream(rect.ul.c).mapToDouble(x -> (double)x).toArray();
+		double[] exp_br = Arrays.stream(rect.br.c).mapToDouble(x -> (double)x).toArray();
 
 		if (dir >= 0)
-			br[dim] += epsilon;
+			exp_br[dim] += epsilon;
 		else
-			ul[dim] -= epsilon;
+			exp_ul[dim] -= epsilon;
 
-		Set<Integer> res = coveredPartitionIds(ul, br);
-
-		assert res.contains(pid);
-
-		res.remove(pid);
-
-		return res.stream().mapToInt(i->i).toArray();
+		return coveredPartitionIds(exp_ul, exp_br).stream()
+		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
 	}
 
-	// return [dim, dir] representing topid is on the forward/backward direction of dim dimension, relative to frompid.
-	// assuming topid is one of the neighbors of frompid
-	public int[] getRelativeDirection(int frompid, int topid) {
-		Partition fp = ps.get(frompid), tp = ps.get(topid);
-		assert fp != null && tp != null;
+	// // return [dim, dir] representing topid is on the forward/backward direction of dim dimension, relative to frompid.
+	// // assuming topid is one of the neighbors of frompid
+	// public int[] getRelativeDirection(int frompid, int topid) {
+	// 	IntHyperRect fp = ps.get(frompid), tp = ps.get(topid);
+	// 	assert fp != null && tp != null;
 
-		for (int i = 0; i < nd; i++)
-			if (tp.br[i] <= fp.ul[i]) 		// tp is above fp
-				return new int[] {i, -1};
-			else if (tp.ul[i] >= fp.br[i]) 	// tp is below fp
-				return new int[] {i, 1};
+	// 	for (int i = 0; i < nd; i++)
+	// 		if (tp.br[i] <= fp.ul[i]) 		// tp is above fp
+	// 			return new int[] {i, -1};
+	// 		else if (tp.ul[i] >= fp.br[i]) 	// tp is below fp
+	// 			return new int[] {i, 1};
 
-		// Nothing match - return error
-		return null;
-	}
+	// 	// Nothing match - return error
+	// 	return null;
+	// }
 
 	public static void main(String args[]) throws MPIException {
 		MPI.Init(args);
@@ -277,11 +238,11 @@ public class DNonUniformPartition {
 		*  10 ---------------------------
 		*
 		**/
-		p.insertPartition(new double[] {0, 0}, new double[] {3, 12}, 0);
-		p.insertPartition(new double[] {0, 12}, new double[] {7, 20}, 1);
-		p.insertPartition(new double[] {7, 8}, new double[] {10, 20}, 2);
-		p.insertPartition(new double[] {3, 0}, new double[] {10, 8}, 3);
-		p.insertPartition(new double[] {3, 8}, new double[] {7, 12}, 4);
+		p.insertPartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {3, 12})));
+		p.insertPartition(new IntHyperRect(1, new IntPoint(new int[] {0, 12}), new IntPoint(new int[] {7, 20})));
+		p.insertPartition(new IntHyperRect(2, new IntPoint(new int[] {7, 8}), new IntPoint(new int[] {10, 20})));
+		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {3, 0}), new IntPoint(new int[] {10, 8})));
+		p.insertPartition(new IntHyperRect(4, new IntPoint(new int[] {3, 8}), new IntPoint(new int[] {7, 12})));
 
 		double[] c, c1, c2;
 
@@ -329,7 +290,7 @@ public class DNonUniformPartition {
 		}
 
 		System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
-		System.out.println("PID " + p.pid + " Neighbors in order: " + Arrays.toString(p.getNeighborIdsInOrder()));
+		System.out.println("PID " + p.pid + " Neighbors in order: " + Arrays.toString(Arrays.stream(p.getNeighborIdsInOrder()).flatMapToInt(Arrays::stream).toArray()));
 
 		p.setMPITopo();
 
@@ -346,8 +307,7 @@ public class DNonUniformPartition {
 
 		// p2.initUniformly();
 
-		// int id = p2.pid;
-		// System.out.println("PID " + id + " Neighbors: " + Arrays.toString(p2.getNeighborIds(id)));
+		// System.out.println("PID " + p2.pid + " Neighbors: " + Arrays.toString(p2.getNeighborIds()));
 
 		MPI.Finalize();
 	}
@@ -355,8 +315,24 @@ public class DNonUniformPartition {
 
 class AugmentedSegmentTree extends SegmentTree {
 
+	public Set<Integer> toPartitions(int target) {
+		List<Segment> res = contains((double)target);
+		Set<Integer> s = new HashSet<Integer>();
+		res.forEach(seg -> s.add(seg.pid));
+
+		return s;
+	}
+
 	public Set<Integer> toPartitions(double target) {
 		List<Segment> res = contains(target);
+		Set<Integer> s = new HashSet<Integer>();
+		res.forEach(seg -> s.add(seg.pid));
+
+		return s;
+	}
+
+	public Set<Integer> toPartitions(int st, int ed) {
+		List<Segment> res = intersect((double)st, (double)ed);
 		Set<Integer> s = new HashSet<Integer>();
 		res.forEach(seg -> s.add(seg.pid));
 

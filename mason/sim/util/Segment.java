@@ -20,6 +20,18 @@ public class Segment implements Comparable<Segment> {
         this.pid = pid;
     }
 
+    public Segment(int st, int ed) {
+        this.st = (double)st;
+        this.ed = (double)ed;
+        this.max = this.ed;
+        this.min = this.st;
+    }
+
+    public Segment(int st, int ed, int pid) {
+        this(st, ed);
+        this.pid = pid;
+    }
+
     public String toString() {
         return "[" + this.st + "-" + this.ed + " , " + this.min + " , " + this.max + " , "+ this.all() + " )";
     }

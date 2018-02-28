@@ -1,10 +1,10 @@
 package sim.util;
 
 public class IntHyperRect implements Comparable<IntHyperRect> {
-	int nd;
-	IntPoint ul, br;
+	public int nd, id;
+	public IntPoint ul, br;
 
-	public IntHyperRect(IntPoint ul, IntPoint br) {
+	public IntHyperRect(int id, IntPoint ul, IntPoint br) {
 		if (ul.nd != br.nd)
 			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + ul.nd + " and " + br.nd);
 
@@ -16,6 +16,7 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 
 		this.ul = ul;
 		this.br = br;
+		this.id = id;
 	}
 
 	public boolean isOverlap(IntHyperRect that) {
@@ -35,7 +36,7 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 	public Segment getSegment(int dim) {
 		if (dim < 0 || dim >= nd)
 			throw new IllegalArgumentException("Illegal dimension: " + dim);
-		return new Segment((double)ul.c[dim], (double)br.c[dim]);
+		return new Segment((double)ul.c[dim], (double)br.c[dim], id);
 	}
 
 	public int getSize() {
@@ -43,15 +44,23 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 	}
 
 	public IntHyperRect reduceDim(int dim) {
-		return new IntHyperRect(ul.reduceDim(dim), br.reduceDim(dim));
+		return new IntHyperRect(id, ul.reduceDim(dim), br.reduceDim(dim));
 	}
 
-	// Sort the rectangles based on its upper left corner first and then bottom-right corner
+	// Sort the rectangles based on its upper left corner first and then bottom-right corner and then id
 	@Override
 	public int compareTo(IntHyperRect that) {
-		int ret = this.ul.compareTo(that.ul);
-		if (ret != 0)
+		int ret;
+
+		if ((ret = this.ul.compareTo(that.ul)) != 0)
 			return ret;
-		return this.br.compareTo(that.br);
+		if ((ret = this.br.compareTo(that.br)) != 0)
+			return ret;
+
+		return this.id - that.id;
+	}
+
+	public String toString() {
+		return String.format("%s<%d, %s, %s>", this.getClass().getSimpleName(), id, ul.toString(), br.toString());
 	}
 }
