@@ -6,7 +6,7 @@ import sim.util.*;
 
 import mpi.*;
 
-public class DNonUniformPartition {
+public class DNonUniformPartition implements DPartition {
 
 	public int size[], nd, np, pid;
 	public AugmentedSegmentTree st[];
@@ -204,6 +204,26 @@ public class DNonUniformPartition {
 
 		return coveredPartitionIds(exp_ul, exp_br).stream()
 		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
+	}
+
+	public int getNumDim() {
+		return nd;
+	}
+
+	public Comm getCommunicator() {
+		return comm;
+	}
+
+	public int[] getFieldSize() {
+		return size;
+	}
+
+	public boolean isToroidal() {
+		return false;
+	}
+
+	public boolean isExtendedNeighborhood() {
+		return false;
 	}
 
 	public static void main(String args[]) throws MPIException {
