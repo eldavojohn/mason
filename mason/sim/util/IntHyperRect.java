@@ -1,5 +1,6 @@
 package sim.util;
 
+import java.util.Arrays;
 import java.util.stream.IntStream;
 
 public class IntHyperRect implements Comparable<IntHyperRect> {
@@ -57,14 +58,44 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 		return new IntHyperRect(-1, new IntPoint(c1), new IntPoint(c2));
 	}
 
+	// Symmetric resize
+	public IntHyperRect resize(int dim, int val) {
+		return new IntHyperRect(id, ul.shift(dim, -val), br.shift(dim, val));
+	}
+
+	// Symmetric resize at all dimension
+	public IntHyperRect resize(int[] vals) {
+		int[] nvals = Arrays.stream(vals).map(x -> -x).toArray();
+		return new IntHyperRect(id, ul.shift(nvals), br.shift(vals));
+	}
+
+	// One-sided resize
+	public IntHyperRect resize(int dim, int dir, int val) {
+		if (dir > 0)
+			return new IntHyperRect(id, ul.shift(dim, 0), br.shift(dim, val));
+		return new IntHyperRect(id, ul.shift(dim, -val), br.shift(dim, 0));
+	}
+
+	// One-sided resize at all dimension
+	public IntHyperRect resize(int dir, int[] vals) {
+		if (dir > 0)
+			return new IntHyperRect(id, ul.shift(0, 0), br.shift(vals));
+		int[] nvals = Arrays.stream(vals).map(x -> -x).toArray();
+		return new IntHyperRect(id, ul.shift(nvals), br.shift(0, 0));
+	}
+
 	public Segment getSegment(int dim) {
 		if (dim < 0 || dim >= nd)
 			throw new IllegalArgumentException("Illegal dimension: " + dim);
 		return new Segment((double)ul.c[dim], (double)br.c[dim], id);
 	}
 
-	public int getSize() {
-		return br.rectSize(ul);
+	public int getArea() {
+		return br.getRectArea(ul);
+	}
+
+	public int[] getSize() {
+		return br.getOffset(ul);
 	}
 
 	public IntHyperRect reduceDim(int dim) {

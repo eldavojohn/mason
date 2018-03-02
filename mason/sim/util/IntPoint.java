@@ -1,6 +1,7 @@
 package sim.util;
 
 import java.util.Arrays;
+import java.util.stream.IntStream;
 
 public class IntPoint implements Comparable<IntPoint> {
 	public int nd;
@@ -26,32 +27,43 @@ public class IntPoint implements Comparable<IntPoint> {
 		this.c = new int[]{c1, c2, c3};
 	}
 
-	public int rectSize(IntPoint that) {
+	public int getRectArea(IntPoint that) {
 		if (this.nd != that.nd)
 			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + this.nd + " and " + that.nd);
 
 		if (nd == 0)
 			return 0;
 
-		int ret = this.c[0] - that.c[0];
-		for(int i = 1; i < nd; i++)
-			ret *= this.c[i] - that.c[i];
-
-		return Math.abs(ret);
+		return Math.abs(Arrays.stream(getOffset(that)).reduce(1, (x, y) -> x * y));
 	}
 
-	public void shift(int dim, int offset) {
+	public IntPoint shift(int dim, int offset) {
 		if (dim < 0 || dim >= nd)
 			throw new IllegalArgumentException("Illegal dimension: " + dim);
-		c[dim] += offset;
+		
+		int[] newc = Arrays.copyOf(c, nd);
+		newc[dim] += offset;
+		
+		return new IntPoint(newc);
 	}
 
-	public void shift(int[] offsets) {
+	public IntPoint shift(int[] offsets) {
 		if (nd != offsets.length)
 			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + this.nd + " and " + offsets.length);
 
+		int[] newc = Arrays.copyOf(c, nd);
+
 		for (int i = 0; i < nd; i++)
-			shift(i, offsets[i]);
+			newc[i] += offsets[i];
+
+		return new IntPoint(newc);
+	}
+
+	public int[] getOffset(IntPoint that) {
+		if (this.nd != that.nd)
+			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + this.nd + " and " + that.nd);
+
+		return IntStream.range(0, nd).map(i -> this.c[i] - that.c[i]).toArray();
 	}
 
 	// Reduce dimension by removing the value at the dimth dimension
