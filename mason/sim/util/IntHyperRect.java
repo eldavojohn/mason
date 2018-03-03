@@ -9,7 +9,7 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 
 	public IntHyperRect(int id, IntPoint ul, IntPoint br) {
 		this.id = id;
-		
+
 		if (ul.nd != br.nd)
 			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + ul.nd + " and " + br.nd);
 
@@ -21,27 +21,6 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 
 		this.ul = ul;
 		this.br = br;
-	}
-
-	// Sanity checks
-	private void assertEqualDim(int d) {
-		if (d < 0 || d >= this.nd)
-			throw new IllegalArgumentException(String.format("Illegal dimension %d given to %d", d, this.toString()));
-	}
-
-	private void assertEqualDim(int[] a) {
-		if (this.nd != a.length)
-			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), Arrays.toString(a)));
-	}
-
-	private void assertEqualDim(IntPoint p) {
-		if (this.nd != p.nd)
-			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), p.toString()));
-	}
-
-	private void assertEqualDim(IntHyperRect that) {
-		if (this.nd != that.nd)
-			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), that.toString()));
 	}
 
 	// Return the area of the hyper rectangle
@@ -57,13 +36,13 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 	// Return whether the rect contains p
 	// Noted that the rect is treated as half-inclusive (ul) and half-exclusive (br)
 	public boolean contains(IntPoint p) {
-		assertEqualDim(p);
+		ul.assertEqualDim(p);
 		return IntStream.range(0, p.nd).allMatch(i -> ul.c[i] <= p.c[i] && p.c[i] < br.c[i]);
 	}
 
 	// Return whether the given rect intersects with self
 	public boolean isIntersect(IntHyperRect that) {
-		assertEqualDim(that);
+		ul.assertEqualDim(that.ul);
 		return IntStream.range(0, nd).allMatch(i -> this.ul.c[i] < that.br.c[i] && this.br.c[i] > that.ul.c[i]);
 	}
 
@@ -80,20 +59,16 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 
 	// Symmetric resize 
 	public IntHyperRect resize(int dim, int val) {
-		assertEqualDim(dim);
 		return new IntHyperRect(id, ul.shift(dim, -val), br.shift(dim, val));
 	}
 
 	// Symmetric resize at all dimension
 	public IntHyperRect resize(int[] vals) {
-		assertEqualDim(vals);
-		int[] nvals = Arrays.stream(vals).map(x -> -x).toArray();
-		return new IntHyperRect(id, ul.shift(nvals), br.shift(vals));
+		return new IntHyperRect(id, ul.rshift(vals), br.shift(vals));
 	}
 
 	// One-sided resize
 	public IntHyperRect resize(int dim, int dir, int val) {
-		assertEqualDim(dim);
 		if (dir > 0)
 			return new IntHyperRect(id, ul.shift(dim, 0), br.shift(dim, val));
 		return new IntHyperRect(id, ul.shift(dim, -val), br.shift(dim, 0));
@@ -101,16 +76,24 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 
 	// One-sided resize at all dimension
 	public IntHyperRect resize(int dir, int[] vals) {
-		assertEqualDim(vals);
 		if (dir > 0)
 			return new IntHyperRect(id, ul.shift(0, 0), br.shift(vals));
-		int[] nvals = Arrays.stream(vals).map(x -> -x).toArray();
-		return new IntHyperRect(id, ul.shift(nvals), br.shift(0, 0));
+		return new IntHyperRect(id, ul.rshift(vals), br.shift(0, 0));
+	}
+
+	// Move the rect by offset in the dimth dimension
+	public IntHyperRect shift(int dim, int offset) {
+		return new IntHyperRect(id, ul.shift(dim, offset), br.shift(dim, offset));
+	}
+
+	// Move the rect by the given offsets
+	public IntHyperRect shift(int[] offsets) {
+		return new IntHyperRect(id, ul.shift(offsets), br.shift(offsets));
 	}
 
 	// Return the segment of the hyper rectangle on the given dimension
 	public Segment getSegment(int dim) {
-		assertEqualDim(dim);
+		ul.assertEqualDim(dim);
 		return new Segment((double)ul.c[dim], (double)br.c[dim], id);
 	}
 
@@ -118,7 +101,6 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 	@Override
 	public int compareTo(IntHyperRect that) {
 		int ret;
-		assertEqualDim(that);
 
 		if ((ret = this.ul.compareTo(that.ul)) != 0)
 			return ret;
@@ -134,7 +116,6 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 
 	// Return a copy of the hyper rectangle with the given dimension removed
 	public IntHyperRect reduceDim(int dim) {
-		assertEqualDim(dim);
 		return new IntHyperRect(id, ul.reduceDim(dim), br.reduceDim(dim));
 	}
 

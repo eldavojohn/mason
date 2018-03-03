@@ -28,17 +28,17 @@ public class IntPoint implements Comparable<IntPoint> {
 	}
 
 	// Sanity checks
-	private void assertEqualDim(int d) {
+	public void assertEqualDim(int d) {
 		if (d < 0 || d >= this.nd)
 			throw new IllegalArgumentException(String.format("Illegal dimension %d given to %d", d, this.toString()));
 	}
 
-	private void assertEqualDim(int[] a) {
+	public void assertEqualDim(int[] a) {
 		if (this.nd != a.length)
 			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), Arrays.toString(a)));
 	}
 
-	private void assertEqualDim(IntPoint p) {
+	public void assertEqualDim(IntPoint p) {
 		if (this.nd != p.nd)
 			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), p.toString()));
 	}
@@ -60,6 +60,11 @@ public class IntPoint implements Comparable<IntPoint> {
 	public IntPoint shift(int[] offsets) {
 		assertEqualDim(offsets);
 		return new IntPoint(IntStream.range(0, nd).map(i -> c[i] + offsets[i]).toArray());
+	}
+
+	public IntPoint rshift(int[] offsets) {
+		assertEqualDim(offsets);
+		return new IntPoint(IntStream.range(0, nd).map(i -> c[i] - offsets[i]).toArray());
 	}
 
 	// Get the distances in each dimension between self and the given point
