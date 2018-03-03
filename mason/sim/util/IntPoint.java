@@ -27,19 +27,29 @@ public class IntPoint implements Comparable<IntPoint> {
 		this.c = new int[]{c1, c2, c3};
 	}
 
+	// Sanity checks
+	private void assertEqualDim(int d) {
+		if (d < 0 || d >= this.nd)
+			throw new IllegalArgumentException(String.format("Illegal dimension %d given to %d", d, this.toString()));
+	}
+
+	private void assertEqualDim(int[] a) {
+		if (this.nd != a.length)
+			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), Arrays.toString(a)));
+	}
+
+	private void assertEqualDim(IntPoint p) {
+		if (this.nd != p.nd)
+			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), p.toString()));
+	}
+
 	public int getRectArea(IntPoint that) {
-		if (this.nd != that.nd)
-			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + this.nd + " and " + that.nd);
-
-		if (nd == 0)
-			return 0;
-
-		return Math.abs(Arrays.stream(getOffset(that)).reduce(1, (x, y) -> x * y));
+		assertEqualDim(that);
+		return nd == 0 ? 0 : Math.abs(Arrays.stream(getOffset(that)).reduce(1, (x, y) -> x * y));
 	}
 
 	public IntPoint shift(int dim, int offset) {
-		if (dim < 0 || dim >= nd)
-			throw new IllegalArgumentException("Illegal dimension: " + dim);
+		assertEqualDim(dim);
 		
 		int[] newc = Arrays.copyOf(c, nd);
 		newc[dim] += offset;
@@ -48,28 +58,19 @@ public class IntPoint implements Comparable<IntPoint> {
 	}
 
 	public IntPoint shift(int[] offsets) {
-		if (nd != offsets.length)
-			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + this.nd + " and " + offsets.length);
-
-		int[] newc = Arrays.copyOf(c, nd);
-
-		for (int i = 0; i < nd; i++)
-			newc[i] += offsets[i];
-
-		return new IntPoint(newc);
+		assertEqualDim(offsets);
+		return new IntPoint(IntStream.range(0, nd).map(i -> c[i] + offsets[i]).toArray());
 	}
 
+	// Get the distances in each dimension between self and the given point
 	public int[] getOffset(IntPoint that) {
-		if (this.nd != that.nd)
-			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + this.nd + " and " + that.nd);
-
+		assertEqualDim(that);
 		return IntStream.range(0, nd).map(i -> this.c[i] - that.c[i]).toArray();
 	}
 
 	// Reduce dimension by removing the value at the dimth dimension
 	public IntPoint reduceDim(int dim) {
-		if (dim < 0 || dim >= nd)
-			throw new IllegalArgumentException("Illegal dimension: " + dim);
+		assertEqualDim(dim);
 		
 		int[] newc = Arrays.copyOf(c, nd - 1);
 		for(int i = dim; i < nd - 1; i++)
@@ -78,24 +79,23 @@ public class IntPoint implements Comparable<IntPoint> {
 		return new IntPoint(newc);
 	}
 
-	// Increase the dimension by inserting the val into the dimth dimension
-	public IntPoint increaseDim(int dim, int val) {
-		if (dim < 0 || dim > nd)
-			throw new IllegalArgumentException("Illegal dimension: " + dim);
+	// // Increase the dimension by inserting the val into the dimth dimension
+	// public IntPoint increaseDim(int dim, int val) {
+	// 	if (dim < 0 || dim > nd)
+	// 		throw new IllegalArgumentException("Illegal dimension: " + dim);
 
-		int[] newc = Arrays.copyOf(c, nd + 1);
-		for(int i = dim; i < nd; i++)
-			newc[i + 1] = c[i];
-		newc[dim] = val;
+	// 	int[] newc = Arrays.copyOf(c, nd + 1);
+	// 	for(int i = dim; i < nd; i++)
+	// 		newc[i + 1] = c[i];
+	// 	newc[dim] = val;
 
-		return new IntPoint(newc);
-	}
+	// 	return new IntPoint(newc);
+	// }
 
 	// Sort the points by their components
 	@Override
 	public int compareTo(IntPoint that) {
-		if (this.nd != that.nd)
-			throw new IllegalArgumentException("Number of dimensions must be the same. Got " + this.nd + " and " + that.nd);
+		assertEqualDim(that);
 
 		for(int i = 0; i < nd; i++) {
 			if (this.c[i] == that.c[i])

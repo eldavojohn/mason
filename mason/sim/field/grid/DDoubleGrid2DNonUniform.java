@@ -233,7 +233,7 @@ class Borders {
 			else				// forward direction
 				myPart.br.c[dim] += aoi;
 
-			IntHyperRect overlap = myPart.intersect(neighborPart);
+			IntHyperRect overlap = myPart.getIntersection(neighborPart);
 
 			if (dir == 0) 	// backward direction
 				myPart.ul.c[dim] += aoi;

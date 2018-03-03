@@ -125,7 +125,7 @@ public class HaloField {
 			int dir = d % 2;
 			int pid = neighborPart.id;
 
-			IntHyperRect overlap = partition.resize(dim, dir, aoi[dim]).intersect(neighborPart);
+			IntHyperRect overlap = partition.resize(dim, dir, aoi[dim]).getIntersection(neighborPart);
 
 			// Convert the coordinates to local ones (considering aoi already)
 			// TODO
