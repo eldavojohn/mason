@@ -13,4 +13,5 @@ public interface DPartition {
 	boolean isToroidal();
 	boolean isExtendedNeighborhood();
 	int[][] getNeighborIdsInOrder();
+	int[] getNeighborIds();
 }

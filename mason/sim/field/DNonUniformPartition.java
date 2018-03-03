@@ -59,6 +59,33 @@ public class DNonUniformPartition implements DPartition {
 		// TODO: re-map LPs to Partitions for optimal LP placement
 	}
 
+	// TODO replace setMPITopo with _setMPITopo once the HaloField is enabled
+	public void _setMPITopo() {
+		// TODO Currently a LP holds one partition. need to add support for cases that a LP holds multiple partitions
+		if (ps.size() != np)
+			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));
+
+		// Get sorted neighbor ids list
+		int[] ns = Arrays.stream(getNeighborIds())
+		           .mapToObj(x -> ps.get(x)).sorted()
+			       .mapToInt(x -> x.id).toArray();
+
+		// Create a unweighted & undirected graph
+		try {
+			comm = MPI.COMM_WORLD.createDistGraphAdjacent(
+			           ns,
+			           ns,
+			           new Info(),
+			           false
+			       );
+		} catch (MPIException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+
+		// TODO: re-map LPs to Partitions for optimal LP placement
+	}
+
 	public void initUniformly() {
 		int[] dims = new int[nd], psize = new int[nd], coord = new int[nd];
 
