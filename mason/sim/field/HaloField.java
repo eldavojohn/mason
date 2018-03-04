@@ -84,7 +84,7 @@ public class HaloField {
 		return IntStream.range(1, nd - dim).reduce(1, (x, i) -> x * haloSize[i]);
 	}
 
-	private IntPoint toLocalPoint(IntPoint p) {
+	public IntPoint toLocalPoint(IntPoint p) {
 		return p.rshift(origPart.ul.c).shift(aoi);
 	}
 
@@ -189,7 +189,7 @@ public class HaloField {
 		p.insertPartition(new IntHyperRect(1, new IntPoint(new int[] {0, 7}), new IntPoint(new int[] {5, 10})));
 		p.insertPartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 4})));
 		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {5, 4}), new IntPoint(new int[] {10, 10})));
-		p._setMPITopo();
+		p.setMPITopo();
 
 		HaloField hf = new HaloField(p, aoi);
 

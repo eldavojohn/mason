@@ -6,19 +6,17 @@ import sim.util.*;
 
 import mpi.*;
 
-public class DNonUniformPartition implements DPartition {
+public class DNonUniformPartition extends DPartition {
 
-	public int size[], nd, np, pid;
 	public AugmentedSegmentTree st[];
 	// TODO Use IntHyperRect for now, need to use something like generic or create separate files for int and double.
 	public Map<Integer, IntHyperRect> ps;
-	public GraphComm comm;
 
 	public final double epsilon = 0.0001;
 
 	public DNonUniformPartition(int size[]) {
-		this.nd = size.length;
-		this.size = Arrays.copyOf(size, nd);
+		// TODO Not supporting toroidal for now
+		super(size, false);
 
 		this.st = new AugmentedSegmentTree[nd];
 		for (int i = 0; i < nd; i++)
@@ -36,31 +34,6 @@ public class DNonUniformPartition implements DPartition {
 	}
 
 	public void setMPITopo() {
-		// TODO Currently a LP holds one partition. need to add support for cases that a LP holds multiple partitions
-		if (ps.size() != np)
-			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));
-
-		// Merge two-d array into one
-		int[] ns = Arrays.stream(getNeighborIdsInOrder()).flatMapToInt(Arrays::stream).toArray();
-
-		// Create a unweighted & undirected graph
-		try {
-			comm = MPI.COMM_WORLD.createDistGraphAdjacent(
-			           ns,
-			           ns,
-			           new Info(),
-			           false
-			       );
-		} catch (MPIException e) {
-			e.printStackTrace();
-			System.exit(-1);
-		}
-
-		// TODO: re-map LPs to Partitions for optimal LP placement
-	}
-
-	// TODO replace setMPITopo with _setMPITopo once the HaloField is enabled
-	public void _setMPITopo() {
 		// TODO Currently a LP holds one partition. need to add support for cases that a LP holds multiple partitions
 		if (ps.size() != np)
 			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));
@@ -159,6 +132,10 @@ public class DNonUniformPartition implements DPartition {
 		return toPartitionId(Arrays.stream(c).mapToDouble(x -> (double)x).toArray());
 	}
 
+	public int toPartitionId(IntPoint p) {
+		return toPartitionId(p.c);
+	}
+
 	public int toPartitionId(final double[] c) {
 		Set<Integer> ret = st[0].toPartitions(c[0]);
 
@@ -231,26 +208,6 @@ public class DNonUniformPartition implements DPartition {
 
 		return coveredPartitionIds(exp_ul, exp_br).stream()
 		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
-	}
-
-	public int getNumDim() {
-		return nd;
-	}
-
-	public Comm getCommunicator() {
-		return comm;
-	}
-
-	public int[] getFieldSize() {
-		return size;
-	}
-
-	public boolean isToroidal() {
-		return false;
-	}
-
-	public boolean isExtendedNeighborhood() {
-		return false;
 	}
 
 	public static void main(String args[]) throws MPIException {
@@ -327,8 +284,8 @@ public class DNonUniformPartition implements DPartition {
 		System.out.println("PID " + p.pid + " Neighbors in order: " + Arrays.toString(Arrays.stream(p.getNeighborIdsInOrder()).flatMapToInt(Arrays::stream).toArray()));
 
 		p.setMPITopo();
-
-		DistGraphNeighbors nsobj = p.comm.getDistGraphNeighbors();
+		GraphComm gc = (GraphComm)p.comm;
+		DistGraphNeighbors nsobj = gc.getDistGraphNeighbors();
 		int[] ns = new int[nsobj.getOutDegree()];
 		for (int i = 0; i < nsobj.getOutDegree(); i++)
 			ns[i] = nsobj.getDestination(i);
