@@ -23,7 +23,7 @@ public class SegmentTree {
             insert(root, target);
     }
 
-    private void insert(Segment curr, Segment target) {
+    protected void insert(Segment curr, Segment target) {
         if (curr == null) {
             curr = target;
             return;
@@ -56,7 +56,7 @@ public class SegmentTree {
         System.out.println();
     }
 
-    private void print(Segment curr) {
+    protected void print(Segment curr) {
         if (curr == null) {
             System.out.print("null ");
             return;
@@ -77,7 +77,7 @@ public class SegmentTree {
         return res;
     }
 
-    private void intersect(Segment curr, Segment target, List<Segment> res) {
+    protected void intersect(Segment curr, Segment target, List<Segment> res) {
         if (curr == null)
             return;
 
@@ -96,7 +96,7 @@ public class SegmentTree {
         return res;
     }
 
-    private void contains(Segment curr, double target, List<Segment> res) {
+    protected void contains(Segment curr, double target, List<Segment> res) {
         if (curr == null)
             return;
 
@@ -126,6 +126,9 @@ public class SegmentTree {
 
         res = t.intersect(7, 10);
         System.out.println("Intersect [7, 10] \nResult: " + Arrays.toString(res.toArray()));
+
+        res = t.intersect(1, 1);
+        System.out.println("Intersect [1, 1] \nResult: " + Arrays.toString(res.toArray()));
 
         res = t.contains(9);
         System.out.println("Contains 9 \nResult: " + Arrays.toString(res.toArray()));

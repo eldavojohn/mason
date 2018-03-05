@@ -9,6 +9,9 @@ public class Segment implements Comparable<Segment> {
     public Segment left, right;
 
     public Segment(double st, double ed) {
+        if (st > ed)
+            throw new IllegalArgumentException(String.format("st (%g) should be less than or equal to ed (%g)", st, ed));
+        
         this.st = st;
         this.ed = ed;
         this.max = ed;
@@ -21,10 +24,7 @@ public class Segment implements Comparable<Segment> {
     }
 
     public Segment(int st, int ed) {
-        this.st = (double)st;
-        this.ed = (double)ed;
-        this.max = this.ed;
-        this.min = this.st;
+        this((double)st, (double)ed);
     }
 
     public Segment(int st, int ed, int pid) {
