@@ -41,7 +41,7 @@ public class SegmentTree {
         if (target.ed > curr.max)
             curr.max = target.ed;
 
-        if (target.st < curr.min) 
+        if (target.st < curr.min)
             curr.min = target.st;
 
         if (curr.compareTo(target) <= 0) {
@@ -104,7 +104,10 @@ public class SegmentTree {
 
     public List<Segment> contains(double target) {
         List<Segment> res = new ArrayList<Segment>();
-        contains(root, target, res);
+        if (isToroidal)
+            contains(root, conv(target), res);
+        else
+            contains(root, target, res);
         return res;
     }
 
@@ -139,14 +142,13 @@ public class SegmentTree {
         final double min = root.min, max = root.max, len = max - min;
         List<Segment> ret = new ArrayList<Segment>();
 
-        if (ed < min){
+        if (ed < min) {
             double ned = conv(ed);
             return generate(new Segment(st + ned - ed, ned));
         } else if (st > max) {
             double nst = conv(st);
             return generate(new Segment(nst, ed + nst - st));
-        }
-        else if (ed == max || (min < ed && ed < max && min <= st && st < max) || (ed > max && st <= min))
+        } else if (ed == max || (min < ed && ed < max && min <= st && st < max) || (ed > max && st <= min))
             ret.add(orig);
         else if (ed == min && st < min)
             ret.add(new Segment(conv(st), max));
@@ -162,7 +164,7 @@ public class SegmentTree {
 
         return ret;
     }
-    
+
     // Convert the value in case of toroidal
     private double conv(final double val) {
         final double len = root.max - root.min;
@@ -236,33 +238,45 @@ public class SegmentTree {
         t.insert(new Segment(6, 8, 3));
         t.insert(new Segment(9, 10, 4));
         t.insert(new Segment(5, 6, 5));
-        
-        List<Segment> testSegs = Arrays.asList(
-            new Segment(-2, -1), new Segment(-2, 2), new Segment(-2, 5), new Segment(-2, 10), new Segment(-2, 100), 
-            new Segment(2, 2), new Segment(2, 6), new Segment(2, 10), new Segment(2, 12),
-            new Segment(4, 7), new Segment(4, 10), new Segment(4, 19),
-            new Segment(10, 10), new Segment(10, 14), 
-            new Segment(15, 25)
-        );
-        
-        List<List<Integer>> expected = Arrays.asList(
-            Arrays.asList(2, 3), Arrays.asList(2, 3, 4), Arrays.asList(0, 1, 2, 3, 4), Arrays.asList(0, 1, 2, 3, 4, 5), Arrays.asList(0, 1, 2, 3, 4, 5),
-            Arrays.asList(), Arrays.asList(0, 1, 2, 5), Arrays.asList(0, 1, 2, 3, 4, 5), Arrays.asList(0, 1, 2, 3, 4, 5),
-            Arrays.asList(1, 2, 3, 5), Arrays.asList(1, 2, 3, 4, 5), Arrays.asList(0, 1, 2, 3, 4, 5),
-            Arrays.asList(), Arrays.asList(0, 1, 2, 5),
-            Arrays.asList(0, 1, 2, 3, 4, 5)
-        );
-        
-        Iterator<List<Integer>> eit = expected.iterator();
-        Iterator<Segment> tit = testSegs.iterator();
 
-        while (tit.hasNext() && eit.hasNext()) {
-            Segment s = tit.next();
+        List<Double> testVals = Arrays.asList(-10.0, 1.5, 4.0, 7.5, 11.5, 100.0);
+        List<List<Integer>> expected1 = Arrays.asList(
+                                           Arrays.asList(2, 3), Arrays.asList(4), Arrays.asList(1, 2), 
+                                           Arrays.asList(3), Arrays.asList(0, 1, 2), Arrays.asList(1, 2)
+                                       );
+
+        for (int i = 0; i < testVals.size(); i++) {
+            double val = testVals.get(i);
+            res = t.contains(val);
+            Set<Integer> want = new HashSet<Integer>(expected1.get(i));
+            Set<Integer> got = new HashSet<Integer>(res.stream().mapToInt(x->x.pid).boxed().collect(java.util.stream.Collectors.toList()));
+            System.out.println("Contains " + val + "\tGot: " + got + " Want: " + want);
+            assert want.equals(got);
+        }
+
+        List<Segment> testSegs = Arrays.asList(
+                                     new Segment(-2, -1), new Segment(-2, 2), new Segment(-2, 5), new Segment(-2, 10), new Segment(-2, 100),
+                                     new Segment(2, 2), new Segment(2, 6), new Segment(2, 10), new Segment(2, 12),
+                                     new Segment(4, 7), new Segment(4, 10), new Segment(4, 19),
+                                     new Segment(10, 10), new Segment(10, 14),
+                                     new Segment(15, 25)
+                                 );
+
+        List<List<Integer>> expected2 = Arrays.asList(
+                                           Arrays.asList(2, 3), Arrays.asList(2, 3, 4), Arrays.asList(0, 1, 2, 3, 4), Arrays.asList(0, 1, 2, 3, 4, 5), Arrays.asList(0, 1, 2, 3, 4, 5),
+                                           Arrays.asList(), Arrays.asList(0, 1, 2, 5), Arrays.asList(0, 1, 2, 3, 4, 5), Arrays.asList(0, 1, 2, 3, 4, 5),
+                                           Arrays.asList(1, 2, 3, 5), Arrays.asList(1, 2, 3, 4, 5), Arrays.asList(0, 1, 2, 3, 4, 5),
+                                           Arrays.asList(), Arrays.asList(0, 1, 2, 5),
+                                           Arrays.asList(0, 1, 2, 3, 4, 5)
+                                       );
+
+        for (int i = 0; i < testSegs.size(); i++) {
+            Segment s = testSegs.get(i);
             res = t.intersect(s);
-            Set<Integer> s1 = new HashSet<Integer>(eit.next());
-            Set<Integer> s2 = new HashSet<Integer>(res.stream().mapToInt(x->x.pid).boxed().collect(java.util.stream.Collectors.toList()));
-            System.out.println("Got: " + s2 + " Want: " + s1);
-            assert s1.equals(s2);
+            Set<Integer> want = new HashSet<Integer>(expected2.get(i));
+            Set<Integer> got = new HashSet<Integer>(res.stream().mapToInt(x->x.pid).boxed().collect(java.util.stream.Collectors.toList()));
+            System.out.println("Intersect " + s + "\tGot: " + got + " Want: " + want);
+            assert want.equals(got);
         }
     }
 }
