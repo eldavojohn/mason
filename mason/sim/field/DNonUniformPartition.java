@@ -15,12 +15,15 @@ public class DNonUniformPartition extends DPartition {
 	public final double epsilon = 0.0001;
 
 	public DNonUniformPartition(int size[]) {
-		// TODO Not supporting toroidal for now
-		super(size, false);
+		this(size, false);
+	}
+
+	public DNonUniformPartition(int size[], boolean isToroidal) {
+		super(size, isToroidal);
 
 		this.st = new AugmentedSegmentTree[nd];
 		for (int i = 0; i < nd; i++)
-			this.st[i] = new AugmentedSegmentTree();
+			this.st[i] = new AugmentedSegmentTree(isToroidal);
 
 		ps = new HashMap<Integer, IntHyperRect>();
 
@@ -41,7 +44,7 @@ public class DNonUniformPartition extends DPartition {
 		// Get sorted neighbor ids list
 		int[] ns = Arrays.stream(getNeighborIds())
 		           .mapToObj(x -> ps.get(x)).sorted()
-			       .mapToInt(x -> x.id).toArray();
+		           .mapToInt(x -> x.id).toArray();
 
 		// Create a unweighted & undirected graph
 		try {
@@ -139,9 +142,8 @@ public class DNonUniformPartition extends DPartition {
 	public int toPartitionId(final double[] c) {
 		Set<Integer> ret = st[0].toPartitions(c[0]);
 
-		for (int i = 1; i < nd; i++) {
+		for (int i = 1; i < nd; i++)
 			ret.retainAll(st[i].toPartitions(c[i]));
-		}
 
 		if (ret.size() != 1)
 			throw new IllegalArgumentException("Point " + Arrays.toString(c) + " belongs to multiple pids or no pid: " + ret);
@@ -210,9 +212,103 @@ public class DNonUniformPartition extends DPartition {
 		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
 	}
 
-	public static void main(String args[]) throws MPIException {
+	public static void main(String args[]) throws MPIException, InterruptedException {
 		MPI.Init(args);
 
+		testNonUniform();
+
+		testNonUniformToroidal();
+
+		// // Second test for initUniformly()
+		// DNonUniformPartition p2 = new DNonUniformPartition(new int[] {12, 24});
+		// assert np == 12;
+
+		// p2.initUniformly();
+
+		// System.out.println("PID " + p2.pid + " Neighbors: " + Arrays.toString(p2.getNeighborIds()));
+
+		MPI.Finalize();
+	}
+
+	public static void testNonUniformToroidal() throws MPIException, InterruptedException {
+		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20}, true);
+		assert p.np == 5;
+
+		/**
+		* Create the following partition scheme
+		*
+		*	 0		8		12			20
+		*	0 ---------------------------
+		*	  |		0		|			|
+		*	3 |-------------|	  1		|
+		*	  |		|	4	|			|
+		*	7 |	 3	|-------------------|
+		*	  |		|		 2			|
+		*  10 ---------------------------
+		*
+		**/
+
+		p.insertPartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {3, 12})));
+		p.insertPartition(new IntHyperRect(1, new IntPoint(new int[] {0, 12}), new IntPoint(new int[] {7, 20})));
+		p.insertPartition(new IntHyperRect(2, new IntPoint(new int[] {7, 8}), new IntPoint(new int[] {10, 20})));
+		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {3, 0}), new IntPoint(new int[] {10, 8})));
+		p.insertPartition(new IntHyperRect(4, new IntPoint(new int[] {3, 8}), new IntPoint(new int[] {7, 12})));
+
+		double[] c, c1, c2;
+
+		if (p.pid == 0) {
+
+			c = new double[] {0, 0};
+			System.out.println("Point " + Arrays.toString(c) + " belongs to pid " + p.toPartitionId(c));
+
+			c = new double[] { -1, -1};
+			System.out.println("Point " + Arrays.toString(c) + " belongs to pid " + p.toPartitionId(c));
+
+			c = new double[] {14, 21};
+			System.out.println("Point " + Arrays.toString(c) + " belongs to pid " + p.toPartitionId(c));
+
+			c = new double[] {7, 24};
+			System.out.println("Point " + Arrays.toString(c) + " belongs to pid " + p.toPartitionId(c));
+
+			c = new double[] {27, 45};
+			System.out.println("Point " + Arrays.toString(c) + " belongs to pid " + p.toPartitionId(c));
+
+			c1 = new double[] {7, 8};
+			c2 = new double[] {11, 20};
+			System.out.println("Rectangle <" + Arrays.toString(c1) + ", " + Arrays.toString(c2) + "> covers pids: " +
+			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
+
+			c1 = new double[] {0, -1};
+			c2 = new double[] {3, 12};
+			System.out.println("Rectangle <" + Arrays.toString(c1) + ", " + Arrays.toString(c2) + "> covers pids: " +
+			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
+
+			c1 = new double[] { -1, -1};
+			c2 = new double[] {4, 13};
+			System.out.println("Rectangle <" + Arrays.toString(c1) + ", " + Arrays.toString(c2) + "> covers pids: " +
+			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
+
+			c1 = new double[] { -1, -2};
+			c2 = new double[] {11, 2};
+			System.out.println("Rectangle <" + Arrays.toString(c1) + ", " + Arrays.toString(c2) + "> covers pids: " +
+			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
+
+			c1 = new double[] {-1, -2};
+			c2 = new double[] {2, 22};
+			System.out.println("Rectangle <" + Arrays.toString(c1) + ", " + Arrays.toString(c2) + "> covers pids: " +
+			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
+		}
+
+		MPI.COMM_WORLD.barrier();
+
+		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
+		System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
+
+		MPI.COMM_WORLD.barrier();
+	}
+
+	public static void testNonUniform() throws MPIException {
 		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20});
 		assert p.np == 5;
 
@@ -280,6 +376,8 @@ public class DNonUniformPartition extends DPartition {
 			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
 		}
 
+		MPI.COMM_WORLD.barrier();
+
 		System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
 		System.out.println("PID " + p.pid + " Neighbors in order: " + Arrays.toString(Arrays.stream(p.getNeighborIdsInOrder()).flatMapToInt(Arrays::stream).toArray()));
 
@@ -292,19 +390,15 @@ public class DNonUniformPartition extends DPartition {
 
 		System.out.println("PID " + p.pid + " MPI Neighbors: " + Arrays.toString(ns));
 
-		// // Second test for initUniformly()
-		// DNonUniformPartition p2 = new DNonUniformPartition(new int[] {12, 24});
-		// assert np == 12;
-
-		// p2.initUniformly();
-
-		// System.out.println("PID " + p2.pid + " Neighbors: " + Arrays.toString(p2.getNeighborIds()));
-
-		MPI.Finalize();
+		MPI.COMM_WORLD.barrier();
 	}
 }
 
 class AugmentedSegmentTree extends SegmentTree {
+
+	public AugmentedSegmentTree(boolean isToroidal) {
+		super(isToroidal);
+	}
 
 	public Set<Integer> toPartitions(int target) {
 		List<Segment> res = contains((double)target);
