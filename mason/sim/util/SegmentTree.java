@@ -5,13 +5,13 @@ import java.util.*;
 public class SegmentTree {
 
     public Segment root;
-    public boolean isToroidal;
+    public final boolean isToroidal;
 
     public SegmentTree() {
-        this.isToroidal = false;
+        this(false);
     }
 
-    public SegmentTree(boolean isToroidal) {
+    public SegmentTree(final boolean isToroidal) {
         this.isToroidal = isToroidal;
     }
 
@@ -135,8 +135,8 @@ public class SegmentTree {
      *  ----------------------------------------------------------------------------------------------------------------
     **/
     private List<Segment> generate(Segment orig) {
-        double st = orig.st, ed = orig.ed;
-        double min = root.min, max = root.max, len = max - min;
+        final double st = orig.st, ed = orig.ed;
+        final double min = root.min, max = root.max, len = max - min;
         List<Segment> ret = new ArrayList<Segment>();
 
         if (ed < min){
@@ -165,7 +165,7 @@ public class SegmentTree {
     
     // Convert the value in case of toroidal
     private double conv(final double val) {
-        double len = root.max - root.min;
+        final double len = root.max - root.min;
         if (val < root.min)
             return root.max - (root.min - val) % len;
         else if (val > root.max)
