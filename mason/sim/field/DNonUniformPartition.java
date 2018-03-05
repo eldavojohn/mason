@@ -1,6 +1,7 @@
 package sim.field;
 
 import java.util.*;
+import java.util.stream.IntStream;
 
 import sim.util.*;
 
@@ -62,8 +63,15 @@ public class DNonUniformPartition extends DPartition {
 		// TODO: re-map LPs to Partitions for optimal LP placement
 	}
 
-	public void initUniformly() {
-		int[] dims = new int[nd], psize = new int[nd], coord = new int[nd];
+	// Try to divide the field into np grid-like partitions
+	// dims represents how many processors you want to assign on each dimension
+	// Any zero value in dims means you want the system to decide the best value
+	// null dims means the system will compute the best values on all dimensions
+	public void initUniformly(int[] dims) {
+		int[] psize = new int[nd], coord = new int[nd];
+
+		if (dims == null) 
+			dims = new int[nd];
 
 		// Generate a nd mesh of np processors
 		try {
@@ -74,27 +82,25 @@ public class DNonUniformPartition extends DPartition {
 		}
 
 		for (int i = 0; i < nd; i++)
-			psize[i] = size[i] / dims[i];
+			psize[i] = Math.round((float)size[i] / dims[i]);
 
 		initUniformlyRecursive(coord, 0, dims, psize);
 	}
 
-	private void initUniformlyRecursive(int[] coord, int curr, int[] dims, int psize[]) {
-		if (curr == nd) {
-			int[] ul = new int[nd], br = new int[nd];
-			for (int i = 0; i < nd; i++) {
-				ul[i] = coord[i] * psize[i];
-				br[i] = ul[i] + psize[i];
-			}
+	private void initUniformlyRecursive(int[] currCoord, final int currDim, final int[] dims, final int psize[]) {
+		if (currDim == nd) {
+			int[] ul = IntStream.range(0, nd).map(i -> currCoord[i] * psize[i]).toArray();
+			int[] br = IntStream.range(0, nd).map(i -> currCoord[i] == dims[i] - 1 ? size[i] : ul[i] + psize[i]).toArray();
+
 			insertPartition(new IntHyperRect(
 			                    ps.size(),
 			                    new IntPoint(ul),
 			                    new IntPoint(br)
 			                ));
 		} else
-			for (int i = 0; i < dims[curr]; i++) {
-				coord[curr] = i;
-				initUniformlyRecursive(coord, curr + 1, dims, psize);
+			for (int i = 0; i < dims[currDim]; i++) {
+				currCoord[currDim] = i;
+				initUniformlyRecursive(currCoord, currDim + 1, dims, psize);
 			}
 	}
 
@@ -219,15 +225,18 @@ public class DNonUniformPartition extends DPartition {
 
 		testNonUniformToroidal();
 
-		// // Second test for initUniformly()
-		// DNonUniformPartition p2 = new DNonUniformPartition(new int[] {12, 24});
-		// assert np == 12;
-
-		// p2.initUniformly();
-
-		// System.out.println("PID " + p2.pid + " Neighbors: " + Arrays.toString(p2.getNeighborIds()));
+		// testInitUniformly();
 
 		MPI.Finalize();
+	}
+
+	public static void testInitUniformly() {
+		DNonUniformPartition p2 = new DNonUniformPartition(new int[] {12, 24});
+
+		p2.initUniformly(new int[]{0, 0});
+
+		System.out.println("PID " + p2.pid + " Partition " + p2.getPartition());
+		System.out.println("PID " + p2.pid + " Neighbors: " + Arrays.toString(p2.getNeighborIds()));
 	}
 
 	public static void testNonUniformToroidal() throws MPIException, InterruptedException {

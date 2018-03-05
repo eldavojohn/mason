@@ -81,7 +81,7 @@ public class DDoubleGrid2DNonUniform extends DoubleGrid2D {
 
 		DNonUniformPartition p = new DNonUniformPartition(new int[] {8, 8});
 		assert p.np == 4;
-		p.initUniformly();
+		p.initUniformly(null);
 		p.setMPITopo();
 		DDoubleGrid2DNonUniform f = new DDoubleGrid2DNonUniform(new int[]{2, 2}, p.pid, p);
 		f.sync();
