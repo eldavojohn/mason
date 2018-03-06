@@ -29,6 +29,8 @@ public class DDoubleGrid2DNonUniform extends DoubleGrid2D {
 		Arrays.fill(field, initialValue);
 
 		hf = new HaloField(ps, aoi);
+		
+		this.ps = ps;
 	}
 
 	public final double get(final int x, final int y) {
@@ -63,10 +65,49 @@ public class DDoubleGrid2DNonUniform extends DoubleGrid2D {
 		hf.sync(field);
 	}
 
-	// // TODO
-	// public double[] collect(int dst) throws MPIException {
-		
-	// }
+	// TODO Consider move this into HaloField Class
+	public double[] collect(int dst) throws MPIException {
+		double[] fullField = null;
+		int[] displ = null, count = null;
+		final int[] fieldSize = ps.getFieldSize();
+		final int[] stride = IntStream.range(0, ps.nd).map(dim -> IntStream.range(1, ps.nd - dim).reduce(1, (x, i) -> x * fieldSize[i])).toArray();;
+		byte[] sendbuf = null, recvbuf = null;
+
+		if (ps.pid == dst) {
+			count = new int[ps.np];
+			displ = new int[ps.np];
+			fullField = new double[Arrays.stream(fieldSize).reduce(1, (x, y) -> x * y)];
+		}
+
+		// Everyone pack the data into byte array
+		sendbuf = hf.packPart(field);
+		int sendSize = sendbuf.length;
+
+		// First gather the size of data to be exchanged
+		ps.comm.gather(new int[]{sendSize}, 1, MPI.INT, count, 1, MPI.INT, dst);
+
+		// Dst compute the displacement array and init the recvbuf
+		if (ps.pid == dst) {
+			for(int i = 1; i < ps.np; i++)
+				displ[i] = displ[i - 1] + count[i - 1];
+			recvbuf = new byte[Arrays.stream(count).sum()];
+		}
+
+		// Now gather the actual data
+		ps.comm.gatherv(sendbuf, sendSize, MPI.BYTE, recvbuf, count, displ, MPI.BYTE, dst);
+
+		// Dst unpack the data into fullField
+		if (ps.pid == dst) {
+			for(int i = 0; i < ps.np; i++) {
+				IntHyperRect part = ps.ps.get(i);
+				int idx = IntStream.range(0, ps.nd).map(dim -> part.ul.c[dim] * stride[dim]).sum();
+				Datatype type = hf.getNdArrayDatatype(part.getSize(), MPI.DOUBLE, fieldSize);
+				ps.comm.unpack(recvbuf, displ[i], slice(fullField, idx), 1, type);
+			}
+		}
+
+		return fullField;
+	}
 
 	public static void print2dArray(double[] a, int w, int h) {
 		for (int i = 0; i < w; i++) {
@@ -90,6 +131,12 @@ public class DDoubleGrid2DNonUniform extends DoubleGrid2D {
 		System.out.println("PID " + p.pid + " data: ");
 		print2dArray(f.field, 8, 8);
 		TimeUnit.SECONDS.sleep(p.np - p.pid);
+		
+		MPI.COMM_WORLD.barrier();
+		
+		double[] all = f.collect(0);
+		if(f.ps.pid == 0)
+			print2dArray(all, 8, 8);
 
 		MPI.Finalize();
 	}

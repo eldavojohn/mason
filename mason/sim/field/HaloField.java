@@ -11,7 +11,7 @@ import sim.util.IntHyperRect;
 
 public class HaloField {
 	int nd, numNeighbors, maxSendSize;
-	int[] fieldSize, haloSize, aoi;
+	int[] fieldSize, haloSize, aoi, partSize;
 	IntHyperRect origPart, haloPart, privPart;
 	Neighbor[] neighbors;
 	Comm comm;
@@ -27,6 +27,7 @@ public class HaloField {
 		comm = ps.getCommunicator();
 		fieldSize = ps.getFieldSize();
 		origPart = ps.getPartition();
+		partSize = origPart.getSize();
 
 		// Get the partition representing halo and local area by expanding the original partition by aoi at each dimension
 		haloPart = origPart.resize(aoi);
@@ -116,6 +117,37 @@ public class HaloField {
 			comm.unpack(recvbuf, recvPos[i], slice(field, neighbors[i].recvParam.idx), 1, neighbors[i].recvParam.type);
 	}
 
+	public byte[] packPart(double[] field) throws MPIException {
+		byte[] buf = new byte[comm.packSize(origPart.getArea(), MPI.DOUBLE)];
+		int idx = getFlatIdx(new IntPoint(aoi));
+		Datatype type = getNdArrayDatatype(partSize, MPIBaseType, haloSize);
+
+		int actualSize = comm.pack(slice(field, idx), 1, type, buf, 0);
+
+		// Return the truncated array
+		return Arrays.copyOf(buf, actualSize);
+	}
+
+	// Create Nd subarray MPI datatype
+	public static Datatype getNdArrayDatatype(int[] size, Datatype base, int[] strideSize) {
+		Datatype type = null;
+
+		try {
+			int sizeByte = MPI.COMM_WORLD.packSize(1, base);
+			for (int i = size.length - 1; i >= 0; i--) {
+				type = Datatype.createContiguous(size[i], base);
+				type = Datatype.createResized(type, 0, strideSize[i] * sizeByte);
+				base = type;
+			}
+			type.commit();
+		} catch (MPIException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+
+		return type;
+	}
+
 	// Helper class to organize neighbor-related data structures and methods
 	class Neighbor {
 		int pid;
@@ -130,20 +162,7 @@ public class HaloField {
 		private MPIParam generateMPIParam(IntHyperRect overlap) {
 			int[] size = overlap.getSize();
 			int idx = getFlatIdx(toLocalPoint(overlap.ul));
-
-			Datatype type = null, base = MPIBaseType;
-			try {
-				int sizeByte = MPI.COMM_WORLD.packSize(1, base);
-				for (int i = nd - 1; i >= 0; i--) {
-					type = Datatype.createContiguous(size[i], base);
-					type = Datatype.createResized(type, 0, haloSize[i] * sizeByte);
-					base = type;
-				}
-				type.commit();
-			} catch (MPIException e) {
-				e.printStackTrace();
-				System.exit(-1);
-			}
+			Datatype type = getNdArrayDatatype(size, MPIBaseType, haloSize);
 
 			return new MPIParam(type, idx, size);
 		}
