@@ -31,6 +31,13 @@ public class HaloField {
 		if (ps.isToroidal())
 			throw new UnsupportedOperationException("Toroidal is not supported yet!");
 
+		reload(initVal);
+	}
+
+	public void reload(double initVal) {
+		IntHyperRect prevHaloPart = haloPart;
+		double[] prevField = field;
+
 		nd = ps.getNumDim();
 		comm = ps.getCommunicator();
 		fieldSize = ps.getFieldSize();
@@ -41,9 +48,38 @@ public class HaloField {
 		haloPart = origPart.resize(aoi);
 		haloSize = haloPart.getSize();
 
-		// Init local storage
+		// Init local storage if field is null
+		// otherwise re-arrange the data based on the old and new partiton
 		field = new double[haloPart.getArea()];
 		Arrays.fill(field, initVal);
+		if (prevField != null && haloPart.isIntersect(prevHaloPart)) {
+			IntHyperRect overlap = haloPart.getIntersection(prevHaloPart);
+
+			Datatype from_dt = getNdArrayDatatype(overlap.getSize(), MPIBaseType, prevHaloPart.getSize());
+			Datatype to_dt = getNdArrayDatatype(overlap.getSize(), MPIBaseType, haloPart.getSize());
+			
+			int from_idx = getFlatIdx(
+			                   overlap.ul.rshift(prevHaloPart.ul.c),
+			                   prevHaloPart.getSize()
+			               );
+			int to_idx = getFlatIdx(
+			                 overlap.ul.rshift(haloPart.ul.c),
+			                 haloPart.getSize()
+			             );
+
+			try {
+				byte[] buf = new byte[comm.packSize(overlap.getArea(), MPIBaseType)];
+
+				comm.pack(slice(prevField, from_idx), 1, from_dt, buf, 0);
+				comm.unpack(buf, 0, slice(field, to_idx), 1, to_dt);
+
+				from_dt.free();
+				to_dt.free();
+			} catch (MPIException e) {
+				e.printStackTrace();
+				System.exit(-1);
+			}
+		}
 
 		// Get the partition representing private area by shrinking the original partition by aoi at each dimension
 		privPart = origPart.resize(Arrays.stream(aoi).map(x -> -x).toArray());
@@ -119,13 +155,18 @@ public class HaloField {
 	// Get the corresponding index in the local flatted 1-d array of the given point
 	// The given point is expected to be a local one
 	private int getFlatIdxLocal(IntPoint p) {
-		return IntStream.range(0, nd).map(i -> p.c[i] * stride(i, haloSize)).sum();
+		return getFlatIdx(p, haloSize);
 	}
 
 	// Get the corresponding index in the global flatted 1-d array of the given point
 	// The given point is expected to be a global one
 	private int getFlatIdxGlobal(IntPoint p) {
-		return IntStream.range(0, nd).map(i -> p.c[i] * stride(i, fieldSize)).sum();
+		return getFlatIdx(p, fieldSize);
+	}
+
+	// Get the flatted index with respect to the given size
+	private int getFlatIdx(IntPoint p, int[] wrtSize) {
+		return IntStream.range(0, nd).map(i -> p.c[i] * stride(i, wrtSize)).sum();
 	}
 
 	private int stride(int dim, final int[] size) {
@@ -326,6 +367,46 @@ public class HaloField {
 		System.out.println("PID " + p.pid + " data: ");
 		int w = p.getPartition().getSize()[0] + 2 * aoi[0];
 		int h = p.getPartition().getSize()[1] + 2 * aoi[1];
+		for (int i = 0; i < w; i++) {
+			for (int j = 0; j < h; j++)
+				System.out.printf("%.1f\t", hf.field[i * h + j]);
+			System.out.printf("\n");
+		}
+		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
+
+		MPI.COMM_WORLD.barrier();
+
+		if (p.pid == 0)
+			System.out.println("\nTest changing the partition and reload the field...\n");
+		/**
+		* Change the partition to the following
+		*
+		*	 0		  5		  8			10
+		*	0 ---------------------------
+		*	  |				->|			|
+		*	  |		P0	    ->|	  P1	|
+		*	5 |-------------------------|
+		*	  |		->|					|
+		*	  |	P2	->|		 P3			|
+		*  10 ---------------------------
+		*
+		**/
+		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {5, 8})));
+		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 8}), new IntPoint(new int[] {5, 10})));
+		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 5})));
+		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 5}), new IntPoint(new int[] {10, 10})));
+		p.setMPITopo();
+
+		hf.reload(-1);
+		hf.sync();
+
+		MPI.COMM_WORLD.barrier();
+
+		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
+
+		System.out.println("PID " + p.pid + " data: ");
+		w = p.getPartition().getSize()[0] + 2 * aoi[0];
+		h = p.getPartition().getSize()[1] + 2 * aoi[1];
 		for (int i = 0; i < w; i++) {
 			for (int j = 0; j < h; j++)
 				System.out.printf("%.1f\t", hf.field[i * h + j]);
