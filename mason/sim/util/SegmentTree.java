@@ -7,12 +7,16 @@ public class SegmentTree {
     public Segment root;
     public final boolean isToroidal;
 
+    Map<Integer, Segment> m;
+    int nextId;
+
     public SegmentTree() {
         this(false);
     }
 
     public SegmentTree(final boolean isToroidal) {
         this.isToroidal = isToroidal;
+        this.m = new HashMap<Integer, Segment>();
     }
 
     public boolean all() {
@@ -21,15 +25,23 @@ public class SegmentTree {
         return root.all();
     }
 
-    public void insert(double st, double ed) {
-        this.insert(new Segment(st, ed));
+    // Allocate and return an id for the inserted segment
+    public int insert(double st, double ed) {
+        this.insert(new Segment(st, ed, nextId));
+        return ++nextId;
     }
 
     public void insert(Segment target) {
+        if (m.containsKey(target.pid))
+            throw new IllegalArgumentException("The segment id " + target.pid + " to be inserted already exists");
+
         if (root == null)
             root = target;
         else
             insert(root, target);
+
+        m.put(target.pid, target);
+        nextId = nextId > target.pid ? nextId : target.pid + 1;
     }
 
     protected void insert(Segment curr, Segment target) {
@@ -61,6 +73,14 @@ public class SegmentTree {
         }
     }
 
+    public void delete(int id) {
+        if (!m.containsKey(id))
+            throw new IllegalArgumentException("The segment id " + id + " to be removed does not exist");
+
+        delete(m.get(id));
+        m.remove(id);
+    }
+
     public void delete(Segment target) {
         if (target == null)
             return;
@@ -86,16 +106,18 @@ public class SegmentTree {
 
         // Cut the target
         curr.parent = null;
-        if (parent.left == curr)
-            parent.left = null;
-        else if (parent.right == curr)
-            parent.right = null;
+        if (parent != null) {
+            if (parent.left == curr)
+                parent.left = null;
+            else if (parent.right == curr)
+                parent.right = null;
+        }
 
         // Update the min and max values of all the nodes in the tree
         updateMinMax(root);
     }
 
-    // Left rotation 
+    // Left rotation
     // Returns the parent of curr after the rotation
     private Segment rotateLeft(Segment curr) {
         if (curr == null || curr.right == null)
@@ -113,12 +135,12 @@ public class SegmentTree {
         return ret;
     }
 
-    // Right rotation 
+    // Right rotation
     // Returns the parent of curr after the rotation
     private Segment rotateRight(Segment curr) {
         if (curr == null || curr.left == null)
             throw new IllegalArgumentException("Unable to rotate right at node: " + curr);
-        
+
         Segment ret = curr.left;
 
         ret.parent = curr.parent;
@@ -133,6 +155,9 @@ public class SegmentTree {
 
     // Update min max starting from node curr
     private Segment updateMinMax(Segment curr) {
+        if (curr == null)
+            return null;
+
         Segment lr = curr, rr = curr;
 
         // Reset min max values
@@ -379,31 +404,21 @@ public class SegmentTree {
         List<Segment> res;
         SegmentTree t = new SegmentTree();
 
-        Map<Integer, Segment> m = new HashMap<Integer, Segment>();
-        m.put(0, new Segment(4, 10, 0));
-        m.put(1, new Segment(10, 11, 1));
-        m.put(2, new Segment(13, 15, 2));
-        m.put(3, new Segment(1, 7, 3));
-        m.put(4, new Segment(6, 9, 4));
-        m.put(5, new Segment(5, 8, 5));
-        m.put(6, new Segment(8, 12, 6));
-        m.put(7, new Segment(9, 20, 7));
-
-        t.insert(m.get(0));
-        t.insert(m.get(1));
-        t.insert(m.get(2));
-        t.insert(m.get(3));
-        t.insert(m.get(4));
-        t.insert(m.get(5));
-        t.insert(m.get(6));
-        t.insert(m.get(7));
+        t.insert(new Segment(4, 10, 0));
+        t.insert(new Segment(10, 11, 1));
+        t.insert(new Segment(13, 15, 2));
+        t.insert(new Segment(1, 7, 3));
+        t.insert(new Segment(6, 9, 4));
+        t.insert(new Segment(5, 8, 5));
+        t.insert(new Segment(8, 12, 6));
+        t.insert(new Segment(9, 20, 7));
 
         System.out.println("Original: ");
         t.print();
 
         int toRemove = 0;
         System.out.println("After delete " + toRemove + ": ");
-        t.delete(m.get(toRemove));
+        t.delete(toRemove);
         t.print();
     }
 }
