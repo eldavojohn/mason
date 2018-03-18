@@ -6,7 +6,7 @@ public class Segment implements Comparable<Segment> {
 
     public int pid;
     public double st, ed, max, min;
-    public Segment left, right;
+    public Segment left, right, parent;
 
     public Segment(double st, double ed) {
         if (st > ed)
@@ -33,7 +33,11 @@ public class Segment implements Comparable<Segment> {
     }
 
     public String toString() {
-        return "[" + this.st + "-" + this.ed + " , " + this.min + " , " + this.max + " , "+ this.all() + " )";
+        String ppid = "null";
+        if (parent != null)
+            ppid = Integer.toString(parent.pid);
+
+        return "[" + this.st + "-" + this.ed + " , " + this.min + " , " + this.max + " , " + ppid + ", " +this.all() + " )";
     }
 
     @Override
