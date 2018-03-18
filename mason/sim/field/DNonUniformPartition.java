@@ -15,6 +15,8 @@ public class DNonUniformPartition extends DPartition {
 
 	public final double epsilon = 0.0001;
 
+	public boolean isMPIInitialzed = false;
+
 	public DNonUniformPartition(int size[]) {
 		this(size, false);
 	}
@@ -60,7 +62,14 @@ public class DNonUniformPartition extends DPartition {
 			System.exit(-1);
 		}
 
+		isMPIInitialzed = true;
+
 		// TODO: re-map LPs to Partitions for optimal LP placement
+	}
+
+	private void invalidateMPITopo() {
+		isMPIInitialzed = false;
+		comm = null;
 	}
 
 	// Try to divide the field into np grid-like partitions
@@ -107,20 +116,32 @@ public class DNonUniformPartition extends DPartition {
 	// Insert a partition into the DNonUniformPartition scheme
 	public void insertPartition(IntHyperRect p) {
 		if (ps.containsKey(p.id))
-			throw new IllegalArgumentException("The partition id to be inserted already exists");
+			throw new IllegalArgumentException("The partition id " + p.id + " to be inserted already exists");
 
 		for (int i = 0; i < nd; i++)
 			st[i].insert(p.getSegment(i));
 
 		ps.put(p.id, p);
+
+		invalidateMPITopo();
 	}
 
 	public void removePartition(final int pid) {
-		// TODO
+		if (!ps.containsKey(pid))
+			throw new IllegalArgumentException("The partition id " + pid + " to be removed does not exist");
+
+		IntHyperRect p = ps.get(pid);
+		for (int i = 0; i < nd; i++)
+			st[i].delete(pid);
+
+		ps.remove(pid);
+
+		invalidateMPITopo();
 	}
 
-	public void updatePartition(final double[] ul, final double[] br, final int pid) {
-		// TODO
+	public void updatePartition(IntHyperRect p) {
+		removePartition(p.id);
+		insertPartition(p);
 	}
 
 	public IntHyperRect getPartition() {
@@ -227,16 +248,45 @@ public class DNonUniformPartition extends DPartition {
 
 		// testInitUniformly();
 
+		testUpdate();
+
 		MPI.Finalize();
 	}
 
+	public static void testUpdate() throws MPIException, InterruptedException {
+		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20});
+		assert p.np == 5;
+
+		p.initUniformly(new int[]{0, 0});
+
+		MPI.COMM_WORLD.barrier();
+		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
+		System.out.println("[Before] PID " + p.pid + " Partition " + p.getPartition());
+		System.out.println("[Before] PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
+		MPI.COMM_WORLD.barrier();
+
+		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {3, 12})));
+		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 12}), new IntPoint(new int[] {7, 20})));
+		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {7, 8}), new IntPoint(new int[] {10, 20})));
+		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {3, 0}), new IntPoint(new int[] {10, 8})));
+		p.updatePartition(new IntHyperRect(4, new IntPoint(new int[] {3, 8}), new IntPoint(new int[] {7, 12})));
+
+		MPI.COMM_WORLD.barrier();
+		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
+		System.out.println("[After] PID " + p.pid + " Partition " + p.getPartition());
+		System.out.println("[After] PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
+		MPI.COMM_WORLD.barrier();
+	}
+
 	public static void testInitUniformly() {
-		DNonUniformPartition p2 = new DNonUniformPartition(new int[] {12, 24});
+		DNonUniformPartition p = new DNonUniformPartition(new int[] {12, 24});
 
-		p2.initUniformly(new int[]{0, 0});
+		p.initUniformly(new int[]{0, 0});
 
-		System.out.println("PID " + p2.pid + " Partition " + p2.getPartition());
-		System.out.println("PID " + p2.pid + " Neighbors: " + Arrays.toString(p2.getNeighborIds()));
+		System.out.println("PID " + p.pid + " Partition " + p.getPartition());
+		System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
 	}
 
 	public static void testNonUniformToroidal() throws MPIException, InterruptedException {
