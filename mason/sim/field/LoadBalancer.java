@@ -20,15 +20,14 @@ public class LoadBalancer {
 
 	// Get all the neighbor ids and then
 	// filter out those who don't align with this partition
-	// TODO filter out toroidal neighbors, i.e. cannot span across the field border
 	private int[][] getAvailNeighborIds() {
 		int[][] ret = new int[p.nd][];
 		IntHyperRect self = p.getPartition();
 
 		for (int d = 0; d < p.nd; d++) {
 			final int fd = d;
-			IntStream s = IntStream.concat(Arrays.stream(p.getNeighborIdsShift(d, 0)),
-			                               Arrays.stream(p.getNeighborIdsShift(d, -1)));
+			IntStream s = IntStream.concat(self.br.c[d] == p.size[d] ? IntStream.empty() : Arrays.stream(p.getNeighborIdsShift(d, 0)),
+			                               self.ul.c[d] == 0 ? IntStream.empty() : Arrays.stream(p.getNeighborIdsShift(d, -1)));
 			ret[d] = s.filter(i -> p.getPartition(i).isAligned(self, fd)).toArray();
 		}
 
@@ -48,14 +47,14 @@ public class LoadBalancer {
 		int[] nonEmpty = IntStream.range(0, p.nd).filter(x -> avail[x].length > 0).toArray();
 		if (nonEmpty == null)
 			return null;
-		for(int x: nonEmpty)
+		for (int x : nonEmpty)
 			System.out.println("Dim " + x + " " + Arrays.toString(avail[x]));
 
 		int dim = nonEmpty[r.nextInt(nonEmpty.length)];
 		int target = avail[dim][r.nextInt(avail[dim].length)];
 		int dir = r.nextBoolean() ? 1 : -1;
 
-		return new int[]{p.pid, target, dim, dir};
+		return new int[] {p.pid, target, dim, dir};
 	}
 
 	public void balance(int step) throws MPIException {
@@ -83,7 +82,7 @@ public class LoadBalancer {
 			IntHyperRect to = p1.ul.c[dim] < p2.ul.c[dim] ? p2 : p1;
 			IntHyperRect newFrom = null, newTo = null;
 
-			// dir =  1 = expand from and shrink to 
+			// dir =  1 = expand from and shrink to
 			// dir = -1 = shrink from and expand to
 			// dir =  0 = no change
 			if (dir == 0)
