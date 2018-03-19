@@ -97,6 +97,16 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 		return new Segment((double)ul.c[dim], (double)br.c[dim], id);
 	}
 
+	// Return whether two hyper rectangles align along the given dimension
+	public boolean isAligned(IntHyperRect that, int dim) {
+		return this.reduceDim(dim).equals(that.reduceDim(dim));
+	}
+
+	// Return whether two hyper rectangles equal (the two vertexs equal)
+	public boolean equals(IntHyperRect that) {
+		return this.ul.equals(that.ul) && this.br.equals(that.br);
+	}
+
 	// Sort the rectangles based on its upper left corner first and then bottom-right corner and then id
 	@Override
 	public int compareTo(IntHyperRect that) {

@@ -84,6 +84,17 @@ public class IntPoint implements Comparable<IntPoint> {
 		return new IntPoint(newc);
 	}
 
+	// Return whether the two IntPoints equals (have same value for all of their components)
+	public boolean equals(IntPoint that) {
+		assertEqualDim(that);
+
+		for (int i = 0; i < nd; i++)
+			if (this.c[i] != that.c[i])
+				return false;
+
+		return true;
+	}
+
 	// // Increase the dimension by inserting the val into the dimth dimension
 	// public IntPoint increaseDim(int dim, int val) {
 	// 	if (dim < 0 || dim > nd)
