@@ -21,9 +21,11 @@ public class HaloField {
 
 	// 1-D array to hold the local partition and its halo area
 	double[] field;
+	double initVal;
 
 	int nd, numNeighbors, maxSendSize;
-	int[] fieldSize, haloSize, partSize, aoi;
+	int[] fieldSize, haloSize, partSize;
+	public int[] aoi;
 	IntHyperRect haloPart, origPart, privPart;
 	Neighbor[] neighbors;
 
@@ -35,14 +37,15 @@ public class HaloField {
 	public HaloField(DPartition ps, int[] aoi, double initVal) {
 		this.ps = ps;
 		this.aoi = aoi;
+		this.initVal = initVal;
 
 		if (ps.isToroidal())
 			throw new UnsupportedOperationException("Toroidal is not supported yet!");
 
-		reload(initVal);
+		reload();
 	}
 
-	public void reload(double initVal) {
+	public void reload() {
 		IntHyperRect prevHaloPart = haloPart;
 		double[] prevField = field;
 
@@ -407,7 +410,7 @@ public class HaloField {
 		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 5}), new IntPoint(new int[] {10, 10})));
 		p.setMPITopo();
 
-		hf.reload(-1);
+		hf.reload();
 		hf.sync();
 
 		MPI.COMM_WORLD.barrier();
