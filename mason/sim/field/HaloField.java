@@ -9,6 +9,14 @@ import static mpi.MPI.slice;
 import sim.util.IntPoint;
 import sim.util.IntHyperRect;
 
+// TODO refactor HaloField to accept 
+// grid: double, int, object
+// continuous: double, int, object
+
+// TODO remove HaloFieldContinuous and HaloFieldGrid
+// and change all dependencies to this class
+// once the above TODO is done
+
 public class HaloField {
 
 	// 1-D array to hold the local partition and its halo area
@@ -203,6 +211,8 @@ public class HaloField {
 		// Unpack into the field
 		for (int i = 0; i < numNeighbors; i++)
 			comm.unpack(recvbuf, recvPos[i], slice(field, neighbors[i].recvParam.idx), 1, neighbors[i].recvParam.type);
+
+		// TODO Exchange aux data, e.g., runtime data for load balancing
 	}
 
 	private byte[] packPartition() throws MPIException {
