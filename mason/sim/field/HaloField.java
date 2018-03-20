@@ -374,38 +374,25 @@ public class HaloField {
 
 		hf.sync();
 
-		// Try to print in order
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
-
-		System.out.println("PID " + p.pid + " data: ");
-		int w = p.getPartition().getSize()[0] + 2 * aoi[0];
-		int h = p.getPartition().getSize()[1] + 2 * aoi[1];
-		for (int i = 0; i < w; i++) {
-			for (int j = 0; j < h; j++)
-				System.out.printf("%.1f\t", hf.field[i * h + j]);
-			System.out.printf("\n");
-		}
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
-
-		MPI.COMM_WORLD.barrier();
+		printHaloField(hf, p);
 
 		if (p.pid == 0)
-			System.out.println("\nTest changing the partition and reload the field...\n");
+			System.out.println("\nTest Repartitioning #1...\n");
 		/**
 		* Change the partition to the following
 		*
-		*	 0		  5		  8			10
+		*	 0		   5 6	 			10
 		*	0 ---------------------------
-		*	  |				->|			|
-		*	  |		P0	    ->|	  P1	|
+		*	  |			 | <-			|
+		*	  |		P0	 | <- 	 P1		|
 		*	5 |-------------------------|
-		*	  |		->|					|
-		*	  |	P2	->|		 P3			|
+		*	  |		 ->|				|
+		*	  |	P2	 ->|		 P3		|
 		*  10 ---------------------------
 		*
 		**/
-		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {5, 8})));
-		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 8}), new IntPoint(new int[] {5, 10})));
+		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {5, 6})));
+		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 6}), new IntPoint(new int[] {5, 10})));
 		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 5})));
 		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 5}), new IntPoint(new int[] {10, 10})));
 		p.setMPITopo();
@@ -413,20 +400,82 @@ public class HaloField {
 		hf.reload();
 		hf.sync();
 
+		printHaloField(hf, p);
+
+		if (p.pid == 0)
+			System.out.println("\nTest Repartitioning #2...\n");
+		/**
+		* Change the partition to the following
+		*
+		*	 0		     6	 			10
+		*	0 ---------------------------
+		*	  |			 | 				|
+		*	  |		P0	 | 	 	 P1		|
+		*	5 |-------------------------|
+		*	  |		  -> |				|
+		*	  |	P2	  -> |		 P3		|
+		*  10 ---------------------------
+		*
+		**/
+		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 6})));
+		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 6}), new IntPoint(new int[] {10, 10})));
+		p.setMPITopo();
+
+		hf.reload();
+		hf.sync();
+
+		printHaloField(hf, p);
+
+		if (p.pid == 0)
+			System.out.println("\nTest Repartitioning #3...\n");
+		/**
+		* Change the partition to the following
+		*
+		*	 0		  	 6	 			10
+		*	0 ---------------------------
+		*	  |		P0	 | 				|
+		*	4 |----------| 	 	P1		|
+		*	  |		^^	 |	||			|
+		*	6 |		 	 |--------------|
+		*	  |	P2	 	 |		 P3		|
+		*  10 ---------------------------
+		*
+		**/
+		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {4, 6})));
+		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 6}), new IntPoint(new int[] {6, 10})));
+		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {4, 0}), new IntPoint(new int[] {10, 6})));
+		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {6, 6}), new IntPoint(new int[] {10, 10})));
+		p.setMPITopo();
+
+		hf.reload();
+		hf.sync();
+
+		printHaloField(hf, p);
+
+		MPI.Finalize();
+	}
+
+	private static void printHaloField(HaloField hf, DNonUniformPartition p) throws MPIException, InterruptedException {
 		MPI.COMM_WORLD.barrier();
 
 		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
 
 		System.out.println("PID " + p.pid + " data: ");
-		w = p.getPartition().getSize()[0] + 2 * aoi[0];
-		h = p.getPartition().getSize()[1] + 2 * aoi[1];
+		int w = p.getPartition().getSize()[0] + 2 * hf.aoi[0];
+		int h = p.getPartition().getSize()[1] + 2 * hf.aoi[1];
 		for (int i = 0; i < w; i++) {
-			for (int j = 0; j < h; j++)
+			if (i == 1 || i == w - 1)
+				System.out.println("");
+			for (int j = 0; j < h; j++) {
+				if (j == 1 || j == h - 1)
+					System.out.printf("   \t");
 				System.out.printf("%.1f\t", hf.field[i * h + j]);
+			}
 			System.out.printf("\n");
 		}
+		System.out.printf("\n");
 		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
 
-		MPI.Finalize();
+		MPI.COMM_WORLD.barrier();
 	}
 }
