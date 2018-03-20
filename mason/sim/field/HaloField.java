@@ -9,7 +9,7 @@ import static mpi.MPI.slice;
 import sim.util.IntPoint;
 import sim.util.IntHyperRect;
 
-// TODO refactor HaloField to accept 
+// TODO refactor HaloField to accept
 // grid: double, int, object
 // continuous: double, int, object
 
@@ -68,7 +68,7 @@ public class HaloField {
 
 			Datatype from_dt = getNdArrayDatatype(overlap.getSize(), MPIBaseType, prevHaloPart.getSize());
 			Datatype to_dt = getNdArrayDatatype(overlap.getSize(), MPIBaseType, haloPart.getSize());
-			
+
 			int from_idx = getFlatIdx(
 			                   overlap.ul.rshift(prevHaloPart.ul.c),
 			                   prevHaloPart.getSize()

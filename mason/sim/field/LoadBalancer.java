@@ -65,7 +65,7 @@ public class LoadBalancer {
 	}
 
 	public void balance(int step) throws MPIException {
-		// Buffers to hold incoming actions 
+		// Buffers to hold incoming actions
 		int[] actions = new int[p.np * BalanceAction.size];
 
 		// Generate own load balancing action
@@ -78,10 +78,10 @@ public class LoadBalancer {
 		System.out.println(String.format("[%d] %s", p.pid, Arrays.toString(actions)));
 
 		// Everyone commits the changes to their local partition scheme
-		for(BalanceAction a : BalanceAction.toActions(actions))
+		for (BalanceAction a : BalanceAction.toActions(actions))
 			a.applyToPartition(p);
 		p.setMPITopo();
-		
+
 		// Sync HaloField data
 		f.reload();
 		f.sync();
@@ -102,17 +102,17 @@ public class LoadBalancer {
 		hf.sync();
 
 		LoadBalancer lb = new LoadBalancer(p, hf, aoi);
-		lb.printHaloField();	
+		lb.printHaloField();
 		for (int i = 0; i < 5; i++) {
-			lb.balance(i); 
-			lb.printHaloField();	
+			lb.balance(i);
+			lb.printHaloField();
 		}
 
 		MPI.Finalize();
 	}
 
 	private void printHaloField() throws MPIException, InterruptedException {
-				MPI.COMM_WORLD.barrier();
+		MPI.COMM_WORLD.barrier();
 
 		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
 
