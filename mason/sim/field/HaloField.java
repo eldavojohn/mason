@@ -34,6 +34,10 @@ public class HaloField {
 
 	Datatype MPIBaseType = MPI.DOUBLE;
 
+	// TODO refactor the performance measurements into a separate class
+	long prevts;
+	MovingAverage avg;
+
 	public HaloField(DPartition ps, int[] aoi, double initVal) {
 		this.ps = ps;
 		this.aoi = aoi;
@@ -43,6 +47,8 @@ public class HaloField {
 			throw new UnsupportedOperationException("Toroidal is not supported yet!");
 
 		reload();
+
+		prevts = System.nanoTime();
 	}
 
 	public void reload() {
@@ -215,7 +221,16 @@ public class HaloField {
 		for (int i = 0; i < numNeighbors; i++)
 			comm.unpack(recvbuf, recvPos[i], slice(field, neighbors[i].recvParam.idx), 1, neighbors[i].recvParam.type);
 
-		// TODO Exchange aux data, e.g., runtime data for load balancing
+		// Exchange aux data, e.g., runtime data for load balancing
+		long currts = System.nanoTime();
+		double[] avgSendBuf = new double[]{avg.next((double)(currts - prevts))};
+		double[] avgRecvBuf = new double[numNeighbors];
+		
+		comm.neighborAllGather(avgSendBuf, 1, MPI.DOUBLE, avgRecvBuf, numNeighbors, MPI.DOUBLE);
+
+		for (int i = 0; i < numNeighbors; i++)
+			neighbors[i].avgRuntime = avgRecvBuf[i];
+		prevts = currts;
 	}
 
 	private byte[] packPartition() throws MPIException {
@@ -292,6 +307,9 @@ public class HaloField {
 	class Neighbor {
 		int pid;
 		MPIParam sendParam, recvParam;
+
+		// TODO refactor the performance measurements into a separate class
+		double avgRuntime;
 
 		public Neighbor(IntHyperRect neighborPart) {
 			pid = neighborPart.id;
