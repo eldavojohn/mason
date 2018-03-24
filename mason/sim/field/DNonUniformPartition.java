@@ -7,6 +7,8 @@ import sim.util.*;
 
 import mpi.*;
 
+// TODO make dpartition singleton 
+// TODO let other class register callbacks so that they can properly update themselves once partition changes
 public class DNonUniformPartition extends DPartition {
 
 	public AugmentedSegmentTree st[];
