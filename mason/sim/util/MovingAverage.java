@@ -24,6 +24,10 @@ public class MovingAverage {
 		return average;
 	}
 
+	public double average() {
+		return average;
+	}
+
 	public static void main(String args[]) {
 		MovingAverage a = new MovingAverage(4);
 		System.out.printf("1 \t Want %g \t Got %g \n", 10.0, a.next(10));

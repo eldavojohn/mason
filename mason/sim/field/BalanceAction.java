@@ -42,7 +42,7 @@ public class BalanceAction {
 	}
 
 	public void applyToPartition(DNonUniformPartition p) {
-		if (offset == 0)
+		if (offset == 0 || src == dst)
 			return;
 
 		IntHyperRect srcp = p.getPartition(src);
