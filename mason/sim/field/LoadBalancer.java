@@ -1,6 +1,6 @@
 package sim.field;
 
-import java.util.Arrays;
+import java.util.*;
 import java.util.stream.IntStream;
 
 import sim.util.IntHyperRect;
@@ -12,17 +12,21 @@ public class LoadBalancer {
 	DNonUniformPartition p;
 	HaloField f;
 
+	double threshold;
+
 	// Use aoi as the offset to adjust partitions
 	int[] aoi;
 
-	public LoadBalancer(DNonUniformPartition p, HaloField f, int[] aoi) {
+	public LoadBalancer(DNonUniformPartition p, HaloField f, int[] aoi, double threshold) {
 		this.p = p;
 		this.f = f;
 		this.aoi = aoi;
+		this.threshold = threshold;
 	}
 
 	// Get all the neighbor ids and then
 	// filter out those who don't align with this partition
+	// Return the pids grouped by the dimension
 	private int[][] getAvailNeighborIds() {
 		int[][] ret = new int[p.nd][];
 		IntHyperRect self = p.getPartition();
@@ -40,6 +44,32 @@ public class LoadBalancer {
 	// TODO use graph coloring to allow multiple nodes to perform balancing at the same time
 	private boolean shouldBalance(int step) {
 		return step % p.np == p.pid ;
+	}
+
+	private BalanceAction getAction() {
+		HashMap<Integer, Double> m = f.getRuntimes();
+		int[][] avail = getAvailNeighborIds();
+
+		int dim = 0, myPid = p.getPid(), target = myPid, offset = 0;
+		double myRt = m.get(myPid), maxDelta = 0;
+
+		for ( int d = 0; d < p.nd; d++) {
+			for (int t : avail[d]) {
+				double delta = myRt - m.get(t);
+				if (Math.abs(delta) > maxDelta) {
+					maxDelta = Math.abs(delta);
+					dim = d;
+					target = t;
+					offset = delta > 0 ? -1 : 1;
+				}
+			}
+		}
+
+		// do not balance if the delta is too small
+		if (maxDelta < threshold)
+			offset = 0;
+
+		return new BalanceAction(myPid, target, dim, offset * aoi[dim]);
 	}
 
 	// Now it is just randomly choosing targets
@@ -101,7 +131,7 @@ public class LoadBalancer {
 		HaloField hf = new HaloField(p, aoi, p.pid);
 		hf.sync();
 
-		LoadBalancer lb = new LoadBalancer(p, hf, aoi);
+		LoadBalancer lb = new LoadBalancer(p, hf, aoi, 1000);
 		lb.printHaloField();
 		for (int i = 0; i < 5; i++) {
 			lb.balance(i);
