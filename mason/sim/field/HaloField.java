@@ -1,6 +1,7 @@
 package sim.field;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.stream.IntStream;
 
 import mpi.*;
@@ -8,6 +9,7 @@ import static mpi.MPI.slice;
 
 import sim.util.IntPoint;
 import sim.util.IntHyperRect;
+import sim.util.MovingAverage;
 
 // TODO refactor HaloField to accept
 // grid: double, int, object
@@ -231,6 +233,16 @@ public class HaloField {
 		for (int i = 0; i < numNeighbors; i++)
 			neighbors[i].avgRuntime = avgRecvBuf[i];
 		prevts = currts;
+	}
+
+	// TODO refactor the performance measurements into a separate class
+	public HashMap<Integer, Double> getRuntimes() {
+		HashMap<Integer, Double> ret = new HashMap<Integer, Double>();
+		
+		ret.put(ps.getPid(), avg.average());
+		Arrays.stream(neighbors).forEach(x -> ret.put(x.pid, x.avgRuntime));
+
+		return ret;
 	}
 
 	private byte[] packPartition() throws MPIException {
