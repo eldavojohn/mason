@@ -198,8 +198,8 @@ public class DNonUniformPartition extends DPartition {
 		return ret;
 	}
 
-	public int[] getNeighborIds() {
-		IntHyperRect rect = getPartition();
+	public int[] getNeighborIds(int id) {
+		IntHyperRect rect = getPartition(id);
 
 		// TODO Better way?
 		// Expanded all dimensions by epsilon
@@ -208,7 +208,11 @@ public class DNonUniformPartition extends DPartition {
 
 		// Remove self
 		return coveredPartitionIds(exp_ul, exp_br).stream()
-		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
+		       .filter(i -> i != id).mapToInt(i -> i).toArray();
+	}
+
+	public int[] getNeighborIds() {
+		return getNeighborIds(pid);
 	}
 
 	// Get neighbor ids on each dimension (backward first, then forward)
