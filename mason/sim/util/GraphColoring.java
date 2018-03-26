@@ -10,7 +10,7 @@ import sim.field.DNonUniformPartition;
 
 public class GraphColoring {
 	DNonUniformPartition p;
-	public int myColor;
+	public int myColor, numColors;
 
 	public GraphColoring(DNonUniformPartition p) {
 		this.p = p;
@@ -19,6 +19,7 @@ public class GraphColoring {
 	public void color() {
 		int[] c = greedyColor();
 		this.myColor = c[p.getPid()];
+		this.numColors = Arrays.stream(c).boxed().collect(Collectors.toSet()).size();
 	}
 
 	public int[] greedyColor() {
@@ -58,7 +59,7 @@ public class GraphColoring {
 
 		gc.color();
 
-		System.out.println(String.format("[%d] %d", p.pid, gc.myColor));
+		System.out.println(String.format("[%d][%d] %d", p.pid, gc.numColors, gc.myColor));
 
 		MPI.Finalize();
 	}
