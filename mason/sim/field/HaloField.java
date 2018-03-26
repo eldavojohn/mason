@@ -51,6 +51,7 @@ public class HaloField {
 		reload();
 
 		prevts = System.nanoTime();
+		avg = new MovingAverage(10);
 	}
 
 	public void reload() {
@@ -228,7 +229,7 @@ public class HaloField {
 		double[] avgSendBuf = new double[]{avg.next((double)(currts - prevts))};
 		double[] avgRecvBuf = new double[numNeighbors];
 		
-		comm.neighborAllGather(avgSendBuf, 1, MPI.DOUBLE, avgRecvBuf, numNeighbors, MPI.DOUBLE);
+		comm.neighborAllGather(avgSendBuf, 1, MPI.DOUBLE, avgRecvBuf, 1, MPI.DOUBLE);
 
 		for (int i = 0; i < numNeighbors; i++)
 			neighbors[i].avgRuntime = avgRecvBuf[i];
