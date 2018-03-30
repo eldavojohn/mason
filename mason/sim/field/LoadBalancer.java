@@ -20,6 +20,8 @@ public class LoadBalancer {
 
 	// Use aoi as the offset to adjust partitions
 	int[] aoi;
+	
+	public int count;
 
 	public LoadBalancer(DNonUniformPartition p, HaloField f, int[] aoi, double threshold) {
 		this.p = p;
@@ -77,6 +79,9 @@ public class LoadBalancer {
 		// do not balance if the delta is too small
 		if (maxDelta < threshold)
 			offset = 0;
+		
+		if (offset != 0 && myPid != target)
+			count += 1;
 
 		return new BalanceAction(myPid, target, dim, offset * aoi[dim]);
 	}
