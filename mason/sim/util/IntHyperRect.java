@@ -1,6 +1,7 @@
 package sim.util;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.stream.IntStream;
 
 public class IntHyperRect implements Comparable<IntHyperRect> {
@@ -17,7 +18,7 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 
 		for (int i = 0; i < nd; i++)
 			if (br.c[i] < ul.c[i])
-				throw new IllegalArgumentException("All p2's components should be greater than or equal to p1's corresponding one");
+				throw new IllegalArgumentException("All br's components " + Arrays.toString(br.c) + " should be greater than or equal to ul's " + Arrays.toString(ul.c));
 
 		this.ul = ul;
 		this.br = br;
@@ -40,6 +41,12 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 		return IntStream.range(0, p.nd).allMatch(i -> ul.c[i] <= p.c[i] && p.c[i] < br.c[i]);
 	}
 
+	// Return whether the given rect is inside this rectangle
+	public boolean contains(IntHyperRect that) {
+		ul.assertEqualDim(that.ul);
+		return IntStream.range(0, nd).allMatch(i -> this.ul.c[i] <= that.ul.c[i] && this.br.c[i] >= that.br.c[i]);
+	}
+
 	// Return whether the given rect intersects with self
 	public boolean isIntersect(IntHyperRect that) {
 		ul.assertEqualDim(that.ul);
@@ -57,7 +64,7 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 		return new IntHyperRect(-1, new IntPoint(c1), new IntPoint(c2));
 	}
 
-	// Symmetric resize 
+	// Symmetric resize
 	public IntHyperRect resize(int dim, int val) {
 		return new IntHyperRect(id, ul.shift(dim, -val), br.shift(dim, val));
 	}
@@ -89,6 +96,21 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 	// Move the rect by the given offsets
 	public IntHyperRect shift(int[] offsets) {
 		return new IntHyperRect(id, ul.shift(offsets), br.shift(offsets));
+	}
+
+	// Get the upper left and bottom right points
+	public IntPoint[] getVertices() {
+		return new IntPoint[] {this.ul, this.br};
+	}
+
+	// Get all the vertices in order
+	public IntPoint[] getAllVertices() {
+		return IntStream.range(0, 1 << nd)
+		       .mapToObj(k -> new IntPoint(
+		                     IntStream.range(0, nd)
+		                     .map(i -> ((k >> i) & 1) == 1 ? this.ul.c[i] : this.br.c[i])
+		                     .toArray()))
+		       .toArray(size -> new IntPoint[size]);
 	}
 
 	// Return the segment of the hyper rectangle on the given dimension
@@ -137,6 +159,67 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 	// 	       .toArray();
 	// }
 
+	// Split the rect into multiple rectangles based on the given array of points
+	public ArrayList<IntHyperRect> split(IntPoint[] ps) {
+		if (!Arrays.stream(ps).allMatch(p -> this.contains(p)))
+			throw new IllegalArgumentException("Given points must be inside the rectangle");
+
+		ArrayList<IntHyperRect> ret = new ArrayList<IntHyperRect>();
+		final int numDelims = ps.length + 2;
+		final int numRects = (int)Math.pow(numDelims - 1, nd);
+		int[][] delims = new int[nd][numDelims];
+
+		for (int i = 0; i < nd; i++) {
+			delims[i][0] = this.ul.c[i];
+			delims[i][1] = this.br.c[i];
+
+			for (int j = 2; j < numDelims; j++)
+				delims[i][j] = ps[j - 2].c[i];
+
+			Arrays.sort(delims[i]);
+		}
+
+		for (int k = 0; k < numRects; k++) {
+			boolean nonEmpty = true;
+			int[] ul = new int[nd], br = new int[nd];
+
+			for (int i = 0; i < nd; i++) {
+				int stride = (int)Math.pow(numDelims - 1, nd - i - 1);
+				int idx = k / stride % (numDelims - 1);
+				ul[i] = delims[i][idx];
+				br[i] = delims[i][idx + 1];
+				if (ul[i] == br[i]) {
+					nonEmpty = false;
+					break;
+				}
+			}
+
+			if (nonEmpty)
+				ret.add(new IntHyperRect(id, new IntPoint(ul), new IntPoint(br)));
+		}
+
+		return ret;
+	}
+
+	// Convert the rect to rects under a toroidal field represented by bound
+	// assuming the exceeding portion is small, i.e., within the (1 x size) of the field
+	public ArrayList<IntHyperRect> toToroidal(IntHyperRect bound) {
+		ArrayList<IntHyperRect> ret = new ArrayList<IntHyperRect>();
+		int[] size = bound.getSize();
+
+		for (IntHyperRect rect : this.split(this.getIntersection(bound).getVertices())) {
+			int[] offsets = new int[nd];
+			for (int i = 0; i < nd; i++)
+				if (rect.br.c[i] > bound.br.c[i])
+					offsets[i] = -size[i];
+				else if (rect.ul.c[i] < bound.ul.c[i])
+					offsets[i] = size[i];
+			ret.add(rect.shift(offsets));
+		}
+
+		return ret;
+	}
+
 	public static void main(String[] args) {
 		IntPoint p1 = new IntPoint(new int[] {1, 1});
 		IntPoint p2 = new IntPoint(new int[] {0, 3});
@@ -151,5 +234,20 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 		IntHyperRect r3 = new IntHyperRect(1, p5, p4);
 
 		System.out.println(r1.isIntersect(r3));
+
+		System.out.println(r1.contains(r2));
+		System.out.println(r1.contains(r1.getIntersection(r2)));
+
+		for (IntPoint p : r1.getAllVertices())
+			System.out.println("vertices: " + p);
+
+		IntPoint pp1 = new IntPoint(new int[] {0, 1});
+		IntPoint pp2 = new IntPoint(new int[] {5, 0});
+		IntPoint pp3 = new IntPoint(new int[] {10, 11});
+		IntPoint pp4 = new IntPoint(new int[] {12, 12});
+		IntHyperRect rr1 = new IntHyperRect(0, pp1, pp3);
+		IntHyperRect rr2 = new IntHyperRect(1, pp2, pp4);
+		for (IntHyperRect r : rr2.toToroidal(rr1))
+			System.out.println("toroidal: " + r);
 	}
 }
