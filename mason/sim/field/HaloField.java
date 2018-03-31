@@ -1,6 +1,8 @@
 package sim.field;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.stream.IntStream;
 
@@ -44,9 +46,6 @@ public class HaloField {
 		this.ps = ps;
 		this.aoi = aoi;
 		this.initVal = initVal;
-
-		if (ps.isToroidal())
-			throw new UnsupportedOperationException("Toroidal is not supported yet!");
 
 		reload();
 
@@ -110,9 +109,9 @@ public class HaloField {
 		            .toArray(size -> new Neighbor[size]);
 		numNeighbors = neighbors.length;
 
-		// Get the max size for one exchange, which is the area of the halo area
+		// Get the max size for one exchange, which is the area of the halo area x 2 (possible overlap)
 		try {
-			maxSendSize = comm.packSize(haloPart.getArea() - origPart.getArea(), MPIBaseType);
+			maxSendSize = comm.packSize((haloPart.getArea() - origPart.getArea()) * 2, MPIBaseType);
 		} catch (MPIException e) {
 			e.printStackTrace();
 			System.exit(-1);
@@ -226,9 +225,9 @@ public class HaloField {
 
 		// Exchange aux data, e.g., runtime data for load balancing
 		long currts = System.nanoTime();
-		double[] avgSendBuf = new double[]{avg.next((double)(currts - prevts))};
+		double[] avgSendBuf = new double[] {avg.next((double)(currts - prevts))};
 		double[] avgRecvBuf = new double[numNeighbors];
-		
+
 		comm.neighborAllGather(avgSendBuf, 1, MPI.DOUBLE, avgRecvBuf, 1, MPI.DOUBLE);
 
 		for (int i = 0; i < numNeighbors; i++)
@@ -239,7 +238,7 @@ public class HaloField {
 	// TODO refactor the performance measurements into a separate class
 	public HashMap<Integer, Double> getRuntimes() {
 		HashMap<Integer, Double> ret = new HashMap<Integer, Double>();
-		
+
 		ret.put(ps.getPid(), avg.average());
 		Arrays.stream(neighbors).forEach(x -> ret.put(x.pid, x.avgRuntime));
 
@@ -326,8 +325,65 @@ public class HaloField {
 
 		public Neighbor(IntHyperRect neighborPart) {
 			pid = neighborPart.id;
-			sendParam = generateMPIParam(origPart.getIntersection(neighborPart.resize(aoi)));
-			recvParam = generateMPIParam(haloPart.getIntersection(neighborPart));
+			ArrayList<IntHyperRect> sendOverlaps = generateOverlaps(origPart, neighborPart.resize(aoi));
+			ArrayList<IntHyperRect> recvOverlaps = generateOverlaps(haloPart, neighborPart);
+
+			assert sendOverlaps.size() == recvOverlaps.size();
+
+			// Sort these overlaps so that they corresponds to each other
+			Collections.sort(sendOverlaps);
+			Collections.sort(recvOverlaps, Collections.reverseOrder());
+
+			sendParam = generateCombinedParam(sendOverlaps);
+			recvParam = generateCombinedParam(recvOverlaps);
+		}
+
+		private MPIParam generateCombinedParam(ArrayList<IntHyperRect> overlaps) {
+			int cnt = overlaps.size();
+
+			// If there is only one overlap, no need to combine
+			if (cnt == 1)
+				return generateMPIParam(overlaps.get(0));
+
+			int[] bl = new int[cnt], displ = new int[cnt];
+			Datatype[] dt = new Datatype[cnt];
+
+			for (int i = 0; i < cnt; i++) {
+				IntHyperRect p = overlaps.get(i);
+				MPIParam mp = generateMPIParam(p);
+				bl[i] = 1;
+				displ[i] = mp.idx * 8; // displacement from the start in bytes
+				dt[i] = mp.type;
+			}
+
+			Datatype combined = null;
+			try {
+				combined = Datatype.createStruct(bl, displ, dt);
+				combined.commit();
+			} catch (MPIException e) {
+				e.printStackTrace();
+				System.exit(-1);
+			}
+
+			return new MPIParam(combined, 0, null);
+		}
+
+		private ArrayList<IntHyperRect> generateOverlaps(IntHyperRect p1, IntHyperRect p2) {
+			ArrayList<IntHyperRect> overlaps = new ArrayList<IntHyperRect>();
+
+			if (ps.isToroidal())
+				// iterate throw all {-1, 0, 1}^nd possible combinations
+				for (int k = 0; k < (int)Math.pow(3, nd); k++) {
+					final int idx = k;
+					int[] offsets = IntStream.range(0, nd).map(i -> (1 - idx / (int)Math.pow(3, nd - i - 1) % 3) * fieldSize[i]).toArray();
+					IntHyperRect sp = p2.shift(offsets);
+					if (p1.isIntersect(sp))
+						overlaps.add(p1.getIntersection(sp));
+				}
+			else
+				overlaps.add(p1.getIntersection(p2));
+
+			return overlaps;
 		}
 
 		private MPIParam generateMPIParam(IntHyperRect overlap) {
@@ -371,7 +427,7 @@ public class HaloField {
 		*
 		**/
 
-		DNonUniformPartition p = new DNonUniformPartition(size);
+		DNonUniformPartition p = new DNonUniformPartition(size, true);
 
 		assert p.np == 4;
 
