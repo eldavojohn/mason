@@ -18,7 +18,7 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 	public List<Object> ghosts;
 	List<Object> futureGhosts;
 
-	public DContinuous2D(final double discretization, double width, double height, double aoi, CommAgent agent, DUniformPartition p, Schedule sched) {
+	public DContinuous2D(final double discretization, double width, double height, double aoi, SelfStreamedAgent agent, DUniformPartition p, Schedule sched) {
 		super(discretization, width, height);
 		this.aoi = aoi;
 		this.p = p;
@@ -45,8 +45,7 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 	@Override
 	public boolean setObjectLocation(Object obj, final Double2D loc) {
 		double[] loc_arr = new double[] {loc.x, loc.y};
-		DContinuous2DObject a = new DContinuous2DObject(obj, loc);
-
+		
 		// if (!f.inLocalAndHalo(loc_arr))
 		// 	throw new IllegalArgumentException(String.format("New location outside local partition and its halo area"));
 
@@ -57,12 +56,16 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 		} else if (f.inShared(loc_arr)) {
 			sched.scheduleOnce((Steppable)obj, 1);
 			for (int dst : f.toNeighbors(loc_arr))
-				m.migrate(a, dst);
+			{
+				DContinuous2DAgent agent = new DContinuous2DAgent(dst, obj, loc);
+				m.migrate(agent, dst);
+			}
 		} else if (f.inHalo(loc_arr)) {
 			futureGhosts.add(obj);
-			a.migrate = true;
 			try {
-				m.migrate(a, p.toPartitionId(loc_arr));
+				int dst = p.toPartitionId(loc_arr);
+				DContinuous2DAgent agent = new DContinuous2DAgent(dst, obj, loc, true);
+				m.migrate(agent, dst);
 			} catch (MPIException e) {
 				e.printStackTrace();
 				System.exit(-1);
@@ -85,12 +88,12 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 		}
 
 		for (Object o : m.objects) {
-			DContinuous2DObject a = (DContinuous2DObject)o;
-			super.setObjectLocation(a.obj, a.loc);
-			if (a.migrate)
-				sched.scheduleOnce((Steppable)a.obj, 1);
+			DContinuous2DAgent agent = (DContinuous2DAgent)o;
+			super.setObjectLocation(agent.wrappedAgent, agent.loc);
+			if (agent.migrate)
+				sched.scheduleOnce((Steppable)agent.wrappedAgent, 1);
 			else
-				ghosts.add(a.obj);
+				ghosts.add(agent.wrappedAgent);
 		}
 		ghosts.addAll(futureGhosts);
 
@@ -257,8 +260,8 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 		MPI.Init(args);
 		
 		// test cases
-//		testSerialization();
-		testRawType();
+		testSerialization();
+//		testRawType();
 		
 		MPI.Finalize();
 	}

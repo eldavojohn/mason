@@ -3,35 +3,34 @@ package sim.field;
 import java.io.*;
 import java.util.*;
 import mpi.*;
-import sim.field.continuous.DContinuous2DObject;
+import sim.field.continuous.DContinuous2DAgent;
 import sim.util.Double2D;
 
 public class DObjectRawTypeMigrator extends DObjectMigrator {
 
-	public CommAgent agent;
-	public ArrayList<MigratedObject> bufferList;
+	public SelfStreamedAgent agent;
+	public ArrayList<MigratingAgent> bufferList;
 	
-	public DObjectRawTypeMigrator(DUniformPartition partition, CommAgent agent) throws MPIException, IOException
+	public DObjectRawTypeMigrator(DUniformPartition partition, SelfStreamedAgent agent) throws MPIException, IOException
 	{
 		super(partition);
 		this.agent = agent;
-		bufferList = new ArrayList<MigratedObject>();
+		bufferList = new ArrayList<MigratingAgent>();
 	}
 
 	public void migrate(final Object obj, final int dst) {
 		assert dstMap.containsKey(dst);
 		try{
-			// write destination
-			dstMap.get(dst).os.writeInt(dst);
 			// write data in wrapper, which is DContinuous2DObject
-			DContinuous2DObject dContinuousObj = (DContinuous2DObject)obj;
-			dstMap.get(dst).os.writeBoolean(dContinuousObj.migrate);
-			dstMap.get(dst).os.writeDouble(dContinuousObj.loc.x);
-			dstMap.get(dst).os.writeDouble(dContinuousObj.loc.y);
+			DContinuous2DAgent wrapper = (DContinuous2DAgent)obj;
+			dstMap.get(dst).os.writeInt(wrapper.destination);
+			dstMap.get(dst).os.writeBoolean(wrapper.migrate);
+			dstMap.get(dst).os.writeDouble(wrapper.loc.x);
+			dstMap.get(dst).os.writeDouble(wrapper.loc.y);
 			dstMap.get(dst).os.flush();
 			// write agent
-			CommAgent commObj = (CommAgent)dContinuousObj.obj;
-			commObj.writePrimitiveTypeData(dstMap.get(dst));
+			SelfStreamedAgent selfStreamedAgent = (SelfStreamedAgent)wrapper.wrappedAgent;
+			selfStreamedAgent.writeStream(dstMap.get(dst));
 			// have to flush the data
 			dstMap.get(dst).os.flush();
 		} catch (Exception e) {
@@ -88,15 +87,14 @@ public class DObjectRawTypeMigrator extends DObjectMigrator {
 					double x = is.readDouble();
 					double y = is.readDouble();
 					// create the new agent
-					CommAgent newAgent = (CommAgent) agent.clone();
+					SelfStreamedAgent newAgent = (SelfStreamedAgent) agent.clone();
 					// read in the data
-					newAgent.readPrimitiveTypeData(is);
+					newAgent.readStream(is);
 					// create the wrapper
-					DContinuous2DObject wrapper = new DContinuous2DObject(newAgent, new Double2D(x, y));
-					wrapper.migrate = migrate;
+					DContinuous2DAgent wrapper = new DContinuous2DAgent(dst, newAgent, new Double2D(x, y), migrate);
 					if (partition.pid != dst) {
 						assert dstMap.containsKey(dst);
-						bufferList.add(new MigratedObject(wrapper, dst));
+						bufferList.add(wrapper);
 					} else
 						objects.add(wrapper);
 					
@@ -113,16 +111,16 @@ public class DObjectRawTypeMigrator extends DObjectMigrator {
 		// Handling the agent in bufferList
 		for (int i = 0;i<bufferList.size();++i)
 		{
-			DContinuous2DObject dContinuousObj = (DContinuous2DObject) bufferList.get(i).obj;
-			int dst = bufferList.get(i).dst;
-			dstMap.get(dst).os.writeInt(dst);
+			DContinuous2DAgent wrapper = (DContinuous2DAgent) bufferList.get(i);
+			int dst = wrapper.destination;
+			dstMap.get(dst).os.writeInt(wrapper.destination);
 			// write data in wrapper, which is DContinuous2DObject
-			dstMap.get(dst).os.writeBoolean(dContinuousObj.migrate);
-			dstMap.get(dst).os.writeDouble(dContinuousObj.loc.x);
-			dstMap.get(dst).os.writeDouble(dContinuousObj.loc.y);
+			dstMap.get(dst).os.writeBoolean(wrapper.migrate);
+			dstMap.get(dst).os.writeDouble(wrapper.loc.x);
+			dstMap.get(dst).os.writeDouble(wrapper.loc.y);
 			dstMap.get(dst).os.flush();
-			CommAgent agent = (CommAgent)dContinuousObj.obj;
-			agent.writePrimitiveTypeData(dstMap.get(dst));
+			SelfStreamedAgent agent = (SelfStreamedAgent)wrapper.wrappedAgent;
+			agent.writeStream(dstMap.get(dst));
 			dstMap.get(dst).os.flush();
 		}
 		bufferList.clear();

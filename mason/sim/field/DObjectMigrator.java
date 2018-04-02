@@ -97,7 +97,7 @@ public class DObjectMigrator implements Iterable<Object> {
 	}
 
 	public void migrate(final Object obj, final int dst) {
-		MigratedObject mo = new MigratedObject(obj, dst);
+		MigratingAgent mo = (MigratingAgent) obj;
 		assert dstMap.containsKey(dst);
 		try {
 			dstMap.get(dst).write(mo);
@@ -141,14 +141,14 @@ public class DObjectMigrator implements Iterable<Object> {
 		partition.comm.neighborAllToAllv(sendbuf, src_count, src_displ, MPI.BYTE, recvbuf, dst_count, dst_displ, MPI.BYTE);
 
 		// read and handle incoming objects
-		ArrayList<MigratedObject> migrated = new ArrayList<MigratedObject>();
+		ArrayList<MigratingAgent> migrated = new ArrayList<MigratingAgent>();
 		for (int i = 0; i < nc; i++) {
 			ByteArrayInputStream in = new ByteArrayInputStream(Arrays.copyOfRange(recvbuf, dst_displ[i], dst_displ[i] + dst_count[i]));
 			ObjectInputStream is = new ObjectInputStream(in);
 			boolean more = true;
 			while (more) {
 				try {
-					migrated.add((MigratedObject)is.readObject());
+					migrated.add((MigratingAgent)is.readObject());
 				} catch (EOFException e) {
 					more = false;
 				}
@@ -160,12 +160,12 @@ public class DObjectMigrator implements Iterable<Object> {
 			outputStreams[i].reset();
 
 		// Handle incoming objects
-		for (MigratedObject mo : migrated) {
-			if (partition.pid != mo.dst) {
-				assert dstMap.containsKey(mo.dst);
-				dstMap.get(mo.dst).write(mo);
+		for (MigratingAgent mo : migrated) {
+			if (partition.pid != mo.destination) {
+				assert dstMap.containsKey(mo.destination);
+				dstMap.get(mo.destination).write(mo);
 			} else
-				objects.add(mo.obj);
+				objects.add(mo);
 		}
 	}
 }
