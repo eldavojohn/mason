@@ -211,7 +211,7 @@ public class HaloField {
 
 		// Everyone pack the data into byte array
 		sendbuf = new byte[comm.packSize(origPart.getArea(), MPIBaseType)];
-		sendSize = field.pack(MPIParam.generate(origPart, haloPart, MPIBaseType), sendbuf, 0);
+		sendSize = field.pack(new MPIParam(origPart, haloPart, MPIBaseType), sendbuf, 0);
 
 		// First gather the size of data to be exchanged
 		comm.gather(new int[] {sendSize}, 1, MPI.INT, count, 1, MPI.INT, dst);
@@ -231,7 +231,7 @@ public class HaloField {
 			IntHyperRect fullPart = new IntHyperRect(-1, new IntPoint(new int[nd]), new IntPoint(fieldSize));
 			DoubleGridStorage fullField = new DoubleGridStorage(fullPart, initVal);
 			for (int i = 0; i < np; i++)
-				fullField.unpack(MPIParam.generate(ps.getPartition(i), fullPart, MPIBaseType), recvbuf, displ[i], count[i]);
+				fullField.unpack(new MPIParam(ps.getPartition(i), fullPart, MPIBaseType), recvbuf, displ[i], count[i]);
 			return (double[])fullField.getStorage();
 		}
 
@@ -257,8 +257,8 @@ public class HaloField {
 			Collections.sort(sendOverlaps);
 			Collections.sort(recvOverlaps, Collections.reverseOrder());
 
-			sendParam = MPIParam.generate(sendOverlaps, haloPart, MPIBaseType);
-			recvParam = MPIParam.generate(recvOverlaps, haloPart, MPIBaseType);
+			sendParam = new MPIParam(sendOverlaps, haloPart, MPIBaseType);
+			recvParam = new MPIParam(recvOverlaps, haloPart, MPIBaseType);
 		}
 
 		private ArrayList<IntHyperRect> generateOverlaps(IntHyperRect p1, IntHyperRect p2) {

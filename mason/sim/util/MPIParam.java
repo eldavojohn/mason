@@ -1,88 +1,75 @@
 package sim.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-//import java.util.Stack;
 
 import mpi.*;
 
 import sim.field.storage.GridStorage;
 
+// TODO need to use generic for other type of rectangles
 public class MPIParam {
 	public Datatype type;
 	public int idx, size;
 
+	// Will be used by ObjectGridStorage to collect all the objects from rects
+	// this is due to the limitations of openmpi java bindings
+	public List<IntHyperRect> rects;
+
 	// TODO need to track all previously allocated datatypes and implement free() to free them all
-	// private Stack<Datatype> prevDatatypes;
 
-	public MPIParam(Datatype type, int idx, int[] size) {
-		this.type = type;
-		this.idx = idx;
-		this.size = Arrays.stream(size).reduce(1, (a, b) -> a * b);
-		// this.prevDatatypes = new Stack<Datatype>();
-	}
-
-	public MPIParam(Datatype type, int idx, int size) {
-		this.type = type;
-		this.idx = idx;
-		this.size = size;
-		// this.prevDatatypes = new Stack<Datatype>();
-	}
-
-	// public void free() {
-	// 	while (!prevDatatypes.empty())
-	// 		prevDatatypes.pop().free();
-	// }
-
-	public static MPIParam generate(IntHyperRect rect, IntHyperRect bound, Datatype baseType) {
+	public MPIParam(IntHyperRect rect, IntHyperRect bound, Datatype baseType) {
 		int[] bsize = bound.getSize();
-		int idx = GridStorage.getFlatIdx(rect.ul.rshift(bound.ul.c), bsize);
-		Datatype type = getNdArrayDatatype(rect.getSize(), baseType, bsize);
 
-		return new MPIParam(type, idx, rect.getArea());
+		this.idx = GridStorage.getFlatIdx(rect.ul.rshift(bound.ul.c), bsize);
+		this.type = getNdArrayDatatype(rect.getSize(), baseType, bsize);
+		this.size = rect.getArea();
+		this.rects = new ArrayList<IntHyperRect>() {{ add(rect.rshift(bound.ul.c)); }};
 	}
 
-	public static MPIParam generate(List<IntHyperRect> rects, IntHyperRect bound, Datatype baseType) {
-		int cnt = rects.size();
+	public MPIParam(List<IntHyperRect> rects, IntHyperRect bound, Datatype baseType) {
+		this.idx = 0;
+		this.size = 0;
+		this.rects = new ArrayList<IntHyperRect>();
 
-		// If there is only one overlap, no need to combine
-		if (cnt == 1)
-			return generate(rects.get(0), bound, baseType);
+		int count = rects.size();
+		int typeSize = getTypePackSize(baseType);
 
-		int[] bl = new int[cnt], displ = new int[cnt];
-		Datatype[] dt = new Datatype[cnt];
-		int totalSize = 0;
+		int[] bl = new int[count], displ = new int[count];
+		int[] bsize = bound.getSize();
 
-		for (int i = 0; i < cnt; i++) {
-			IntHyperRect p = rects.get(i);
-			MPIParam mp = generate(p, bound, baseType);
-			bl[i] = 1;
-			displ[i] = mp.idx * 8; // displacement from the start in bytes
-			dt[i] = mp.type;
-			totalSize += mp.size;
+		Datatype[] types = new Datatype[count];
+
+		// blocklength is always 1
+		Arrays.fill(bl, 1);
+
+		for (int i = 0; i < count; i++) {
+			IntHyperRect rect = rects.get(i);
+			displ[i] = GridStorage.getFlatIdx(rect.ul.rshift(bound.ul.c), bsize) * typeSize; // displacement from the start in bytes
+			types[i] = getNdArrayDatatype(rect.getSize(), baseType, bsize);
+			this.size += rect.getArea();
+			this.rects.add(rect.rshift(bound.ul.c));
 		}
 
-		Datatype combined = null;
 		try {
-			combined = Datatype.createStruct(bl, displ, dt);
-			combined.commit();
+			this.type = Datatype.createStruct(bl, displ, types);
+			this.type.commit();
 		} catch (MPIException e) {
 			e.printStackTrace();
 			System.exit(-1);
 		}
-
-		return new MPIParam(combined, 0, totalSize);
 	}
 
 	// Create Nd subarray MPI datatype
-	private static Datatype getNdArrayDatatype(int[] size, Datatype base, int[] strideSize) {
+	private Datatype getNdArrayDatatype(int[] size, Datatype base, int[] strideSize) {
 		Datatype type = null;
+		int typeSize = getTypePackSize(base);
 
 		try {
-			int sizeByte = MPI.COMM_WORLD.packSize(1, base);
 			for (int i = size.length - 1; i >= 0; i--) {
 				type = Datatype.createContiguous(size[i], base);
-				type = Datatype.createResized(type, 0, strideSize[i] * sizeByte);
+				type = Datatype.createResized(type, 0, strideSize[i] * typeSize);
 				base = type;
 			}
 			type.commit();
@@ -92,5 +79,18 @@ public class MPIParam {
 		}
 
 		return type;
+	}
+
+	private int getTypePackSize(Datatype type) {
+		int size = 0;
+
+		try {
+			size = MPI.COMM_WORLD.packSize(1, type);
+		} catch (MPIException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+
+		return size;
 	}
 }

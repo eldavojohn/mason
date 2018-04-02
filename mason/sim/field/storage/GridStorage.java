@@ -38,8 +38,8 @@ public abstract class GridStorage {
 	public void reshape(IntHyperRect newShape) {
 		if (newShape.isIntersect(shape)) {
 			IntHyperRect overlap = newShape.getIntersection(shape);
-			MPIParam fromParam = MPIParam.generate(overlap, shape, baseType);
-			MPIParam toParam = MPIParam.generate(overlap, newShape, baseType);
+			MPIParam fromParam = new MPIParam(overlap, shape, baseType);
+			MPIParam toParam = new MPIParam(overlap, newShape, baseType);
 
 			try {
 				byte[] buf = new byte[MPI.COMM_WORLD.packSize(overlap.getArea(), baseType)];
