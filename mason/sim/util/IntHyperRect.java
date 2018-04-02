@@ -2,9 +2,10 @@ package sim.util;
 
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.stream.IntStream;
 
-public class IntHyperRect implements Comparable<IntHyperRect> {
+public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint> {
 	public int nd, id;
 	public IntPoint ul, br;
 
@@ -98,6 +99,10 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 		return new IntHyperRect(id, ul.shift(offsets), br.shift(offsets));
 	}
 
+	public IntHyperRect rshift(int[] offsets) {
+		return new IntHyperRect(id, ul.rshift(offsets), br.rshift(offsets));
+	}
+
 	// Get the upper left and bottom right points
 	public IntPoint[] getVertices() {
 		return new IntPoint[] {this.ul, this.br};
@@ -140,6 +145,41 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 			return ret;
 
 		return this.id - that.id;
+	}
+
+	public Iterator<IntPoint> iterator() {
+		return new IntHyperRectIter();
+	}
+
+	private class IntHyperRectIter implements Iterator<IntPoint> {
+		int[] coords, size;
+		int curr, ub;
+
+		public IntHyperRectIter() {
+			coords = Arrays.copyOf(ul.c, nd);
+			size = getSize();
+			ub = getArea();
+			curr = 0;
+		}
+
+		public boolean hasNext() {
+			return curr < ub;
+		}
+
+		public IntPoint next() {
+			IntPoint ret = new IntPoint(coords);
+
+			for (int i = nd - 1; i >= 0; i--) {
+				coords[i]++;
+				if (coords[i] == br.c[i])
+					coords[i] = ul.c[i];
+				else
+					break;
+			}
+
+			curr++;
+			return ret;
+		}
 	}
 
 	public String toString() {
@@ -249,5 +289,11 @@ public class IntHyperRect implements Comparable<IntHyperRect> {
 		IntHyperRect rr2 = new IntHyperRect(1, pp2, pp4);
 		for (IntHyperRect r : rr2.toToroidal(rr1))
 			System.out.println("toroidal: " + r);
+
+		IntPoint p6 = new IntPoint(new int[] {1, 2, 3});
+		IntPoint p7 = new IntPoint(new int[] {4, 7, 9});
+		IntHyperRect r4 = new IntHyperRect(0, p6, p7);
+		for (IntPoint p : r4)
+			System.out.println(r4 + " Iterating points " + p);
 	}
 }
