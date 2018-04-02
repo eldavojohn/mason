@@ -16,6 +16,8 @@ import sim.field.storage.DoubleGridStorage;
 // TODO refactor HaloField to accept
 // grid: double, int, object
 // continuous: double, int, object
+// make halofield abstract and let subclasses like DDoubleGrid2D to implement functions including
+// get/set/...
 
 // TODO remove HaloFieldContinuous and HaloFieldGrid
 // and change all dependencies to this class
@@ -23,7 +25,6 @@ import sim.field.storage.DoubleGridStorage;
 
 public class HaloField {
 
-	// 1-D array to hold the local partition and its halo area
 	DoubleGridStorage field;
 	double initVal;
 
@@ -36,7 +37,7 @@ public class HaloField {
 	Comm comm;
 	DPartition ps;
 
-	Datatype MPIBaseType = MPI.DOUBLE;
+	Datatype MPIBaseType;
 
 	// TODO refactor the performance measurements into a separate class
 	long prevts;
@@ -103,8 +104,7 @@ public class HaloField {
 		if (!inLocalAndHalo(p))
 			throw new IllegalArgumentException(String.format("PID %d get %s is out of local boundary", ps.getPid(), p.toString()));
 
-		//return field[getFlatIdxLocal(toLocalPoint(p))];
-		return -1;
+		return ((double[])(field.getStorage()))[field.getFlatIdx(p)];
 	}
 
 	public final void set(final IntPoint p, final double val) {
@@ -116,7 +116,7 @@ public class HaloField {
 		if (!inLocal(p))
 			throw new IllegalArgumentException(String.format("PID %d set %s is out of local boundary", ps.getPid(), p.toString()));
 
-		//field[getFlatIdxLocal(toLocalPoint(p))] = val;
+		((double[])(field.getStorage()))[field.getFlatIdx(p)] = val;
 	}
 
 	// Various stabbing queries
