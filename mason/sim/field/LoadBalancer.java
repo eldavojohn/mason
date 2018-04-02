@@ -204,7 +204,7 @@ public class LoadBalancer {
 			for (int j = 0; j < h; j++) {
 				if (j == 1 || j == h - 1)
 					System.out.printf("   \t");
-				System.out.printf("%.1f\t", f.field[i * h + j]);
+				System.out.printf("%.1f\t", f.getField()[i * h + j]);
 			}
 			System.out.printf("\n");
 		}

@@ -1,17 +1,17 @@
 package sim.field;
 
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.io.*;
+import java.util.*;
 import java.util.stream.IntStream;
 
 import mpi.*;
-import static mpi.MPI.slice;
 
 import sim.util.IntPoint;
 import sim.util.IntHyperRect;
 import sim.util.MovingAverage;
+
+import sim.util.MPIParam;
+import sim.field.storage.DoubleGridStorage;
 
 // TODO refactor HaloField to accept
 // grid: double, int, object
@@ -24,7 +24,7 @@ import sim.util.MovingAverage;
 public class HaloField {
 
 	// 1-D array to hold the local partition and its halo area
-	double[] field;
+	DoubleGridStorage field;
 	double initVal;
 
 	int nd, numNeighbors, maxSendSize;
@@ -54,9 +54,6 @@ public class HaloField {
 	}
 
 	public void reload() {
-		IntHyperRect prevHaloPart = haloPart;
-		double[] prevField = field;
-
 		nd = ps.getNumDim();
 		comm = ps.getCommunicator();
 		fieldSize = ps.getFieldSize();
@@ -69,36 +66,11 @@ public class HaloField {
 
 		// Init local storage if field is null
 		// otherwise re-arrange the data based on the old and new partiton
-		field = new double[haloPart.getArea()];
-		Arrays.fill(field, initVal);
-		if (prevField != null && haloPart.isIntersect(prevHaloPart)) {
-			IntHyperRect overlap = haloPart.getIntersection(prevHaloPart);
-
-			Datatype from_dt = getNdArrayDatatype(overlap.getSize(), MPIBaseType, prevHaloPart.getSize());
-			Datatype to_dt = getNdArrayDatatype(overlap.getSize(), MPIBaseType, haloPart.getSize());
-
-			int from_idx = getFlatIdx(
-			                   overlap.ul.rshift(prevHaloPart.ul.c),
-			                   prevHaloPart.getSize()
-			               );
-			int to_idx = getFlatIdx(
-			                 overlap.ul.rshift(haloPart.ul.c),
-			                 haloPart.getSize()
-			             );
-
-			try {
-				byte[] buf = new byte[comm.packSize(overlap.getArea(), MPIBaseType)];
-
-				comm.pack(slice(prevField, from_idx), 1, from_dt, buf, 0);
-				comm.unpack(buf, 0, slice(field, to_idx), 1, to_dt);
-
-				from_dt.free();
-				to_dt.free();
-			} catch (MPIException e) {
-				e.printStackTrace();
-				System.exit(-1);
-			}
-		}
+		if (field == null) {
+			field = new DoubleGridStorage(haloPart, initVal);
+			MPIBaseType = field.getMPIBaseType();
+		} else
+			field.reshape(haloPart);
 
 		// Get the partition representing private area by shrinking the original partition by aoi at each dimension
 		privPart = origPart.resize(Arrays.stream(aoi).map(x -> -x).toArray());
@@ -119,7 +91,7 @@ public class HaloField {
 	}
 
 	public double[] getField() {
-		return field;
+		return (double[])field.getStorage();
 	}
 
 	public final double get(final IntPoint p) {
@@ -131,7 +103,8 @@ public class HaloField {
 		if (!inLocalAndHalo(p))
 			throw new IllegalArgumentException(String.format("PID %d get %s is out of local boundary", ps.getPid(), p.toString()));
 
-		return field[getFlatIdxLocal(toLocalPoint(p))];
+		//return field[getFlatIdxLocal(toLocalPoint(p))];
+		return -1;
 	}
 
 	public final void set(final IntPoint p, final double val) {
@@ -143,7 +116,7 @@ public class HaloField {
 		if (!inLocal(p))
 			throw new IllegalArgumentException(String.format("PID %d set %s is out of local boundary", ps.getPid(), p.toString()));
 
-		field[getFlatIdxLocal(toLocalPoint(p))] = val;
+		//field[getFlatIdxLocal(toLocalPoint(p))] = val;
 	}
 
 	// Various stabbing queries
@@ -171,29 +144,10 @@ public class HaloField {
 		return inLocalAndHalo(p) && !inLocal(p);
 	}
 
-	// Get the corresponding index in the local flatted 1-d array of the given point
-	// The given point is expected to be a local one
-	private int getFlatIdxLocal(IntPoint p) {
-		return getFlatIdx(p, haloSize);
-	}
-
 	// Get the corresponding index in the global flatted 1-d array of the given point
 	// The given point is expected to be a global one
 	private int getFlatIdxGlobal(IntPoint p) {
-		return getFlatIdx(p, fieldSize);
-	}
-
-	// Get the flatted index with respect to the given size
-	private int getFlatIdx(IntPoint p, int[] wrtSize) {
-		return IntStream.range(0, nd).map(i -> p.c[i] * stride(i, wrtSize)).sum();
-	}
-
-	private int stride(int dim, final int[] size) {
-		return IntStream.range(1, nd - dim).reduce(1, (x, i) -> x * size[i]);
-	}
-
-	private IntPoint toLocalPoint(IntPoint p) {
-		return p.rshift(origPart.ul.c).shift(aoi);
+		return DoubleGridStorage.getFlatIdx(p, fieldSize);
 	}
 
 	public void sync() throws MPIException {
@@ -204,7 +158,7 @@ public class HaloField {
 		// Pack data into 1-d byte array
 		for (int i = 0, lastPos = 0; i < numNeighbors; i++) {
 			sendPos[i] = lastPos;
-			lastPos = comm.pack(slice(field, neighbors[i].sendParam.idx), 1, neighbors[i].sendParam.type, sendbuf, lastPos);
+			lastPos = field.pack(neighbors[i].sendParam, sendbuf, lastPos);
 			sendCnt[i] = lastPos - sendPos[i];
 		}
 
@@ -221,7 +175,7 @@ public class HaloField {
 
 		// Unpack into the field
 		for (int i = 0; i < numNeighbors; i++)
-			comm.unpack(recvbuf, recvPos[i], slice(field, neighbors[i].recvParam.idx), 1, neighbors[i].recvParam.type);
+			field.unpack(neighbors[i].recvParam, recvbuf, recvPos[i], recvCnt[i]);
 
 		// Exchange aux data, e.g., runtime data for load balancing
 		long currts = System.nanoTime();
@@ -245,53 +199,22 @@ public class HaloField {
 		return ret;
 	}
 
-	private byte[] packPartition() throws MPIException {
-		byte[] buf = new byte[comm.packSize(origPart.getArea(), MPIBaseType)];
-		int idx = getFlatIdxLocal(new IntPoint(aoi));
-		Datatype type = getNdArrayDatatype(partSize, MPIBaseType, haloSize);
-		int	actualSize = comm.pack(slice(field, idx), 1, type, buf, 0);
-
-		// Return the truncated array
-		return Arrays.copyOf(buf, actualSize);
-	}
-
-	// Create Nd subarray MPI datatype
-	private Datatype getNdArrayDatatype(int[] size, Datatype base, int[] strideSize) {
-		Datatype type = null;
-
-		try {
-			int sizeByte = MPI.COMM_WORLD.packSize(1, base);
-			for (int i = size.length - 1; i >= 0; i--) {
-				type = Datatype.createContiguous(size[i], base);
-				type = Datatype.createResized(type, 0, strideSize[i] * sizeByte);
-				base = type;
-			}
-			type.commit();
-		} catch (MPIException e) {
-			e.printStackTrace();
-			System.exit(-1);
-		}
-
-		return type;
-	}
-
 	public double[] collect(int dst) throws MPIException {
-		double[] fullField = null;
 		int[] displ = null, count = null;
 		byte[] sendbuf = null, recvbuf = null;
-		int pid = ps.getPid(), np = ps.getNumProc();
+		int sendSize, pid = ps.getPid(), np = ps.getNumProc();
 
 		if (pid == dst) {
 			count = new int[np];
 			displ = new int[np];
-			fullField = new double[Arrays.stream(fieldSize).reduce(1, (x, y) -> x * y)];
 		}
 
 		// Everyone pack the data into byte array
-		sendbuf = packPartition();
+		sendbuf = new byte[comm.packSize(origPart.getArea(), MPIBaseType)];
+		sendSize = field.pack(MPIParam.generate(origPart, haloPart, MPIBaseType), sendbuf, 0);
 
 		// First gather the size of data to be exchanged
-		comm.gather(new int[] {sendbuf.length}, 1, MPI.INT, count, 1, MPI.INT, dst);
+		comm.gather(new int[] {sendSize}, 1, MPI.INT, count, 1, MPI.INT, dst);
 
 		// Dst compute the displacement array and init the recvbuf
 		if (pid == dst) {
@@ -304,15 +227,15 @@ public class HaloField {
 		comm.gatherv(sendbuf, sendbuf.length, MPI.BYTE, recvbuf, count, displ, MPI.BYTE, dst);
 
 		// Dst unpack the data into fullField
-		if (pid == dst)
-			for (int i = 0; i < np; i++) {
-				IntHyperRect part = ps.getPartition(i);
-				int idx = getFlatIdxGlobal(part.ul);
-				Datatype type = getNdArrayDatatype(part.getSize(), MPIBaseType, fieldSize);
-				comm.unpack(recvbuf, displ[i], slice(fullField, idx), 1, type);
-			}
+		if (pid == dst) {
+			IntHyperRect fullPart = new IntHyperRect(-1, new IntPoint(new int[nd]), new IntPoint(fieldSize));
+			DoubleGridStorage fullField = new DoubleGridStorage(fullPart, initVal);
+			for (int i = 0; i < np; i++)
+				fullField.unpack(MPIParam.generate(ps.getPartition(i), fullPart, MPIBaseType), recvbuf, displ[i], count[i]);
+			return (double[])fullField.getStorage();
+		}
 
-		return fullField;
+		return null;
 	}
 
 	// Helper class to organize neighbor-related data structures and methods
@@ -334,38 +257,8 @@ public class HaloField {
 			Collections.sort(sendOverlaps);
 			Collections.sort(recvOverlaps, Collections.reverseOrder());
 
-			sendParam = generateCombinedParam(sendOverlaps);
-			recvParam = generateCombinedParam(recvOverlaps);
-		}
-
-		private MPIParam generateCombinedParam(ArrayList<IntHyperRect> overlaps) {
-			int cnt = overlaps.size();
-
-			// If there is only one overlap, no need to combine
-			if (cnt == 1)
-				return generateMPIParam(overlaps.get(0));
-
-			int[] bl = new int[cnt], displ = new int[cnt];
-			Datatype[] dt = new Datatype[cnt];
-
-			for (int i = 0; i < cnt; i++) {
-				IntHyperRect p = overlaps.get(i);
-				MPIParam mp = generateMPIParam(p);
-				bl[i] = 1;
-				displ[i] = mp.idx * 8; // displacement from the start in bytes
-				dt[i] = mp.type;
-			}
-
-			Datatype combined = null;
-			try {
-				combined = Datatype.createStruct(bl, displ, dt);
-				combined.commit();
-			} catch (MPIException e) {
-				e.printStackTrace();
-				System.exit(-1);
-			}
-
-			return new MPIParam(combined, 0, null);
+			sendParam = MPIParam.generate(sendOverlaps, haloPart, MPIBaseType);
+			recvParam = MPIParam.generate(recvOverlaps, haloPart, MPIBaseType);
 		}
 
 		private ArrayList<IntHyperRect> generateOverlaps(IntHyperRect p1, IntHyperRect p2) {
@@ -384,25 +277,6 @@ public class HaloField {
 				overlaps.add(p1.getIntersection(p2));
 
 			return overlaps;
-		}
-
-		private MPIParam generateMPIParam(IntHyperRect overlap) {
-			int[] size = overlap.getSize();
-			int idx = getFlatIdxLocal(toLocalPoint(overlap.ul));
-			Datatype type = getNdArrayDatatype(size, MPIBaseType, haloSize);
-
-			return new MPIParam(type, idx, size);
-		}
-
-		class MPIParam {
-			Datatype type;
-			int idx, size[];
-
-			public MPIParam(Datatype type, int idx, int[] size) {
-				this.type = type;
-				this.idx = idx;
-				this.size = size;
-			}
 		}
 	}
 
@@ -462,6 +336,20 @@ public class HaloField {
 		hf.sync();
 
 		printHaloField(hf, p);
+
+		double[] all = hf.collect(0);
+
+		if (p.pid == 0) {
+			System.out.println("\nEntire Field...\n");
+			for (int i = 0; i < p.size[0]; i++) {
+				for (int j = 0; j < p.size[1]; j++)
+					System.out.printf("%.1f\t", all[i * p.size[1] + j]);
+				System.out.printf("\n");
+			}
+			System.out.printf("\n");
+		}
+
+		MPI.COMM_WORLD.barrier();
 
 		if (p.pid == 0)
 			System.out.println("\nTest Repartitioning #1...\n");
@@ -547,6 +435,8 @@ public class HaloField {
 
 		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
 
+		double[] field = (double[])hf.field.getStorage();
+
 		System.out.println("PID " + p.pid + " data: ");
 		int w = p.getPartition().getSize()[0] + 2 * hf.aoi[0];
 		int h = p.getPartition().getSize()[1] + 2 * hf.aoi[1];
@@ -556,7 +446,7 @@ public class HaloField {
 			for (int j = 0; j < h; j++) {
 				if (j == 1 || j == h - 1)
 					System.out.printf("   \t");
-				System.out.printf("%.1f\t", hf.field[i * h + j]);
+				System.out.printf("%.1f\t", field[i * h + j]);
 			}
 			System.out.printf("\n");
 		}
