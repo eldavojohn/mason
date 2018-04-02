@@ -5,11 +5,11 @@ import java.io.ObjectInputStream;
 
 import sim.engine.SimState;
 import sim.engine.Steppable;
-import sim.field.CommAgent;
 import sim.field.DObjectMigrator.AgentOutputStream;
+import sim.field.SelfStreamedAgent;
 import sim.util.Double2D;
 
-public class DContinuous2DRawTypeTestObject extends CommAgent implements Steppable
+public class DContinuous2DRawTypeTestObject implements Steppable, SelfStreamedAgent
 {
 	public int id;
 	public Double2D loc;
@@ -30,7 +30,7 @@ public class DContinuous2DRawTypeTestObject extends CommAgent implements Steppab
 		return;
 	}
 
-	public void writePrimitiveTypeData(AgentOutputStream out)
+	public void writeStream(AgentOutputStream out)
 	{
 		try
 		{
@@ -44,7 +44,7 @@ public class DContinuous2DRawTypeTestObject extends CommAgent implements Steppab
 		}
 	}
 
-	public void readPrimitiveTypeData(ObjectInputStream in)
+	public void readStream(ObjectInputStream in)
 	{
 		try
 		{

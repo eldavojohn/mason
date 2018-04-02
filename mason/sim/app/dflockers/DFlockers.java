@@ -18,9 +18,9 @@ public class DFlockers extends SimState {
     private static final long serialVersionUID = 1;
 
     public DContinuous2D flockers;
-    public double width = 1000;
-    public double height = 1000;
-    public int numFlockers = 50000;
+    public double width = 600;
+    public double height = 600;
+    public int numFlockers = 129600;
     public double cohesion = 1.0;
     public double avoidance = 1.0;
     public double randomness = 1.0;

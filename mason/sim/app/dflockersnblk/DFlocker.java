@@ -4,7 +4,7 @@
   See the file "LICENSE" for more information
 */
 
-package sim.app.dflockers;
+package sim.app.dflockersnblk;
 import sim.engine.*;
 import sim.field.continuous.*;
 import sim.util.*;
