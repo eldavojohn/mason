@@ -55,6 +55,7 @@ sim/field/*.java \
 sim/field/grid/*.java \
 sim/field/continuous/*.java \
 sim/field/network/*.java \
+sim/field/storage/*.java \
 sim/portrayal/*.java \
 sim/portrayal/grid/*.java \
 sim/portrayal/continuous/*.java \

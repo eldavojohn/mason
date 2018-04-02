@@ -1,5 +1,6 @@
 package sim.field.grid;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.*;
 
@@ -23,22 +24,22 @@ public class DDoubleGrid2DNonUniform extends DoubleGrid2D {
 	}
 
 	public final double get(final int x, final int y) {
-		IntPoint p = new IntPoint(new int[]{stx(x), sty(y)});
+		IntPoint p = new IntPoint(new int[] {stx(x), sty(y)});
 
 		return hf.get(p);
 	}
 
 	public final void set(final int x, final int y, final double val) {
-		IntPoint p = new IntPoint(new int[]{stx(x), sty(y)});
+		IntPoint p = new IntPoint(new int[] {stx(x), sty(y)});
 
 		hf.set(p, val);
 	}
 
-	public void sync() throws MPIException {
+	public void sync() throws MPIException, IOException {
 		hf.sync();
 	}
 
-	public double[] collect(int dst) throws MPIException {
+	public double[] collect(int dst) throws MPIException, IOException {
 		return hf.collect(dst);
 	}
 
@@ -50,11 +51,11 @@ public class DDoubleGrid2DNonUniform extends DoubleGrid2D {
 		}
 	}
 
-	public static void main(String[] args) throws MPIException, InterruptedException {
+	public static void main(String[] args) throws MPIException, InterruptedException, IOException {
 		MPI.Init(args);
 
-		int[] aoi = new int[]{2, 2};
-		int[] size = new int[]{8, 8};
+		int[] aoi = new int[] {2, 2};
+		int[] size = new int[] {8, 8};
 
 		DNonUniformPartition p = new DNonUniformPartition(size);
 		p.initUniformly(null);
@@ -70,11 +71,11 @@ public class DDoubleGrid2DNonUniform extends DoubleGrid2D {
 		print2dArray(f.hf.getField(), 8, 8);
 
 		TimeUnit.SECONDS.sleep(p.getNumProc() - p.getPid());
-		
+
 		MPI.COMM_WORLD.barrier();
-		
+
 		double[] fullField = f.collect(0);
-		if(p.getPid() == 0) {
+		if (p.getPid() == 0) {
 			System.out.println("Full Field: ");
 			print2dArray(fullField, 8, 8);
 		}

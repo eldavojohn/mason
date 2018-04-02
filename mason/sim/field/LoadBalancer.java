@@ -1,5 +1,6 @@
 package sim.field;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -109,7 +110,7 @@ public class LoadBalancer {
 		return getAction(getAvailNeighborIds());
 	}
 
-	public void balance(int step) throws MPIException {
+	public void balance(int step) throws MPIException, IOException {
 		// Buffers to hold incoming actions
 		int[] actions = new int[p.np * BalanceAction.size];
 
@@ -132,7 +133,7 @@ public class LoadBalancer {
 		f.sync();
 	}
 
-	public static void main(String args[]) throws MPIException, InterruptedException {
+	public static void main(String args[]) throws MPIException, InterruptedException, IOException {
 		int[] size = new int[] {100, 100};
 		int[] aoi = new int[] {1, 1};
 

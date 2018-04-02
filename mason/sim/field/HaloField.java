@@ -150,7 +150,7 @@ public class HaloField {
 		return DoubleGridStorage.getFlatIdx(p, fieldSize);
 	}
 
-	public void sync() throws MPIException {
+	public void sync() throws MPIException, IOException {
 		byte[] sendbuf = new byte[maxSendSize], recvbuf = new byte[maxSendSize];
 		int[]  sendPos = new int[numNeighbors], recvPos = new int[numNeighbors];
 		int[]  sendCnt = new int[numNeighbors], recvCnt = new int[numNeighbors];
@@ -199,7 +199,7 @@ public class HaloField {
 		return ret;
 	}
 
-	public double[] collect(int dst) throws MPIException {
+	public double[] collect(int dst) throws MPIException, IOException {
 		int[] displ = null, count = null;
 		byte[] sendbuf = null, recvbuf = null;
 		int sendSize, pid = ps.getPid(), np = ps.getNumProc();
@@ -280,7 +280,7 @@ public class HaloField {
 		}
 	}
 
-	public static void main(String args[]) throws MPIException, InterruptedException {
+	public static void main(String args[]) throws MPIException, InterruptedException, IOException {
 		int[] size = new int[] {10, 10};
 		int[] aoi = new int[] {1, 1};
 		int[] want, got;
