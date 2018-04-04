@@ -68,15 +68,10 @@ public class NDoubleGrid2D extends HaloField {
 		double[] array = getStorageArray();
 		StringBuffer buf = new StringBuffer(String.format("PID %d Partition %d x %d Data\n", ps.getPid(), size[0], size[1]));
 
-		try {
 		for (int i = 0; i < size[0]; i++) {
 			for (int j = 0; j < size[1]; j++)
 				buf.append(String.format(" %.2f ", array[i * size[1] + j]));
 			buf.append("\n");
-		}} catch (ArrayIndexOutOfBoundsException e) {
-			System.out.println(String.format("[%d] %d x %d", ps.getPid(), size[0], size[1]));
-			e.printStackTrace();
-			System.exit(-1);
 		}
 
 		return buf.toString();
