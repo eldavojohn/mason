@@ -10,26 +10,26 @@ import sim.util.MPITest;
 import sim.field.DPartition;
 import sim.field.DNonUniformPartition;
 import sim.field.HaloField;
-import sim.field.storage.DoubleGridStorage;
+import sim.field.storage.IntGridStorage;
 
-public class NDoubleGrid2D extends HaloField {
+public class NIntGrid2D extends HaloField {
 
-	public NDoubleGrid2D(DPartition ps, int[] aoi, double initVal) {
-		super(ps, aoi, new DoubleGridStorage(ps.getPartition(), initVal));
+	public NIntGrid2D(DPartition ps, int[] aoi, int initVal) {
+		super(ps, aoi, new IntGridStorage(ps.getPartition(), initVal));
 
 		if (this.nd != 2)
 			throw new IllegalArgumentException("The number of dimensions is expected to be 2, got: " + this.nd);
 	}
 
-	public double[] getStorageArray() {
-		return (double[])field.getStorage();
+	public int[] getStorageArray() {
+		return (int[])field.getStorage();
 	}
 
-	public final double get(final int x, final int y) {
+	public final int get(final int x, final int y) {
 		return get(new IntPoint(x, y));
 	}
 
-	public final double get(IntPoint p) {
+	public final int get(IntPoint p) {
 		// In this partition and its surrounding ghost cells
 		if (!inLocalAndHalo(p))
 			throw new IllegalArgumentException(String.format("PID %d get %s is out of local boundary", ps.getPid(), p.toString()));
@@ -37,11 +37,11 @@ public class NDoubleGrid2D extends HaloField {
 		return getStorageArray()[field.getFlatIdx(toLocalPoint(p))];
 	}
 
-	public final void set(final int x, final int y, final double val) {
+	public final void set(final int x, final int y, final int val) {
 		set(new IntPoint(x, y), val);
 	}
 
-	public final void set(IntPoint p, final double val) {
+	public final void set(IntPoint p, final int val) {
 		// In this partition but not in ghost cells
 		if (!inLocal(p))
 			throw new IllegalArgumentException(String.format("PID %d set %s is out of local boundary", ps.getPid(), p.toString()));
@@ -67,7 +67,7 @@ public class NDoubleGrid2D extends HaloField {
 		p.initUniformly(null);
 		p.setMPITopo();
 
-		NDoubleGrid2D f = new NDoubleGrid2D(p, aoi, p.getPid());
+		NIntGrid2D f = new NIntGrid2D(p, aoi, p.getPid());
 
 		f.sync();
 

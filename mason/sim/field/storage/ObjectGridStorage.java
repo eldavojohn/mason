@@ -43,9 +43,22 @@ public class ObjectGridStorage<T> extends GridStorage {
 		return alloc.apply(size);
 	}
 
-	public int pack(MPIParam mp, byte[] buf, int idx) throws MPIException, IOException {
-		T[] objs = collect(mp);
+	public String toString() {
+		int[] size = shape.getSize();
+		T[] array = (T[])storage;
+		StringBuffer buf = new StringBuffer(String.format("ObjectGridStorage<%s>-%s\n", array.getClass().getSimpleName(), shape));
 
+		if (shape.nd == 2)
+			for (int i = 0; i < size[0]; i++) {
+				for (int j = 0; j < size[1]; j++)
+					buf.append(String.format(" %8s ", array[i * size[1] + j]));
+				buf.append("\n");
+			}
+
+		return buf.toString();
+	}
+
+	public int pack(MPIParam mp, byte[] buf, int idx) throws MPIException, IOException {
 		out = new ByteArrayOutputStream();
 		oos = new ObjectOutputStream(out);
 
@@ -61,10 +74,13 @@ public class ObjectGridStorage<T> extends GridStorage {
 		oos.close();
 		out.close();
 
-		return serialized.length;
+		return idx + serialized.length;
 	}
 
 	public int unpack(MPIParam mp, byte[] buf, int idx, int len) throws MPIException, IOException {
+		if (len == 0)
+			return 0;
+
 		in = new ByteArrayInputStream(Arrays.copyOfRange(buf, idx, idx + len));
 		ois = new ObjectInputStream(in);
 
@@ -113,8 +129,8 @@ public class ObjectGridStorage<T> extends GridStorage {
 		IntPoint p4 = new IntPoint(new int[] {4, 4});
 		IntHyperRect r1 = new IntHyperRect(0, p1, p2);
 		IntHyperRect r2 = new IntHyperRect(1, p3, p4);
-		ObjectGridStorage<TestObj> s1 = new ObjectGridStorage<TestObj>(r1, size -> new TestObj[size], 100);
-		ObjectGridStorage<TestObj> s2 = new ObjectGridStorage<TestObj>(r1, size -> new TestObj[size], 100);
+		ObjectGridStorage<TestObj> s1 = new ObjectGridStorage<TestObj>(r1, size -> new TestObj[size], TestObj.getMaxObjectSize());
+		ObjectGridStorage<TestObj> s2 = new ObjectGridStorage<TestObj>(r1, size -> new TestObj[size], TestObj.getMaxObjectSize());
 
 		TestObj[] stor = (TestObj[])s1.getStorage();
 		for (int i : new int[] {6, 12, 18})

@@ -10,4 +10,8 @@ public class TestObj implements java.io.Serializable {
 	public String toString() {
 		return String.format("%d", id);
 	}
+
+	public static int getMaxObjectSize() {
+		return 128;
+	}
 }

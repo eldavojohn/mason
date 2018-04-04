@@ -205,12 +205,16 @@ public class HaloField {
 		}
 
 		// Now gather the actual data
-		comm.gatherv(sendbuf, sendbuf.length, MPI.BYTE, recvbuf, count, displ, MPI.BYTE, dst);
+		comm.gatherv(sendbuf, sendSize, MPI.BYTE, recvbuf, count, displ, MPI.BYTE, dst);
 
 		// Dst unpack the data into fullField
 		if (pid == dst)
 			for (int i = 0; i < np; i++)
 				fullField.unpack(new MPIParam(ps.getPartition(i), world, MPIBaseType), recvbuf, displ[i], count[i]);
+	}
+
+	public String toString() {
+		return String.format("PID %d Storage %s", ps.getPid(), field);
 	}
 
 	// Helper class to organize neighbor-related data structures and methods

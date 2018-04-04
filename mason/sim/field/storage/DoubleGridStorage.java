@@ -25,6 +25,21 @@ public class DoubleGridStorage extends GridStorage {
 		return MPI.COMM_WORLD.unpack(buf, idx, slice((double[])storage, mp.idx), 1, mp.type);
 	}
 
+	public String toString() {
+		int[] size = shape.getSize();
+		double[] array = (double[])storage;
+		StringBuffer buf = new StringBuffer(String.format("DoubleGridStorage-%s\n", shape));
+
+		if (shape.nd == 2)
+			for (int i = 0; i < size[0]; i++) {
+				for (int j = 0; j < size[1]; j++)
+					buf.append(String.format(" %4.2s ", array[i * size[1] + j]));
+				buf.append("\n");
+			}
+
+		return buf.toString();
+	}
+
 	protected Object allocate(int size) {
 		return new double[size];
 	}

@@ -34,6 +34,7 @@ public abstract class GridStorage {
 		return shape;
 	}
 
+	public abstract String toString();
 	public abstract int pack(MPIParam mp, byte[] buf, int idx) throws MPIException, IOException;
 	public abstract int unpack(MPIParam mp, byte[] buf, int idx, int len) throws MPIException, IOException;
 	protected abstract Object allocate(int size);
