@@ -15,16 +15,9 @@ import sim.field.storage.GridStorage;
 import sim.field.storage.DoubleGridStorage;
 
 // TODO refactor HaloField to accept
-// grid: double, int, object
 // continuous: double, int, object
-// make halofield abstract and let subclasses like DDoubleGrid2D to implement functions including
-// get/set/...
 
-// TODO remove HaloFieldContinuous and HaloFieldGrid
-// and change all dependencies to this class
-// once the above TODO is done
-
-public class HaloField {
+public abstract class HaloField {
 
 	protected int nd, numNeighbors, maxSendSize;
 	protected int[] aoi, fieldSize, haloSize, partSize;
@@ -103,7 +96,7 @@ public class HaloField {
 	}
 
 	public boolean inLocalAndHalo(IntPoint p) {
-		return inGlobal(p) && haloPart.contains(p);
+		return haloPart.contains(p);
 	}
 
 	public boolean inShared(IntPoint p) {
@@ -129,6 +122,14 @@ public class HaloField {
 		else if (x < 0)
 			return x + s;
 		return x;
+	}
+
+	public int stx(final int x) {
+		return toToroidal(x, 0);
+	}
+
+	public int sty(final int y) {
+		return toToroidal(y, 1);
 	}
 
 	public void sync() throws MPIException, IOException {
@@ -257,185 +258,5 @@ public class HaloField {
 
 			return overlaps;
 		}
-	}
-
-	public static void main(String args[]) throws MPIException, InterruptedException, IOException {
-		int[] size = new int[] {10, 10};
-		int[] aoi = new int[] {1, 1};
-		int[] want, got;
-
-		MPI.Init(args);
-
-		/**
-		* Create the following partition scheme
-		*
-		*	 0		4		7			10
-		*	0 ---------------------------
-		*	  |				|			|
-		*	  |		P0		|	  P1	|
-		*	5 |-------------------------|
-		*	  |		|					|
-		*	  |	P2	|		 P3			|
-		*  10 ---------------------------
-		*
-		**/
-
-		DNonUniformPartition p = new DNonUniformPartition(size, true);
-
-		assert p.np == 4;
-
-		p.insertPartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {5, 7})));
-		p.insertPartition(new IntHyperRect(1, new IntPoint(new int[] {0, 7}), new IntPoint(new int[] {5, 10})));
-		p.insertPartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 4})));
-		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {5, 4}), new IntPoint(new int[] {10, 10})));
-		p.setMPITopo();
-
-		DoubleGridStorage stor = new DoubleGridStorage(p.getPartition(), p.pid);
-
-		HaloField hf = new HaloField(p, aoi, stor);
-
-		assert hf.inGlobal(new IntPoint(new int[] {5, 8}));
-		assert !hf.inGlobal(new IntPoint(new int[] { -3, 0}));
-		assert !hf.inGlobal(new IntPoint(new int[] {7, 240}));
-
-		if (p.pid == 0) {
-			// TODO complete those tests
-			// assert hf.inLocal(new IntPoint(new int[] {0, 99}));
-			// assert !hf.inLocal(new IntPoint(new int[] {50, 0}));
-
-			// assert hf.inPrivate(new IntPoint(new int[] {aoi[0], aoi[1]}));
-			// assert !hf.inPrivate(new IntPoint(new int[] {50, 0}));
-			// assert !hf.inPrivate(new IntPoint(new int[] {0, 99}));
-
-			// assert hf.inShared(new IntPoint(new int[] {49, 99}));
-			// assert !hf.inShared(new IntPoint(new int[] {50, 100}));
-			// assert !hf.inShared(new IntPoint(new int[] {25, 50}));
-
-			// assert hf.inHalo(new IntPoint(new int[] {0, 100}));
-		}
-
-		hf.sync();
-
-		printHaloField(hf, p);
-
-		DoubleGridStorage allStor = p.pid == 0 ? new DoubleGridStorage(p.getField(), p.pid) : null;
-		hf.collect(0, allStor);
-
-		if (p.pid == 0) {
-			double[] all = (double[])allStor.getStorage();
-			System.out.println("\nEntire Field...\n");
-			for (int i = 0; i < p.size[0]; i++) {
-				for (int j = 0; j < p.size[1]; j++)
-					System.out.printf("%.1f\t", all[i * p.size[1] + j]);
-				System.out.printf("\n");
-			}
-			System.out.printf("\n");
-		}
-
-		MPI.COMM_WORLD.barrier();
-
-		if (p.pid == 0)
-			System.out.println("\nTest Repartitioning #1...\n");
-		/**
-		* Change the partition to the following
-		*
-		*	 0		   5 6	 			10
-		*	0 ---------------------------
-		*	  |			 | <-			|
-		*	  |		P0	 | <- 	 P1		|
-		*	5 |-------------------------|
-		*	  |		 ->|				|
-		*	  |	P2	 ->|		 P3		|
-		*  10 ---------------------------
-		*
-		**/
-		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {5, 6})));
-		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 6}), new IntPoint(new int[] {5, 10})));
-		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 5})));
-		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 5}), new IntPoint(new int[] {10, 10})));
-		p.setMPITopo();
-
-		hf.reload();
-		hf.sync();
-
-		printHaloField(hf, p);
-
-		if (p.pid == 0)
-			System.out.println("\nTest Repartitioning #2...\n");
-		/**
-		* Change the partition to the following
-		*
-		*	 0		     6	 			10
-		*	0 ---------------------------
-		*	  |			 | 				|
-		*	  |		P0	 | 	 	 P1		|
-		*	5 |-------------------------|
-		*	  |		  -> |				|
-		*	  |	P2	  -> |		 P3		|
-		*  10 ---------------------------
-		*
-		**/
-		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 6})));
-		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 6}), new IntPoint(new int[] {10, 10})));
-		p.setMPITopo();
-
-		hf.reload();
-		hf.sync();
-
-		printHaloField(hf, p);
-
-		if (p.pid == 0)
-			System.out.println("\nTest Repartitioning #3...\n");
-		/**
-		* Change the partition to the following
-		*
-		*	 0		  	 6	 			10
-		*	0 ---------------------------
-		*	  |		P0	 | 				|
-		*	4 |----------| 	 	P1		|
-		*	  |		^^	 |	||			|
-		*	6 |		 	 |--------------|
-		*	  |	P2	 	 |		 P3		|
-		*  10 ---------------------------
-		*
-		**/
-		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {4, 6})));
-		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 6}), new IntPoint(new int[] {6, 10})));
-		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {4, 0}), new IntPoint(new int[] {10, 6})));
-		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {6, 6}), new IntPoint(new int[] {10, 10})));
-		p.setMPITopo();
-
-		hf.reload();
-		hf.sync();
-
-		printHaloField(hf, p);
-
-		MPI.Finalize();
-	}
-
-	private static void printHaloField(HaloField hf, DNonUniformPartition p) throws MPIException, InterruptedException {
-		MPI.COMM_WORLD.barrier();
-
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
-
-		double[] field = (double[])hf.field.getStorage();
-
-		System.out.println("PID " + p.pid + " data: ");
-		int w = p.getPartition().getSize()[0] + 2 * hf.aoi[0];
-		int h = p.getPartition().getSize()[1] + 2 * hf.aoi[1];
-		for (int i = 0; i < w; i++) {
-			if (i == 1 || i == w - 1)
-				System.out.println("");
-			for (int j = 0; j < h; j++) {
-				if (j == 1 || j == h - 1)
-					System.out.printf("   \t");
-				System.out.printf("%.1f\t", field[i * h + j]);
-			}
-			System.out.printf("\n");
-		}
-		System.out.printf("\n");
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
-
-		MPI.COMM_WORLD.barrier();
 	}
 }

@@ -49,14 +49,6 @@ public class NIntGrid2D extends HaloField {
 		getStorageArray()[field.getFlatIdx(toLocalPoint(p))] = val;
 	}
 
-	public final int stx(final int x) {
-		return toToroidal(x, 0);
-	}
-
-	public final int sty(final int y) {
-		return toToroidal(y, 1);
-	}
-
 	public static void main(String[] args) throws MPIException, IOException {
 		MPI.Init(args);
 

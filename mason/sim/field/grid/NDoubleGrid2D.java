@@ -49,29 +49,140 @@ public class NDoubleGrid2D extends HaloField {
 		getStorageArray()[field.getFlatIdx(toLocalPoint(p))] = val;
 	}
 
-	public final int stx(final int x) {
-		return toToroidal(x, 0);
-	}
+	public static void main(String args[]) throws MPIException, IOException {
+		int[] size = new int[] {10, 10};
+		int[] aoi = new int[] {1, 1};
 
-	public final int sty(final int y) {
-		return toToroidal(y, 1);
-	}
-
-	public static void main(String[] args) throws MPIException, IOException {
 		MPI.Init(args);
 
-		int[] aoi = new int[] {2, 2};
-		int[] size = new int[] {8, 8};
+		/**
+		* Create the following partition scheme
+		*
+		*	 0		4		7			10
+		*	0 ---------------------------
+		*	  |				|			|
+		*	  |		P0		|	  P1	|
+		*	5 |-------------------------|
+		*	  |		|					|
+		*	  |	P2	|		 P3			|
+		*  10 ---------------------------
+		*
+		**/
 
 		DNonUniformPartition p = new DNonUniformPartition(size, true);
-		p.initUniformly(null);
+
+		assert p.np == 4;
+
+		p.insertPartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {5, 7})));
+		p.insertPartition(new IntHyperRect(1, new IntPoint(new int[] {0, 7}), new IntPoint(new int[] {5, 10})));
+		p.insertPartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 4})));
+		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {5, 4}), new IntPoint(new int[] {10, 10})));
 		p.setMPITopo();
 
-		NDoubleGrid2D f = new NDoubleGrid2D(p, aoi, p.getPid());
+		NDoubleGrid2D hf = new NDoubleGrid2D(p, aoi, p.pid);
 
-		f.sync();
+		assert hf.inGlobal(new IntPoint(new int[] {5, 8}));
+		assert !hf.inGlobal(new IntPoint(new int[] { -3, 0}));
+		assert !hf.inGlobal(new IntPoint(new int[] {7, 240}));
 
-		MPITest.execInOrder(i -> System.out.println(f), 500);
+		MPITest.execOnlyIn(0, i -> {
+			assert hf.inLocal(new IntPoint(new int[] {0, 6}));
+			assert !hf.inLocal(new IntPoint(new int[] {5, 0}));
+
+			assert hf.inPrivate(new IntPoint(new int[] {1, 1}));
+			assert !hf.inPrivate(new IntPoint(new int[] {0, 0}));
+			assert !hf.inPrivate(new IntPoint(new int[] {5, 7}));
+
+			assert hf.inShared(new IntPoint(new int[] {4, 6}));
+			assert !hf.inShared(new IntPoint(new int[] {50, 100}));
+			assert !hf.inShared(new IntPoint(new int[] {-1, 0}));
+
+			assert hf.inHalo(new IntPoint(new int[] {-1, -1}));
+			assert hf.inHalo(new IntPoint(new int[] {5, 6}));
+			assert !hf.inHalo(new IntPoint(new int[] {7, 6}));
+		});
+
+		hf.sync();
+
+		MPITest.execOnlyIn(0, i -> System.out.println("After Sync..."));
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
+
+		DoubleGridStorage allStor = p.pid == 0 ? new DoubleGridStorage(p.getField(), p.pid) : null;
+		hf.collect(0, allStor);
+		MPITest.execOnlyIn(0, i -> System.out.println("Entire Field\n" + allStor));
+
+		MPITest.execOnlyIn(0, i -> System.out.println("\nTest Repartitioning #1...\n"));
+		/**
+		* Change the partition to the following
+		*
+		*	 0		   5 6	 			10
+		*	0 ---------------------------
+		*	  |			 | <-			|
+		*	  |		P0	 | <- 	 P1		|
+		*	5 |-------------------------|
+		*	  |		 ->|				|
+		*	  |	P2	 ->|		 P3		|
+		*  10 ---------------------------
+		*
+		**/
+		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {5, 6})));
+		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 6}), new IntPoint(new int[] {5, 10})));
+		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 5})));
+		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 5}), new IntPoint(new int[] {10, 10})));
+		p.setMPITopo();
+
+		hf.reload();
+		hf.sync();
+
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
+
+		MPITest.execOnlyIn(0, i -> System.out.println("\nTest Repartitioning #2...\n"));
+		/**
+		* Change the partition to the following
+		*
+		*	 0		     6	 			10
+		*	0 ---------------------------
+		*	  |			 | 				|
+		*	  |		P0	 | 	 	 P1		|
+		*	5 |-------------------------|
+		*	  |		  -> |				|
+		*	  |	P2	  -> |		 P3		|
+		*  10 ---------------------------
+		*
+		**/
+		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 6})));
+		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 6}), new IntPoint(new int[] {10, 10})));
+		p.setMPITopo();
+
+		hf.reload();
+		hf.sync();
+
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
+
+		MPITest.execOnlyIn(0, i -> System.out.println("\nTest Repartitioning #3...\n"));
+		/**
+		* Change the partition to the following
+		*
+		*	 0		  	 6	 			10
+		*	0 ---------------------------
+		*	  |		P0	 | 				|
+		*	4 |----------| 	 	P1		|
+		*	  |		^^	 |	||			|
+		*	6 |		 	 |--------------|
+		*	  |	P2	 	 |		 P3		|
+		*  10 ---------------------------
+		*
+		**/
+		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {4, 6})));
+		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 6}), new IntPoint(new int[] {6, 10})));
+		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {4, 0}), new IntPoint(new int[] {10, 6})));
+		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {6, 6}), new IntPoint(new int[] {10, 10})));
+		p.setMPITopo();
+
+		hf.reload();
+		hf.sync();
+
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
 
 		MPI.Finalize();
 	}

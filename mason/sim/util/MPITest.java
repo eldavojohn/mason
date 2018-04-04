@@ -9,6 +9,8 @@ public class MPITest {
 
 	static final Comm comm = MPI.COMM_WORLD;
 
+	private MPITest() {}
+
 	public static void execInOrder(Consumer<Integer> func, int delay) {
 		try {
 			for (int i = 0; i < comm.getSize(); i++) {

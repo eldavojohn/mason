@@ -33,7 +33,7 @@ public class DoubleGridStorage extends GridStorage {
 		if (shape.nd == 2)
 			for (int i = 0; i < size[0]; i++) {
 				for (int j = 0; j < size[1]; j++)
-					buf.append(String.format(" %4.2s ", array[i * size[1] + j]));
+					buf.append(String.format(" %4.2f ", array[i * size[1] + j]));
 				buf.append("\n");
 			}
 
