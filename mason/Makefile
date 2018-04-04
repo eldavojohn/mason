@@ -17,6 +17,7 @@ DIRS = \
 sim/app/heatbugs/*.java\
 sim/app/dheatbugs/*.java\
 sim/app/dheatbugsrma/*.java\
+sim/app/nheatbugs/*.java\
 sim/app/hexabugs/*.java \
 sim/app/asteroids/*.java \
 sim/app/antsforage/*.java \
