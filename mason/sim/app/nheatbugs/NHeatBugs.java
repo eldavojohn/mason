@@ -66,6 +66,8 @@ public class NHeatBugs extends SimState {
 	public int[] aoi;
 	public IntHyperRect myPart;
 
+	LoadBalancer lb;
+
 	public NHeatBugs(long seed) {
 		this(seed, 1000, 1000, 1000, 1);
 	}
@@ -88,6 +90,8 @@ public class NHeatBugs extends SimState {
 			queue = new DObjectMigratorNonUniform(p);
 
 			privBugCount = bugCount / p.np;
+
+			lb = new LoadBalancer(p, valgrid, this.aoi, 10000);
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 			System.exit(-1);
@@ -134,6 +138,12 @@ public class NHeatBugs extends SimState {
 				hb.valgrid.sync();
 				hb.bugs.sync();
 				hb.queue.sync();
+
+				if (hb.lb.balance((int)hb.schedule.getSteps()) > 0) {
+					System.out.println("Balanced");
+					hb.valgrid.reload(); hb.valgrid.sync();
+					hb.bugs.reload(); hb.bugs.sync();
+				}
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.exit(-1);

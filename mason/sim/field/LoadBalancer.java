@@ -112,9 +112,10 @@ public class LoadBalancer {
 		return getAction(getAvailNeighborIds());
 	}
 
-	public void balance(int step) throws MPIException, IOException {
+	public int balance(int step) throws MPIException, IOException {
 		// Buffers to hold incoming actions
 		int[] actions = new int[p.np * BalanceAction.size];
+		int count = 0;
 
 		// Generate own load balancing action
 		BalanceAction myAction = generateAction(step);
@@ -129,13 +130,15 @@ public class LoadBalancer {
 
 		// Everyone commits the changes to their local partition scheme
 		for (BalanceAction a : BalanceAction.toActions(actions))
-			a.applyToPartition(p);
+			count += a.applyToPartition(p);
 
 		p.setMPITopo();
 
 		// Sync HaloField data
-		f.reload();
-		f.sync();
+		// f.reload();
+		// f.sync();
+
+		return count;
 	}
 
 	public static void main(String args[]) throws MPIException, InterruptedException, IOException {
@@ -157,18 +160,26 @@ public class LoadBalancer {
 		LoadBalancer lb = new LoadBalancer(p, hf, aoi, 0);
 
 		lb.balance(0);
+		hf.reload();
+		hf.sync();
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
 		hf.setRuntimes(new double[] {200 , 100, 100, 50});
 
 		lb.balance(1);
+		hf.reload();
+		hf.sync();
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
 		//hf.setRuntimes(new double[]{ , , , });
 
 		lb.balance(2);
+		hf.reload();
+		hf.sync();
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
 		//hf.setRuntimes(new double[]{ , , , });
 
 		lb.balance(3);
+		hf.reload();
+		hf.sync();
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
 
 		MPI.Finalize();

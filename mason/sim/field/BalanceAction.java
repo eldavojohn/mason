@@ -41,9 +41,9 @@ public class BalanceAction {
 		return ret;
 	}
 
-	public void applyToPartition(DNonUniformPartition p) {
+	public int applyToPartition(DNonUniformPartition p) {
 		if (offset == 0 || src == dst)
-			return;
+			return 0;
 
 		IntHyperRect srcp = p.getPartition(src);
 		IntHyperRect dstp = p.getPartition(dst);
@@ -52,6 +52,8 @@ public class BalanceAction {
 
 		p.updatePartition(srcp.resize(dim, dir, offset));
 		p.updatePartition(dstp.resize(dim, -dir, -offset));
+
+		return 1;
 	}
 
 	public String toString() {
