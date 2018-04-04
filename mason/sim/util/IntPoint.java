@@ -14,17 +14,17 @@ public class IntPoint implements Comparable<IntPoint> {
 
 	public IntPoint(int c1) {
 		this.nd = 1;
-		this.c = new int[]{c1};
+		this.c = new int[] {c1};
 	}
 
 	public IntPoint(int c1, int c2) {
 		this.nd = 2;
-		this.c = new int[]{c1, c2};
+		this.c = new int[] {c1, c2};
 	}
 
 	public IntPoint(int c1, int c2, int c3) {
 		this.nd = 3;
-		this.c = new int[]{c1, c2, c3};
+		this.c = new int[] {c1, c2, c3};
 	}
 
 	// Sanity checks
@@ -50,10 +50,10 @@ public class IntPoint implements Comparable<IntPoint> {
 
 	public IntPoint shift(int dim, int offset) {
 		assertEqualDim(dim);
-		
+
 		int[] newc = Arrays.copyOf(c, nd);
 		newc[dim] += offset;
-		
+
 		return new IntPoint(newc);
 	}
 
@@ -76,9 +76,9 @@ public class IntPoint implements Comparable<IntPoint> {
 	// Reduce dimension by removing the value at the dimth dimension
 	public IntPoint reduceDim(int dim) {
 		assertEqualDim(dim);
-		
+
 		int[] newc = Arrays.copyOf(c, nd - 1);
-		for(int i = dim; i < nd - 1; i++)
+		for (int i = dim; i < nd - 1; i++)
 			newc[i] = c[i + 1];
 
 		return new IntPoint(newc);
@@ -93,6 +93,18 @@ public class IntPoint implements Comparable<IntPoint> {
 				return false;
 
 		return true;
+	}
+
+	public IntPoint toToroidal(IntHyperRect bound) {
+		int[] size = bound.getSize(), offsets = new int[nd];
+
+		for (int i = 0; i < nd; i++)
+			if (c[i] >= bound.br.c[i])
+				offsets[i] = -size[i];
+			else if (c[i] < bound.ul.c[i])
+				offsets[i] = size[i];
+
+		return shift(offsets);
 	}
 
 	// // Increase the dimension by inserting the val into the dimth dimension
@@ -113,7 +125,7 @@ public class IntPoint implements Comparable<IntPoint> {
 	public int compareTo(IntPoint that) {
 		assertEqualDim(that);
 
-		for(int i = 0; i < nd; i++) {
+		for (int i = 0; i < nd; i++) {
 			if (this.c[i] == that.c[i])
 				continue;
 			return this.c[i] - that.c[i];
@@ -124,5 +136,22 @@ public class IntPoint implements Comparable<IntPoint> {
 
 	public String toString() {
 		return Arrays.toString(c);
+	}
+
+	public static void main(String[] args) {
+		IntPoint pa = new IntPoint(new int[] {1, 1});
+		IntPoint pb = new IntPoint(new int[] {4, 4});
+		IntHyperRect r = new IntHyperRect(0, pa, pb);
+
+		IntPoint p1 = new IntPoint(new int[] {4, 4});
+		IntPoint p2 = new IntPoint(new int[] {4, 5});
+		IntPoint p3 = new IntPoint(new int[] {5, 4});
+		IntPoint p4 = new IntPoint(new int[] {1, 1});
+		IntPoint p5 = new IntPoint(new int[] {2, 3});
+		IntPoint p6 = new IntPoint(new int[] {1, 0});
+		IntPoint p7 = new IntPoint(new int[] {-1, 0});
+
+		for (IntPoint p : new IntPoint[]{p1, p2, p3, p4, p5, p6, p7})
+			System.out.println("toToroidal " + p.toToroidal(r));
 	}
 }

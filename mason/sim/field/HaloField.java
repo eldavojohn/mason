@@ -11,6 +11,7 @@ import sim.util.IntHyperRect;
 import sim.util.MovingAverage;
 
 import sim.util.MPIParam;
+import sim.field.storage.GridStorage;
 import sim.field.storage.DoubleGridStorage;
 
 // TODO refactor HaloField to accept
@@ -25,28 +26,25 @@ import sim.field.storage.DoubleGridStorage;
 
 public class HaloField {
 
-	DoubleGridStorage field;
-	double initVal;
+	protected int nd, numNeighbors, maxSendSize;
+	protected int[] aoi, fieldSize, haloSize, partSize;
+	protected IntHyperRect world, haloPart, origPart, privPart;
+	protected Neighbor[] neighbors;
 
-	int nd, numNeighbors, maxSendSize;
-	int[] fieldSize, haloSize, partSize;
-	public int[] aoi;
-	IntHyperRect haloPart, origPart, privPart;
-	Neighbor[] neighbors;
+	protected GridStorage field;
+	protected DPartition ps;
+	protected Comm comm;
 
-	Comm comm;
-	DPartition ps;
-
-	Datatype MPIBaseType;
+	protected Datatype MPIBaseType;
 
 	// TODO refactor the performance measurements into a separate class
 	long prevts;
 	MovingAverage avg;
 
-	public HaloField(DPartition ps, int[] aoi, double initVal) {
+	public HaloField(DPartition ps, int[] aoi, GridStorage stor) {
 		this.ps = ps;
 		this.aoi = aoi;
-		this.initVal = initVal;
+		this.field = stor;
 
 		reload();
 
@@ -58,6 +56,7 @@ public class HaloField {
 		nd = ps.getNumDim();
 		comm = ps.getCommunicator();
 		fieldSize = ps.getFieldSize();
+		world = ps.getField();
 		origPart = ps.getPartition();
 		partSize = origPart.getSize();
 
@@ -65,13 +64,8 @@ public class HaloField {
 		haloPart = origPart.resize(aoi);
 		haloSize = haloPart.getSize();
 
-		// Init local storage if field is null
-		// otherwise re-arrange the data based on the old and new partiton
-		if (field == null) {
-			field = new DoubleGridStorage(haloPart, initVal);
-			MPIBaseType = field.getMPIBaseType();
-		} else
-			field.reshape(haloPart);
+		MPIBaseType = field.getMPIBaseType();
+		field.reshape(haloPart);
 
 		// Get the partition representing private area by shrinking the original partition by aoi at each dimension
 		privPart = origPart.resize(Arrays.stream(aoi).map(x -> -x).toArray());
@@ -91,32 +85,8 @@ public class HaloField {
 		}
 	}
 
-	public double[] getField() {
-		return (double[])field.getStorage();
-	}
-
-	public final double get(final IntPoint p) {
-		// In global
-		if (!inGlobal(p))
-			throw new IllegalArgumentException(String.format("PID %d get %s is out of global boundary", ps.getPid(), p.toString()));
-
-		// In this partition and its surrounding ghost cells
-		if (!inLocalAndHalo(p))
-			throw new IllegalArgumentException(String.format("PID %d get %s is out of local boundary", ps.getPid(), p.toString()));
-
-		return ((double[])(field.getStorage()))[field.getFlatIdx(p)];
-	}
-
-	public final void set(final IntPoint p, final double val) {
-		// In global
-		if (!inGlobal(p))
-			throw new IllegalArgumentException(String.format("PID %d set %s is out of global boundary", ps.getPid(), p.toString()));
-
-		// In this partition but not in ghost cells
-		if (!inLocal(p))
-			throw new IllegalArgumentException(String.format("PID %d set %s is out of local boundary", ps.getPid(), p.toString()));
-
-		((double[])(field.getStorage()))[field.getFlatIdx(p)] = val;
+	public GridStorage getStorage() {
+		return field;
 	}
 
 	// Various stabbing queries
@@ -144,10 +114,21 @@ public class HaloField {
 		return inLocalAndHalo(p) && !inLocal(p);
 	}
 
-	// Get the corresponding index in the global flatted 1-d array of the given point
-	// The given point is expected to be a global one
-	private int getFlatIdxGlobal(IntPoint p) {
-		return DoubleGridStorage.getFlatIdx(p, fieldSize);
+	public IntPoint toLocalPoint(IntPoint p) {
+		return p.rshift(haloPart.ul.c);
+	}
+
+	public IntPoint toToroidal(IntPoint p) {
+		return p.toToroidal(world);
+	}
+
+	public int toToroidal(int x, int dim) {
+		int s = fieldSize[dim];
+		if (x >= s )
+			return x - s;
+		else if (x < 0)
+			return x + s;
+		return x;
 	}
 
 	public void sync() throws MPIException, IOException {
@@ -199,7 +180,7 @@ public class HaloField {
 		return ret;
 	}
 
-	public double[] collect(int dst) throws MPIException, IOException {
+	public void collect(int dst, GridStorage fullField) throws MPIException, IOException {
 		int[] displ = null, count = null;
 		byte[] sendbuf = null, recvbuf = null;
 		int sendSize, pid = ps.getPid(), np = ps.getNumProc();
@@ -227,15 +208,9 @@ public class HaloField {
 		comm.gatherv(sendbuf, sendbuf.length, MPI.BYTE, recvbuf, count, displ, MPI.BYTE, dst);
 
 		// Dst unpack the data into fullField
-		if (pid == dst) {
-			IntHyperRect fullPart = new IntHyperRect(-1, new IntPoint(new int[nd]), new IntPoint(fieldSize));
-			DoubleGridStorage fullField = new DoubleGridStorage(fullPart, initVal);
+		if (pid == dst)
 			for (int i = 0; i < np; i++)
-				fullField.unpack(new MPIParam(ps.getPartition(i), fullPart, MPIBaseType), recvbuf, displ[i], count[i]);
-			return (double[])fullField.getStorage();
-		}
-
-		return null;
+				fullField.unpack(new MPIParam(ps.getPartition(i), world, MPIBaseType), recvbuf, displ[i], count[i]);
 	}
 
 	// Helper class to organize neighbor-related data structures and methods
@@ -311,7 +286,9 @@ public class HaloField {
 		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {5, 4}), new IntPoint(new int[] {10, 10})));
 		p.setMPITopo();
 
-		HaloField hf = new HaloField(p, aoi, p.pid);
+		DoubleGridStorage stor = new DoubleGridStorage(p.getPartition(), p.pid);
+
+		HaloField hf = new HaloField(p, aoi, stor);
 
 		assert hf.inGlobal(new IntPoint(new int[] {5, 8}));
 		assert !hf.inGlobal(new IntPoint(new int[] { -3, 0}));
@@ -337,9 +314,11 @@ public class HaloField {
 
 		printHaloField(hf, p);
 
-		double[] all = hf.collect(0);
+		DoubleGridStorage allStor = p.pid == 0 ? new DoubleGridStorage(p.getField(), p.pid) : null;
+		hf.collect(0, allStor);
 
 		if (p.pid == 0) {
+			double[] all = (double[])allStor.getStorage();
 			System.out.println("\nEntire Field...\n");
 			for (int i = 0; i < p.size[0]; i++) {
 				for (int j = 0; j < p.size[1]; j++)

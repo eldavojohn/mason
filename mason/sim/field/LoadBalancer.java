@@ -6,6 +6,8 @@ import java.util.stream.IntStream;
 
 import sim.util.IntHyperRect;
 import sim.util.GraphColoring;
+import sim.util.MPITest;
+import sim.field.grid.NDoubleGrid2D;
 
 import mpi.*;
 
@@ -21,7 +23,7 @@ public class LoadBalancer {
 
 	// Use aoi as the offset to adjust partitions
 	int[] aoi;
-	
+
 	public int count;
 
 	public LoadBalancer(DNonUniformPartition p, HaloField f, int[] aoi, double threshold) {
@@ -80,7 +82,7 @@ public class LoadBalancer {
 		// do not balance if the delta is too small
 		if (maxDelta < threshold)
 			offset = 0;
-		
+
 		if (offset != 0 && myPid != target)
 			count += 1;
 
@@ -117,15 +119,18 @@ public class LoadBalancer {
 		// Generate own load balancing action
 		BalanceAction myAction = generateAction(step);
 		myAction.writeToBuf(actions, p.pid);
-		System.out.println(String.format("[%d] %s", p.pid, myAction.toString()));
+
+		//MPITest.execInOrder(i -> System.out.println(String.format("[%d] %s", p.pid, myAction.toString())), 0);
 
 		// Exchange actions
 		p.getCommunicator().allGather(actions, BalanceAction.size, MPI.INT);
-		System.out.println(String.format("[%d] %s", p.pid, Arrays.toString(actions)));
+
+		//MPITest.execInOrder(i -> System.out.println(String.format("[%d] %s", p.pid, Arrays.toString(actions))), 0);
 
 		// Everyone commits the changes to their local partition scheme
 		for (BalanceAction a : BalanceAction.toActions(actions))
 			a.applyToPartition(p);
+
 		p.setMPITopo();
 
 		// Sync HaloField data
@@ -134,41 +139,45 @@ public class LoadBalancer {
 	}
 
 	public static void main(String args[]) throws MPIException, InterruptedException, IOException {
-		int[] size = new int[] {100, 100};
+		int[] size = new int[] {10, 10};
 		int[] aoi = new int[] {1, 1};
 
 		MPI.Init(args);
 
-		DNonUniformPartition p = new DNonUniformPartition(size);
+		DNonUniformPartition p = new DNonUniformPartition(size, true);
 		assert p.np == 4;
 		p.initUniformly(null);
 		p.setMPITopo();
 
-		FakeHaloField hf = new FakeHaloField(p, aoi, p.pid);
+		FakeField hf = new FakeField(p, aoi, p.pid);
 		hf.sync();
 
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
+
 		LoadBalancer lb = new LoadBalancer(p, hf, aoi, 0);
-		// lb.printHaloField();
-		// for (int i = 0; i < 5; i++) {
-		// 	lb.balance(i);
-		// 	lb.printHaloField();
-		// }
 
 		lb.balance(0);
-		hf.setRuntimes(new double[]{200 , 100, 100, 50});
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
+		hf.setRuntimes(new double[] {200 , 100, 100, 50});
+
 		lb.balance(1);
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
 		//hf.setRuntimes(new double[]{ , , , });
+
 		lb.balance(2);
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
 		//hf.setRuntimes(new double[]{ , , , });
+
 		lb.balance(3);
+		MPITest.execInOrder(i -> System.out.println(hf), 500);
 
 		MPI.Finalize();
 	}
 
-	static class FakeHaloField extends sim.field.HaloField {
+	static class FakeField extends NDoubleGrid2D {
 		public HashMap<Integer, Double> rt;
 
-		public FakeHaloField(DPartition ps, int[] aoi, double initVal) {
+		public FakeField(DPartition ps, int[] aoi, double initVal) {
 			super(ps, aoi, initVal);
 			rt = new HashMap<Integer, Double>();
 			for (int i = 0; i < ps.getNumProc(); i++)
@@ -183,35 +192,11 @@ public class LoadBalancer {
 		@Override
 		public HashMap<Integer, Double> getRuntimes() {
 			HashMap<Integer, Double> ret = new HashMap<Integer, Double>();
-			
+
 			ret.put(ps.getPid(), rt.get(ps.getPid()));
 			Arrays.stream(neighbors).forEach(x -> ret.put(x.pid, rt.get(x.pid)));
 
 			return ret;
 		}
-	}
-
-	private void printHaloField() throws MPIException, InterruptedException {
-		MPI.COMM_WORLD.barrier();
-
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
-
-		System.out.println("PID " + p.pid + " data: ");
-		int w = p.getPartition().getSize()[0] + 2 * aoi[0];
-		int h = p.getPartition().getSize()[1] + 2 * aoi[1];
-		for (int i = 0; i < w; i++) {
-			if (i == 1 || i == w - 1)
-				System.out.println("");
-			for (int j = 0; j < h; j++) {
-				if (j == 1 || j == h - 1)
-					System.out.printf("   \t");
-				System.out.printf("%.1f\t", f.getField()[i * h + j]);
-			}
-			System.out.printf("\n");
-		}
-		System.out.printf("\n");
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
-
-		MPI.COMM_WORLD.barrier();
 	}
 }

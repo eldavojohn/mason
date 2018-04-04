@@ -43,6 +43,13 @@ public abstract class DPartition {
 		return Arrays.copyOf(size, nd);
 	}
 
+	public IntHyperRect getField() {
+		IntPoint ul = new IntPoint(new int[nd]);
+		IntPoint br = new IntPoint(size);
+
+		return new IntHyperRect(-1, ul, br);
+	}
+
 	public abstract IntHyperRect getPartition();
 	public abstract IntHyperRect getPartition(int pid);
 

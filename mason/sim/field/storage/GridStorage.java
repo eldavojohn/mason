@@ -30,6 +30,10 @@ public abstract class GridStorage {
 		return baseType;
 	}
 
+	public IntHyperRect getShape() {
+		return shape;
+	}
+
 	public abstract int pack(MPIParam mp, byte[] buf, int idx) throws MPIException, IOException;
 	public abstract int unpack(MPIParam mp, byte[] buf, int idx, int len) throws MPIException, IOException;
 	protected abstract Object allocate(int size);
@@ -42,7 +46,7 @@ public abstract class GridStorage {
 
 			try {
 				byte[] buf = new byte[MPI.COMM_WORLD.packSize(overlap.getArea(), baseType)];
-				
+
 				pack(fromParam, buf, 0);
 				storage = allocate(newShape.getArea());
 				unpack(toParam, buf, 0, 0);
