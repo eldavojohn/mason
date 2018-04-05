@@ -147,7 +147,7 @@ public class LoadBalancer {
 
 		MPI.Init(args);
 
-		DNonUniformPartition p = new DNonUniformPartition(size, true);
+		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
 		assert p.np == 4;
 		p.initUniformly(null);
 		p.setMPITopo();

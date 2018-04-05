@@ -7,9 +7,9 @@ import sim.util.*;
 
 import mpi.*;
 
-// TODO make dpartition singleton
-// TODO let other class register callbacks so that they can properly update themselves once partition changes
 public class DNonUniformPartition extends DPartition {
+
+	static DNonUniformPartition instance;
 
 	AugmentedSegmentTree[] st;
 	// TODO Use IntHyperRect for now, need to use something like generic or create separate files for int and double.
@@ -21,11 +21,11 @@ public class DNonUniformPartition extends DPartition {
 	ArrayList<UpdateAction> updates;
 	ArrayList<Runnable> preCallbacks, postCallbacks;
 
-	public DNonUniformPartition(int size[]) {
+	private DNonUniformPartition(int size[]) {
 		this(size, false);
 	}
 
-	public DNonUniformPartition(int size[], boolean isToroidal) {
+	private DNonUniformPartition(int size[], boolean isToroidal) {
 		super(size, isToroidal);
 
 		this.st = new AugmentedSegmentTree[nd];
@@ -45,6 +45,33 @@ public class DNonUniformPartition extends DPartition {
 		updates = new ArrayList<UpdateAction>();
 		preCallbacks = new ArrayList<Runnable>();
 		postCallbacks = new ArrayList<Runnable>();
+	}
+
+	public static DNonUniformPartition getPartitionScheme(int size[]) {
+		if (instance == null)
+			instance = new DNonUniformPartition(size);
+
+		if (instance.isToroidal == true)
+			throw new IllegalArgumentException("DNonUniformPartition has already been initialized to be Toroidal");
+
+		return instance;
+	}
+
+	public static DNonUniformPartition getPartitionScheme(int size[], boolean isToroidal) {
+		if (instance == null)
+			instance = new DNonUniformPartition(size, isToroidal);
+
+		if (instance.isToroidal == isToroidal)
+			throw new IllegalArgumentException("DNonUniformPartition has already been initialized to be " + (instance.isToroidal ? "Toroidal" : "non-Toroidal"));
+
+		return instance;
+	}
+
+	public static DNonUniformPartition getPartitionScheme() {
+		if (instance == null)
+			throw new IllegalArgumentException("DNonUniformPartition has not been initialized");
+
+		return instance;
 	}
 
 	public void setMPITopo() {

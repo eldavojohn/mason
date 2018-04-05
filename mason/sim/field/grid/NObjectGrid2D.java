@@ -58,7 +58,7 @@ public class NObjectGrid2D<T> extends HaloField {
 		int[] aoi = new int[] {2, 2};
 		int[] size = new int[] {8, 8};
 
-		DNonUniformPartition p = new DNonUniformPartition(size, true);
+		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
 		p.initUniformly(null);
 		p.setMPITopo();
 

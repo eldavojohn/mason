@@ -79,7 +79,7 @@ public class NHeatBugs extends SimState {
 		this.aoi = new int[] {aoi, aoi};
 
 		try {
-			p = new DNonUniformPartition(new int[] {width, height});
+			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height});
 			p.initUniformly(null);
 			p.setMPITopo();
 

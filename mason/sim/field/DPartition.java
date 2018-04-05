@@ -13,7 +13,7 @@ public abstract class DPartition {
 	boolean isToroidal;
 	public Comm comm;
 
-	public DPartition(int[] size, boolean isToroidal) {
+	DPartition(int[] size, boolean isToroidal) {
 		this.nd = size.length;
 		this.size = Arrays.copyOf(size, nd);
 		this.isToroidal = isToroidal;
