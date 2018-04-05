@@ -7,17 +7,19 @@ import sim.util.*;
 
 import mpi.*;
 
-// TODO make dpartition singleton 
+// TODO make dpartition singleton
 // TODO let other class register callbacks so that they can properly update themselves once partition changes
 public class DNonUniformPartition extends DPartition {
 
-	public AugmentedSegmentTree st[];
+	AugmentedSegmentTree[] st;
 	// TODO Use IntHyperRect for now, need to use something like generic or create separate files for int and double.
-	public Map<Integer, IntHyperRect> ps;
+	Map<Integer, IntHyperRect> ps;
 
-	public final double epsilon = 0.0001;
+	final double epsilon = 0.0001;
 
-	public boolean isMPIInitialzed = false;
+	boolean isDirty = false;
+	ArrayList<UpdateAction> updates;
+	ArrayList<Runnable> preCallbacks, postCallbacks;
 
 	public DNonUniformPartition(int size[]) {
 		this(size, false);
@@ -39,6 +41,10 @@ public class DNonUniformPartition extends DPartition {
 			e.printStackTrace();
 			System.exit(-1);
 		}
+
+		updates = new ArrayList<UpdateAction>();
+		preCallbacks = new ArrayList<Runnable>();
+		postCallbacks = new ArrayList<Runnable>();
 	}
 
 	public void setMPITopo() {
@@ -64,14 +70,7 @@ public class DNonUniformPartition extends DPartition {
 			System.exit(-1);
 		}
 
-		isMPIInitialzed = true;
-
 		// TODO: re-map LPs to Partitions for optimal LP placement
-	}
-
-	private void invalidateMPITopo() {
-		isMPIInitialzed = false;
-		comm = null;
 	}
 
 	// Try to divide the field into np grid-like partitions
@@ -81,7 +80,7 @@ public class DNonUniformPartition extends DPartition {
 	public void initUniformly(int[] dims) {
 		int[] psize = new int[nd], coord = new int[nd];
 
-		if (dims == null) 
+		if (dims == null)
 			dims = new int[nd];
 
 		// Generate a nd mesh of np processors
@@ -95,55 +94,31 @@ public class DNonUniformPartition extends DPartition {
 		for (int i = 0; i < nd; i++)
 			psize[i] = Math.round((float)size[i] / dims[i]);
 
-		initUniformlyRecursive(coord, 0, dims, psize);
-	}
+		final int[] fdims = dims; // used by the lambda expr below
+		int count = 0;
+		IntHyperRect r = new IntHyperRect(dims);
 
-	private void initUniformlyRecursive(int[] currCoord, final int currDim, final int[] dims, final int psize[]) {
-		if (currDim == nd) {
-			int[] ul = IntStream.range(0, nd).map(i -> currCoord[i] * psize[i]).toArray();
-			int[] br = IntStream.range(0, nd).map(i -> currCoord[i] == dims[i] - 1 ? size[i] : ul[i] + psize[i]).toArray();
-
-			insertPartition(new IntHyperRect(
-			                    ps.size(),
-			                    new IntPoint(ul),
-			                    new IntPoint(br)
-			                ));
-		} else
-			for (int i = 0; i < dims[currDim]; i++) {
-				currCoord[currDim] = i;
-				initUniformlyRecursive(currCoord, currDim + 1, dims, psize);
-			}
+		for (IntPoint p : r) {
+			int[] ul = IntStream.range(0, nd).map(i -> p.c[i] * psize[i]).toArray();
+			int[] br = IntStream.range(0, nd).map(i -> p.c[i] == fdims[i] - 1 ? size[i] : (p.c[i] + 1) * psize[i]).toArray();
+			insertPartition(new IntHyperRect(count++, new IntPoint(ul), new IntPoint(br)));
+		}
 	}
 
 	// Insert a partition into the DNonUniformPartition scheme
 	public void insertPartition(IntHyperRect p) {
-		if (ps.containsKey(p.id))
-			throw new IllegalArgumentException("The partition id " + p.id + " to be inserted already exists");
-
-		for (int i = 0; i < nd; i++)
-			st[i].insert(p.getSegment(i));
-
-		ps.put(p.id, p);
-
-		invalidateMPITopo();
+		updates.add(UpdateAction.insert(p));
+		isDirty = true;
 	}
 
 	public void removePartition(final int pid) {
-		if (!ps.containsKey(pid))
-			throw new IllegalArgumentException("The partition id " + pid + " to be removed does not exist");
-
-		IntHyperRect p = ps.get(pid);
-		for (int i = 0; i < nd; i++)
-			st[i].delete(pid);
-
-		ps.remove(pid);
-
-		invalidateMPITopo();
+		updates.add(UpdateAction.remove(pid));
+		isDirty = true;
 	}
 
 	public void updatePartition(IntHyperRect p) {
-		removePartition(p.id);
-		insertPartition(p);
+		updates.add(UpdateAction.update(p));
+		isDirty = true;
 	}
 
 	public IntHyperRect getPartition() {
@@ -245,6 +220,62 @@ public class DNonUniformPartition extends DPartition {
 		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
 	}
 
+	private void applyUpdates() {
+		for (UpdateAction u : updates)
+			switch (u.action) {
+			case INSERT:
+				if (ps.containsKey(u.pid))
+					throw new IllegalArgumentException("The partition id " + u.pid + " to be inserted already exists");
+
+				for (int i = 0; i < nd; i++)
+					st[i].insert(u.rect.getSegment(i));
+				ps.put(u.pid, u.rect);
+
+				break;
+			case REMOVE:
+				if (!ps.containsKey(u.pid))
+					throw new IllegalArgumentException("The partition id " + u.pid + " to be removed does not exist");
+
+				for (int i = 0; i < nd; i++)
+					st[i].delete(u.pid);
+				ps.remove(u.pid);
+
+				break;
+			case UPDATE:
+				if (!ps.containsKey(u.pid))
+					throw new IllegalArgumentException("The partition id " + u.pid + " to be updated does not exist");
+				for (int i = 0; i < nd; i++) {
+					st[i].delete(u.pid);
+					st[i].insert(u.rect.getSegment(i));
+				}
+				ps.replace(u.pid, u.rect);
+
+				break;
+			}
+
+		updates.clear();
+	}
+
+	public void commit() {
+		for (Runnable r : preCallbacks)
+			r.run();
+
+		applyUpdates();
+		setMPITopo();
+		isDirty = false;
+
+		for (Runnable r : postCallbacks)
+			r.run();
+	}
+
+	public void registerPreCommit(Runnable r) {
+		preCallbacks.add(r);
+	}
+
+	public void registerPostCommit(Runnable r) {
+		postCallbacks.add(r);
+	}
+
 	public static void main(String args[]) throws MPIException, InterruptedException {
 		MPI.Init(args);
 
@@ -263,36 +294,37 @@ public class DNonUniformPartition extends DPartition {
 		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20});
 		assert p.np == 5;
 
-		p.initUniformly(new int[]{0, 0});
+		p.initUniformly(new int[] {0, 0});
+		p.commit();
 
-		MPI.COMM_WORLD.barrier();
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
-		System.out.println("[Before] PID " + p.pid + " Partition " + p.getPartition());
-		System.out.println("[Before] PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
-		MPI.COMM_WORLD.barrier();
+		MPITest.execInOrder(x -> {
+			System.out.println("[Before] PID " + p.pid + " Partition " + p.getPartition());
+			System.out.println("[Before] PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		}, 500);
 
 		p.updatePartition(new IntHyperRect(0, new IntPoint(new int[] {0, 0}), new IntPoint(new int[] {3, 12})));
 		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 12}), new IntPoint(new int[] {7, 20})));
 		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {7, 8}), new IntPoint(new int[] {10, 20})));
 		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {3, 0}), new IntPoint(new int[] {10, 8})));
 		p.updatePartition(new IntHyperRect(4, new IntPoint(new int[] {3, 8}), new IntPoint(new int[] {7, 12})));
+		p.commit();
 
-		MPI.COMM_WORLD.barrier();
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
-		System.out.println("[After] PID " + p.pid + " Partition " + p.getPartition());
-		System.out.println("[After] PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
-		MPI.COMM_WORLD.barrier();
+		MPITest.execInOrder(x -> {
+			System.out.println("[After] PID " + p.pid + " Partition " + p.getPartition());
+			System.out.println("[After] PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		}, 500);
 	}
 
 	public static void testInitUniformly() {
 		DNonUniformPartition p = new DNonUniformPartition(new int[] {12, 24});
 
-		p.initUniformly(new int[]{0, 0});
+		p.initUniformly(new int[] {0, 0});
+		p.commit();
 
-		System.out.println("PID " + p.pid + " Partition " + p.getPartition());
-		System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		MPITest.execInOrder(x -> {
+			System.out.println("[Before] PID " + p.pid + " Partition " + p.getPartition());
+			System.out.println("[Before] PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		}, 500);
 	}
 
 	public static void testNonUniformToroidal() throws MPIException, InterruptedException {
@@ -318,6 +350,7 @@ public class DNonUniformPartition extends DPartition {
 		p.insertPartition(new IntHyperRect(2, new IntPoint(new int[] {7, 8}), new IntPoint(new int[] {10, 20})));
 		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {3, 0}), new IntPoint(new int[] {10, 8})));
 		p.insertPartition(new IntHyperRect(4, new IntPoint(new int[] {3, 8}), new IntPoint(new int[] {7, 12})));
+		p.commit();
 
 		double[] c, c1, c2;
 
@@ -358,19 +391,15 @@ public class DNonUniformPartition extends DPartition {
 			System.out.println("Rectangle <" + Arrays.toString(c1) + ", " + Arrays.toString(c2) + "> covers pids: " +
 			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
 
-			c1 = new double[] {-1, -2};
+			c1 = new double[] { -1, -2};
 			c2 = new double[] {2, 22};
 			System.out.println("Rectangle <" + Arrays.toString(c1) + ", " + Arrays.toString(c2) + "> covers pids: " +
 			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
 		}
 
-		MPI.COMM_WORLD.barrier();
-
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.pid);
-		System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
-		java.util.concurrent.TimeUnit.SECONDS.sleep(p.np - p.pid);
-
-		MPI.COMM_WORLD.barrier();
+		MPITest.execInOrder(x -> {
+			System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+		}, 500);
 	}
 
 	public static void testNonUniform() throws MPIException {
@@ -395,6 +424,7 @@ public class DNonUniformPartition extends DPartition {
 		p.insertPartition(new IntHyperRect(2, new IntPoint(new int[] {7, 8}), new IntPoint(new int[] {10, 20})));
 		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {3, 0}), new IntPoint(new int[] {10, 8})));
 		p.insertPartition(new IntHyperRect(4, new IntPoint(new int[] {3, 8}), new IntPoint(new int[] {7, 12})));
+		p.commit();
 
 		double[] c, c1, c2;
 
@@ -441,21 +471,20 @@ public class DNonUniformPartition extends DPartition {
 			                   Arrays.toString(p.coveredPartitionIds(c1, c2).toArray()));
 		}
 
-		MPI.COMM_WORLD.barrier();
+		MPITest.execInOrder(x -> {
+			System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
+			System.out.println("PID " + p.pid + " Neighbors in order: " + Arrays.toString(Arrays.stream(p.getNeighborIdsInOrder()).flatMapToInt(Arrays::stream).toArray()));
+		}, 500);
 
-		System.out.println("PID " + p.pid + " Neighbors: " + Arrays.toString(p.getNeighborIds()));
-		System.out.println("PID " + p.pid + " Neighbors in order: " + Arrays.toString(Arrays.stream(p.getNeighborIdsInOrder()).flatMapToInt(Arrays::stream).toArray()));
-
-		p.setMPITopo();
 		GraphComm gc = (GraphComm)p.comm;
 		DistGraphNeighbors nsobj = gc.getDistGraphNeighbors();
 		int[] ns = new int[nsobj.getOutDegree()];
 		for (int i = 0; i < nsobj.getOutDegree(); i++)
 			ns[i] = nsobj.getDestination(i);
 
-		System.out.println("PID " + p.pid + " MPI Neighbors: " + Arrays.toString(ns));
-
-		MPI.COMM_WORLD.barrier();
+		MPITest.execInOrder(x -> {
+			System.out.println("PID " + p.pid + " MPI Neighbors: " + Arrays.toString(ns));
+		}, 500);
 	}
 }
 
@@ -495,5 +524,35 @@ class AugmentedSegmentTree extends SegmentTree {
 		res.forEach(seg -> s.add(seg.pid));
 
 		return s;
+	}
+}
+
+
+enum Action {
+	INSERT, REMOVE, UPDATE;
+}
+
+class UpdateAction {
+
+	public IntHyperRect rect;
+	public int pid;
+	public Action action;
+
+	private UpdateAction(IntHyperRect rect, int pid, Action action) {
+		this.rect = rect;
+		this.pid = pid;
+		this.action = action;
+	}
+
+	public static UpdateAction insert(IntHyperRect r) {
+		return new UpdateAction(r, r.id, Action.INSERT);
+	}
+
+	public static UpdateAction remove(int id) {
+		return new UpdateAction(null, id, Action.REMOVE);
+	}
+
+	public static UpdateAction update(IntHyperRect r) {
+		return new UpdateAction(r, r.id, Action.UPDATE);
 	}
 }
