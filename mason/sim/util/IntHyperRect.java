@@ -25,6 +25,10 @@ public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint
 		this.br = br;
 	}
 
+	public IntHyperRect(int[] size) {
+		this(-1, new IntPoint(new int[size.length]), new IntPoint(size));
+	}
+
 	// Return the area of the hyper rectangle
 	public int getArea() {
 		return br.getRectArea(ul);
@@ -152,12 +156,11 @@ public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint
 	}
 
 	private class IntHyperRectIter implements Iterator<IntPoint> {
-		int[] coords, size;
+		int[] coords;
 		int curr, ub;
 
 		public IntHyperRectIter() {
 			coords = Arrays.copyOf(ul.c, nd);
-			size = getSize();
 			ub = getArea();
 			curr = 0;
 		}

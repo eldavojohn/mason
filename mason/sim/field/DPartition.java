@@ -44,10 +44,7 @@ public abstract class DPartition {
 	}
 
 	public IntHyperRect getField() {
-		IntPoint ul = new IntPoint(new int[nd]);
-		IntPoint br = new IntPoint(size);
-
-		return new IntHyperRect(-1, ul, br);
+		return new IntHyperRect(size);
 	}
 
 	public abstract IntHyperRect getPartition();
