@@ -100,6 +100,10 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 	}
 
 	public void sync() throws MPIException, IOException, ClassNotFoundException {
+		// return if no neighbor
+		if (nc < 1)
+			return;
+
 		// Prepare data
 		for (int i = 0, total = 0; i < nc; i++) {
 			outputStreams[i].flush();
