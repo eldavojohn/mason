@@ -41,7 +41,7 @@ public class DFlockers extends SimState {
         super.start();
 
         partition = new DUniformPartition(new int[] {(int)width, (int)height});
-        flockers = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, new DFlocker(new Double2D(0, 0)), partition, this.schedule);
+        flockers = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, partition, this.schedule);
 
         schedule.scheduleRepeating(Schedule.EPOCH, 0, new Synchronizer(), 1);
 

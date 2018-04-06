@@ -23,6 +23,9 @@ public class DFlocker implements Steppable, SelfStreamedAgent, sim.portrayal.Ori
     public Double2D lastd = new Double2D(0, 0);
     public boolean dead = false;
 
+    public DFlocker() {
+    	this(new Double2D(0, 0));
+    }
     public DFlocker(Double2D location) { loc = location;}
 
     public double getOrientation() { return orientation2D(); }
