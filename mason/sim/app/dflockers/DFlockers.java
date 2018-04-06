@@ -20,7 +20,7 @@ public class DFlockers extends SimState {
     public DContinuous2D flockers;
     public double width = 600;
     public double height = 600;
-    public int numFlockers = 129600;
+    public int numFlockers = 21600;
     public double cohesion = 1.0;
     public double avoidance = 1.0;
     public double randomness = 1.0;
@@ -41,7 +41,7 @@ public class DFlockers extends SimState {
         super.start();
 
         partition = new DUniformPartition(new int[] {(int)width, (int)height});
-        flockers = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, null, partition, this.schedule);
+        flockers = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, partition, this.schedule);
 
         schedule.scheduleRepeating(Schedule.EPOCH, 0, new Synchronizer(), 1);
 

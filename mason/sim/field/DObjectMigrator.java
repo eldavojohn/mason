@@ -3,6 +3,7 @@ package sim.field;
 import java.io.*;
 import java.util.*;
 
+import sim.field.continuous.DContinuous2DAgent;
 import sim.util.*;
 import ec.util.*;
 
@@ -95,12 +96,56 @@ public class DObjectMigrator implements Iterable<Object> {
 	public int size() {
 		return objects.size();
 	}
-
+	
+	public void writeHeader(AgentOutputStream aos, DContinuous2DAgent wrapper) throws IOException
+	{
+		String className = wrapper.wrappedAgent.getClass().getName();
+		aos.os.writeObject(className);
+		aos.os.writeInt(wrapper.destination);
+		aos.os.writeBoolean(wrapper.migrate);
+		aos.os.writeDouble(wrapper.loc.x);
+		aos.os.writeDouble(wrapper.loc.y);
+		aos.os.flush();
+	}
+	
+	public DContinuous2DAgent readHeader(ObjectInputStream is, String className) throws IOException
+	{
+		// read destination
+		int dst = is.readInt();
+		// read Wrapper data
+		boolean migrate = is.readBoolean();
+		double x = is.readDouble();
+		double y = is.readDouble();
+		// create the new agent
+		SelfStreamedAgent newAgent = null;
+		try
+		{
+			newAgent = (SelfStreamedAgent) Class.forName(className).newInstance();
+		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+		// read in the data
+		DContinuous2DAgent wrapper = new DContinuous2DAgent(dst, newAgent, new Double2D(x, y), migrate);
+		return wrapper;
+	}
+	
 	public void migrate(final Object obj, final int dst) {
-		MigratingAgent mo = (MigratingAgent) obj;
+		DContinuous2DAgent wrapper = (DContinuous2DAgent) obj;
 		assert dstMap.containsKey(dst);
 		try {
-			dstMap.get(dst).write(mo);
+			if(wrapper.wrappedAgent instanceof SelfStreamedAgent)
+			{
+				// write header information, all agent has this info
+				writeHeader(dstMap.get(dst), wrapper);
+				// write agent
+				((SelfStreamedAgent) wrapper.wrappedAgent).writeStream(dstMap.get(dst));
+				// have to flush the data, in case user forget this step
+				dstMap.get(dst).os.flush();
+			}
+			else {
+				dstMap.get(dst).write(wrapper);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.exit(-1);
@@ -141,14 +186,30 @@ public class DObjectMigrator implements Iterable<Object> {
 		partition.comm.neighborAllToAllv(sendbuf, src_count, src_displ, MPI.BYTE, recvbuf, dst_count, dst_displ, MPI.BYTE);
 
 		// read and handle incoming objects
-		ArrayList<MigratingAgent> migrated = new ArrayList<MigratingAgent>();
+		ArrayList<DContinuous2DAgent> bufferList = new ArrayList<DContinuous2DAgent>();
 		for (int i = 0; i < nc; i++) {
 			ByteArrayInputStream in = new ByteArrayInputStream(Arrays.copyOfRange(recvbuf, dst_displ[i], dst_displ[i] + dst_count[i]));
 			ObjectInputStream is = new ObjectInputStream(in);
 			boolean more = true;
 			while (more) {
 				try {
-					migrated.add((MigratingAgent)is.readObject());
+					DContinuous2DAgent wrapper = null;
+					Object object = is.readObject();
+					if (object instanceof String)
+					{
+						String className = (String)object;
+						// return the wrapper with header information filled in
+						wrapper = readHeader(is, className);
+						((SelfStreamedAgent)wrapper.wrappedAgent).readStream(is);						
+					}
+					else {
+						wrapper = (DContinuous2DAgent)object;
+					}
+					if (partition.pid != wrapper.destination) {
+						assert dstMap.containsKey(wrapper.destination);
+						bufferList.add(wrapper);
+					} else
+						objects.add(wrapper);
 				} catch (EOFException e) {
 					more = false;
 				}
@@ -159,13 +220,24 @@ public class DObjectMigrator implements Iterable<Object> {
 		for (int i = 0; i < nc; i++)
 			outputStreams[i].reset();
 
-		// Handle incoming objects
-		for (MigratingAgent mo : migrated) {
-			if (partition.pid != mo.destination) {
-				assert dstMap.containsKey(mo.destination);
-				dstMap.get(mo.destination).write(mo);
-			} else
-				objects.add(mo);
+		// Handling the agent in bufferList
+		for (int i = 0; i < bufferList.size(); ++i)
+		{
+			DContinuous2DAgent wrapper = (DContinuous2DAgent) bufferList.get(i);
+			int dst = wrapper.destination;
+			if(wrapper.wrappedAgent instanceof SelfStreamedAgent)
+			{
+				// write header information, all agent has this info
+				writeHeader(dstMap.get(dst), wrapper);
+				// write agent
+				((SelfStreamedAgent) wrapper.wrappedAgent).writeStream(dstMap.get(dst));
+				// have to flush the data, in case user forget this step
+				dstMap.get(dst).os.flush();
+			}
+			else {
+				dstMap.get(dst).write(wrapper);
+			}
 		}
+		bufferList.clear();
 	}
 }
