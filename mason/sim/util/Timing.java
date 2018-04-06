@@ -62,8 +62,10 @@ public class Timing {
 		}
 	}
 
-	public static TimingStat get(String s) {
-		return m.get(s);
+	public static TimingStat get(String id) {
+		if (!m.containsKey(id))
+			throw new IllegalArgumentException("Timer for " + id + " is not set");
+		return m.get(id);
 	}
 
 	public static void main(String[] args) {
