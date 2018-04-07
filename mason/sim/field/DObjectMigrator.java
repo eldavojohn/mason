@@ -2,8 +2,6 @@ package sim.field;
 
 import java.io.*;
 import java.util.*;
-
-import sim.field.continuous.DContinuous2DAgent;
 import sim.util.*;
 import ec.util.*;
 
@@ -97,7 +95,7 @@ public class DObjectMigrator implements Iterable<Object> {
 		return objects.size();
 	}
 	
-	public void writeHeader(AgentOutputStream aos, DContinuous2DAgent wrapper) throws IOException
+	public void writeHeader(AgentOutputStream aos, MigratingAgent wrapper) throws IOException
 	{
 		String className = wrapper.wrappedAgent.getClass().getName();
 		aos.os.writeObject(className);
@@ -108,7 +106,7 @@ public class DObjectMigrator implements Iterable<Object> {
 		aos.os.flush();
 	}
 	
-	public DContinuous2DAgent readHeader(ObjectInputStream is, String className) throws IOException
+	public MigratingAgent readHeader(ObjectInputStream is, String className) throws IOException
 	{
 		// read destination
 		int dst = is.readInt();
@@ -126,12 +124,12 @@ public class DObjectMigrator implements Iterable<Object> {
 			e.printStackTrace();
 		}
 		// read in the data
-		DContinuous2DAgent wrapper = new DContinuous2DAgent(dst, newAgent, new Double2D(x, y), migrate);
+		MigratingAgent wrapper = new MigratingAgent(dst, newAgent, new Double2D(x, y), migrate);
 		return wrapper;
 	}
 	
 	public void migrate(final Object obj, final int dst) {
-		DContinuous2DAgent wrapper = (DContinuous2DAgent) obj;
+		MigratingAgent wrapper = (MigratingAgent) obj;
 		assert dstMap.containsKey(dst);
 		try {
 			if(wrapper.wrappedAgent instanceof SelfStreamedAgent)
@@ -186,14 +184,14 @@ public class DObjectMigrator implements Iterable<Object> {
 		partition.comm.neighborAllToAllv(sendbuf, src_count, src_displ, MPI.BYTE, recvbuf, dst_count, dst_displ, MPI.BYTE);
 
 		// read and handle incoming objects
-		ArrayList<DContinuous2DAgent> bufferList = new ArrayList<DContinuous2DAgent>();
+		ArrayList<MigratingAgent> bufferList = new ArrayList<MigratingAgent>();
 		for (int i = 0; i < nc; i++) {
 			ByteArrayInputStream in = new ByteArrayInputStream(Arrays.copyOfRange(recvbuf, dst_displ[i], dst_displ[i] + dst_count[i]));
 			ObjectInputStream is = new ObjectInputStream(in);
 			boolean more = true;
 			while (more) {
 				try {
-					DContinuous2DAgent wrapper = null;
+					MigratingAgent wrapper = null;
 					Object object = is.readObject();
 					if (object instanceof String)
 					{
@@ -203,7 +201,7 @@ public class DObjectMigrator implements Iterable<Object> {
 						((SelfStreamedAgent)wrapper.wrappedAgent).readStream(is);						
 					}
 					else {
-						wrapper = (DContinuous2DAgent)object;
+						wrapper = (MigratingAgent)object;
 					}
 					if (partition.pid != wrapper.destination) {
 						assert dstMap.containsKey(wrapper.destination);
@@ -223,7 +221,7 @@ public class DObjectMigrator implements Iterable<Object> {
 		// Handling the agent in bufferList
 		for (int i = 0; i < bufferList.size(); ++i)
 		{
-			DContinuous2DAgent wrapper = (DContinuous2DAgent) bufferList.get(i);
+			MigratingAgent wrapper = (MigratingAgent) bufferList.get(i);
 			int dst = wrapper.destination;
 			if(wrapper.wrappedAgent instanceof SelfStreamedAgent)
 			{
