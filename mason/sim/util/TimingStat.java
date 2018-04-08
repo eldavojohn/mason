@@ -4,21 +4,21 @@ import java.util.concurrent.TimeUnit;
 
 public class TimingStat {
 
-	long cnt;
+	int cap;
+	long cnt, conv, ts;
 	double avg, min, max, var;
 	MovingAverage mav;
-	int cap;
-
-	final long conv;
+	TimeUnit u;
 
 	public TimingStat(int cap) {
-		this(cap, TimeUnit.MILLISECONDS);
+		this.cap = cap;
+		this.setUnit(TimeUnit.MILLISECONDS);
+		reset();
 	}
 
-	public TimingStat(int cap, TimeUnit u) {
-		this.cap = cap;
+	public void setUnit(TimeUnit u) {
+		this.u = u;
 		this.conv = TimeUnit.NANOSECONDS.convert(1L, u);
-		reset();
 	}
 
 	public void add(double val) {
@@ -39,6 +39,20 @@ public class TimingStat {
 		max = 0;
 		avg = 0;
 		var = 0;
+		ts = -1L;
+	}
+
+	public void start(long curr) {
+		if (ts != -1L)
+			throw new IllegalStateException("Timer is already started");
+		ts = curr;
+	}
+
+	public void stop(long curr) {
+		if (ts == -1L)
+			throw new IllegalStateException("Timer is not started");
+		add((double)(curr - ts));
+		ts = -1L;
 	}
 
 	public long getCount() {
@@ -72,14 +86,15 @@ public class TimingStat {
 	}
 
 	public String toString() {
-		return String.format("%d\t%f\t%f\t%f\t%f\t%f\t%f",
+		return String.format("%d\t%f\t%f\t%f\t%f\t%f\t%f\t%s",
 		                     getCount(),
 		                     getMin(),
 		                     getMax(),
 		                     getMean(),
 		                     getStdev(),
 		                     getMovingAverage(),
-		                     getMovingStdev()
+		                     getMovingStdev(),
+		                     u
 		                    );
 	}
 }

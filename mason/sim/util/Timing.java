@@ -1,22 +1,17 @@
 package sim.util;
 
 import java.util.HashMap;
+import java.util.NoSuchElementException;
 
 public class Timing {
 
-	private static Timing t;
-	private static int movingAvgCapacity;
+	private static int cap;
 	private static HashMap<String, TimingStat> m;
-	private static HashMap<String, Long> ts;
-
 	private static NanoClock clock;
 
 	private static class FakeClock implements NanoClock {
 		public long val;
-
-		public long nanoTime() {
-			return val;
-		}
+		public long nanoTime() { return val; }
 	}
 
 	private interface NanoClock {
@@ -24,56 +19,57 @@ public class Timing {
 	}
 
 	public static void init(int capacity) {
-		movingAvgCapacity = capacity;
+		cap = capacity;
 		m = new HashMap<String, TimingStat>();
-		ts = new HashMap<String, Long>();
-		clock = new NanoClock() {
-			public long nanoTime() {
-				return System.nanoTime();
-			}
-		};
+		clock = new NanoClock() { public long nanoTime() { return System.nanoTime(); } };
+	}
+
+	public static void initMetrics(String ... ids) {
+		for (String id : ids)
+			if (m.containsKey(id))
+				throw new IllegalArgumentException("Timer for " + id + " already exists");
+			else
+				m.put(id, new TimingStat(cap));
 	}
 
 	public static void start(String ... ids) {
-		long curr = clock.nanoTime();
-		for (String id : ids) {
-			if (ts.getOrDefault(id, -1L) != -1L)
-				throw new IllegalArgumentException("Timer for " + id + " is already started");
-			ts.put(id, curr);
-		}
+		for (String id : ids)
+			if (!m.containsKey(id))
+				throw new NoSuchElementException("Timer for " + id + " does not exist");
+			else
+				m.get(id).start(clock.nanoTime());
 	}
 
 	public static void stop(String ... ids) {
-		long curr = clock.nanoTime();
-		for (String id : ids) {
-			if (ts.getOrDefault(id, -1L) == -1L)
-				throw new IllegalArgumentException("Timer for " + id + " is not started");
+		for (String id : ids)
 			if (!m.containsKey(id))
-				m.put(id, new TimingStat(movingAvgCapacity));
-			m.get(id).add((double)(curr - ts.get(id)));
-			ts.put(id, -1L);
-		}
+				throw new NoSuchElementException("Timer for " + id + " does not exist");
+			else
+				m.get(id).stop(clock.nanoTime());
 	}
 
 	public static void reset(String ... ids) {
-		for (String id : ids) {
-			m.put(id, new TimingStat(movingAvgCapacity));
-			ts.put(id, -1L);
-		}
+		for (String id : ids)
+			if (!m.containsKey(id))
+				throw new NoSuchElementException("Timer for " + id + " does not exist");
+			else
+				m.get(id).reset();
 	}
 
 	public static TimingStat get(String id) {
 		if (!m.containsKey(id))
-			throw new IllegalArgumentException("Timer for " + id + " is not set");
+			throw new NoSuchElementException("Timer for " + id + " does not exist");
 		return m.get(id);
 	}
 
 	public static void main(String[] args) {
 		init(3);
+		initMetrics("Test1", "Test2");
+		
 		FakeClock fakeClock = new FakeClock();
 		clock = fakeClock;
 
-		System.out.println("Name  \tCount \tMinimum \tMaximum \tOverall Mean \tOverall Stdev \tMoving Average \tMoving Stdev");
+		System.out.println("Name  \tCount \tMinimum \tMaximum \tOverall Mean \tOverall Stdev \tMoving Average \tMoving Stdev \tUnit");
 		fakeClock.val = 0L;
 
 		start("Test1");
