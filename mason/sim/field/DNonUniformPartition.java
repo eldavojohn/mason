@@ -283,6 +283,7 @@ public class DNonUniformPartition extends DPartition {
 		updates.clear();
 	}
 
+	// TODO add flags to avoid certain pre/post callbacks
 	public void commit() {
 		for (Runnable r : preCallbacks)
 			r.run();
@@ -295,6 +296,7 @@ public class DNonUniformPartition extends DPartition {
 			r.run();
 	}
 
+	// TODO let other classes who depend on the partition scheme to register proper actions when partiton changes
 	public void registerPreCommit(Runnable r) {
 		preCallbacks.add(r);
 	}
