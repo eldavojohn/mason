@@ -6,13 +6,13 @@ import java.util.stream.IntStream;
 
 import mpi.*;
 
-import sim.util.IntPoint;
-import sim.util.IntHyperRect;
-import sim.util.MovingAverage;
-
-import sim.util.MPIParam;
 import sim.field.storage.GridStorage;
 import sim.field.storage.DoubleGridStorage;
+import sim.util.IntHyperRect;
+import sim.util.IntPoint;
+import sim.util.MovingAverage;
+import sim.util.MPIParam;
+import sim.util.Timing;
 
 // TODO refactor HaloField to accept
 // continuous: double, int, object
@@ -21,18 +21,15 @@ public abstract class HaloField {
 
 	protected int nd, numNeighbors, maxSendSize;
 	protected int[] aoi, fieldSize, haloSize, partSize;
+
 	protected IntHyperRect world, haloPart, origPart, privPart;
 	protected Neighbor[] neighbors;
-
 	protected GridStorage field;
 	protected DPartition ps;
-	protected Comm comm;
 
+	protected Comm comm;
 	protected Datatype MPIBaseType;
 
-	// TODO refactor the performance measurements into a separate class
-	long prevts;
-	MovingAverage avg;
 
 	public HaloField(DPartition ps, int[] aoi, GridStorage stor) {
 		this.ps = ps;
@@ -40,9 +37,6 @@ public abstract class HaloField {
 		this.field = stor;
 
 		reload();
-
-		prevts = System.nanoTime();
-		avg = new MovingAverage(10);
 	}
 
 	public void reload() {
@@ -160,24 +154,26 @@ public abstract class HaloField {
 			field.unpack(neighbors[i].recvParam, recvbuf, recvPos[i], recvCnt[i]);
 
 		// Exchange aux data, e.g., runtime data for load balancing
-		long currts = System.nanoTime();
-		double[] avgSendBuf = new double[] {avg.next((double)(currts - prevts))};
+		double runtime;
+		try {
+			runtime = Timing.get(Timing.LB_RUNTIME).getMovingAverage();
+		} catch (NoSuchElementException e) {
+			return; // not set - no need to exchange
+		}
+
+		double[] avgSendBuf = new double[] {runtime};
 		double[] avgRecvBuf = new double[numNeighbors];
 
 		comm.neighborAllGather(avgSendBuf, 1, MPI.DOUBLE, avgRecvBuf, 1, MPI.DOUBLE);
 
 		for (int i = 0; i < numNeighbors; i++)
 			neighbors[i].avgRuntime = avgRecvBuf[i];
-		prevts = currts;
 	}
 
 	// TODO refactor the performance measurements into a separate class
 	public HashMap<Integer, Double> getRuntimes() {
 		HashMap<Integer, Double> ret = new HashMap<Integer, Double>();
-
-		ret.put(ps.getPid(), avg.average());
 		Arrays.stream(neighbors).forEach(x -> ret.put(x.pid, x.avgRuntime));
-
 		return ret;
 	}
 

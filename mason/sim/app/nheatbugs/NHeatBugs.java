@@ -14,6 +14,8 @@ import sim.field.*;
 import mpi.*;
 import java.nio.*;
 
+import sim.util.Timing;
+
 public class NHeatBugs extends SimState {
 	private static final long serialVersionUID = 1;
 
@@ -81,17 +83,17 @@ public class NHeatBugs extends SimState {
 		try {
 			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height});
 			p.initUniformly(null);
-			p.setMPITopo();
+			p.commit();
 
 			valgrid = new NDoubleGrid2D(p, this.aoi, 0);
 			valgrid2 = new NDoubleGrid2D(p, this.aoi, 0);
-			bugs = new NObjectGrid2D<NHeatBug>(p, this.aoi, s -> new NHeatBug[s], 1024);
+			bugs = new NObjectGrid2D<NHeatBug>(p, this.aoi, s -> new NHeatBug[s], 64);
 
 			queue = new DObjectMigratorNonUniform(p);
 
 			privBugCount = bugCount / p.np;
 
-			lb = new LoadBalancer(p, valgrid, this.aoi, 10000);
+			lb = new LoadBalancer(valgrid, this.aoi, 50);
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 			System.exit(-1);
@@ -118,12 +120,14 @@ public class NHeatBugs extends SimState {
 			schedule.scheduleOnce(b, 1);
 		}
 
-		//schedule.scheduleRepeating(Schedule.EPOCH, 0, new Inspector(), 1);
+		schedule.scheduleRepeating(Schedule.EPOCH, 0, new Inspector(), 500);
 		schedule.scheduleRepeating(Schedule.EPOCH, 2, new Diffuser(), 1);
 		schedule.scheduleRepeating(Schedule.EPOCH, 3, new Synchronizer(), 1);
 	}
 
 	public static void main(String[] args) throws MPIException {
+		Timing.init(500);
+		Timing.initMetrics(Timing.LB_RUNTIME, Timing.MPI_SYNC_OVERHEAD);
 		doLoopMPI(NHeatBugs.class, args);
 		System.exit(0);
 	}
@@ -134,13 +138,15 @@ public class NHeatBugs extends SimState {
 		public void step(SimState state) {
 			NHeatBugs hb = (NHeatBugs)state;
 
+			Timing.start(Timing.MPI_SYNC_OVERHEAD);
+
 			try {
 				hb.valgrid.sync();
 				hb.bugs.sync();
 				hb.queue.sync();
 
 				if (hb.lb.balance((int)hb.schedule.getSteps()) > 0) {
-					System.out.println("Balanced");
+					System.out.println("\n\nBalanced at step\n\n" + hb.schedule.getSteps());
 					hb.valgrid.reload(); hb.valgrid.sync();
 					hb.bugs.reload(); hb.bugs.sync();
 				}
@@ -155,6 +161,8 @@ public class NHeatBugs extends SimState {
 				schedule.scheduleOnce(b, 1);
 			}
 			hb.queue.objects.clear();
+
+			Timing.stop(Timing.MPI_SYNC_OVERHEAD);
 		}
 	}
 
@@ -162,7 +170,12 @@ public class NHeatBugs extends SimState {
 		public void step( final SimState state ) {
 			NHeatBugs hb = (NHeatBugs)state;
 			//String s = String.format("PID %d Step %d Agent Count %d\n", hb.partition.pid, hb.schedule.getSteps(), hb.queue.size());
-			state.logger.info(String.format("PID %d Step %d Agent Count %d\n", hb.p.pid, hb.schedule.getSteps(), hb.privBugCount));
+			//state.logger.info(String.format("PID %d Step %d Agent Count %d\n", hb.p.pid, hb.schedule.getSteps(), hb.privBugCount));
+			if (DNonUniformPartition.getPartitionScheme().getPid() == 0) {
+				state.logger.info("StepRuntime\t" + Timing.get(Timing.LB_RUNTIME) + "\n");
+				state.logger.info("SyncRuntime\t" + Timing.get(Timing.MPI_SYNC_OVERHEAD) + "\n");
+				state.logger.info("LBRuntime\t" + Timing.get(Timing.LB_OVERHEAD) + "\n");
+			}
 			// for (Steppable i : hb.queue) {
 			// 	NHeatBug a = (NHeatBug)i;
 			// 	s += a.toString() + "\n";

@@ -7,6 +7,7 @@ import java.util.stream.IntStream;
 import sim.util.IntHyperRect;
 import sim.util.GraphColoring;
 import sim.util.MPITest;
+import sim.util.Timing;
 import sim.field.grid.NDoubleGrid2D;
 
 import mpi.*;
@@ -17,23 +18,19 @@ public class LoadBalancer {
 	HaloField f;
 
 	GraphColoring gc;
-
-	double threshold;
-	//int interval;
+	int interval, round = 0;
 
 	// Use aoi as the offset to adjust partitions
 	int[] aoi;
 
-	public int count;
-
-	public LoadBalancer(DNonUniformPartition p, HaloField f, int[] aoi, double threshold) {
-		this.p = p;
+	public LoadBalancer(HaloField f, int[] aoi, int interval) {
+		this.p = DNonUniformPartition.getPartitionScheme();
 		this.f = f;
 		this.aoi = aoi;
-		this.threshold = threshold;
-		//this.interval = interval;
-
+		this.interval = interval;
 		this.gc = new GraphColoring(p);
+
+		Timing.initMetrics(Timing.LB_OVERHEAD);
 	}
 
 	// Get all the neighbor ids and then
@@ -54,17 +51,25 @@ public class LoadBalancer {
 	}
 
 	private boolean shouldBalance(int step) {
+		if (interval < 0)
+			return false;
+
 		gc.color();
-		if (step % gc.numColors == gc.myColor)
-			return true;
-		return false;
+		return step % (gc.numColors + interval) == gc.myColor;
 	}
 
 	private BalanceAction getAction(int[][] avail) {
-		HashMap<Integer, Double> m = f.getRuntimes();
+		double myRt;
+
+		try {
+			myRt = Timing.get(Timing.LB_RUNTIME).getMovingAverage();
+		} catch (NoSuchElementException e) {
+			return new BalanceAction(); // return empty action if runtime metric is not set
+		}
 
 		int dim = 0, myPid = p.getPid(), target = myPid, offset = 0;
-		double myRt = m.get(myPid), maxDelta = 0;
+		double maxDelta = 0;
+		HashMap<Integer, Double> m = f.getRuntimes();
 		int[] size = p.getPartition().getSize();
 
 		for ( int d = 0; d < p.nd; d++) {
@@ -80,11 +85,8 @@ public class LoadBalancer {
 		}
 
 		// do not balance if the delta is too small
-		if (maxDelta < threshold)
+		if (maxDelta < Timing.get(Timing.LB_OVERHEAD).getMovingAverage())
 			offset = 0;
-
-		if (offset != 0 && myPid != target)
-			count += 1;
 
 		return new BalanceAction(myPid, target, dim, offset * aoi[dim]);
 	}
@@ -113,12 +115,15 @@ public class LoadBalancer {
 	}
 
 	public int balance(int step) throws MPIException, IOException {
+		Timing.start(Timing.LB_OVERHEAD);
+
 		// Buffers to hold incoming actions
 		int[] actions = new int[p.np * BalanceAction.size];
 		int count = 0;
 
 		// Generate own load balancing action
 		BalanceAction myAction = generateAction(step);
+		// TODO maybe use DObjectMigrator here?
 		myAction.writeToBuf(actions, p.pid);
 
 		//MPITest.execInOrder(i -> System.out.println(String.format("[%d] %s", p.pid, myAction.toString())), 0);
@@ -132,11 +137,9 @@ public class LoadBalancer {
 		for (BalanceAction a : BalanceAction.toActions(actions))
 			count += a.applyToPartition(p);
 
-		p.setMPITopo();
+		p.commit();
 
-		// Sync HaloField data
-		// f.reload();
-		// f.sync();
+		Timing.stop(Timing.LB_OVERHEAD);
 
 		return count;
 	}
@@ -157,7 +160,7 @@ public class LoadBalancer {
 
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
 
-		LoadBalancer lb = new LoadBalancer(p, hf, aoi, 0);
+		LoadBalancer lb = new LoadBalancer(hf, aoi, 0);
 
 		lb.balance(0);
 		hf.reload();

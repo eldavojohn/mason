@@ -11,6 +11,7 @@ import java.io.*;
 import java.util.zip.*;
 import java.text.*;
 import java.util.logging.*;
+import sim.util.Timing;
 
 /** SimState represents the simulation proper.  Your simulations generally will contain one top-level object which subclasses from SimState.
 
@@ -684,7 +685,10 @@ public class SimState implements java.io.Serializable
                         
                         while((_for == -1 || steps < _for) && schedule.getTime() <= until)
                             {
-                            if (!schedule.step(state)) 
+                            Timing.start(Timing.LB_RUNTIME);
+                            boolean ret = schedule.step(state);
+                            Timing.stop(Timing.LB_RUNTIME);
+                            if (!ret) 
                                 {
                                 retval=true; 
                                 break;

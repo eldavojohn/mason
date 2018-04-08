@@ -5,6 +5,13 @@ import java.util.NoSuchElementException;
 
 public class Timing {
 
+	// Used by load balancer to determine the workload on each node
+	public static final String LB_RUNTIME = "MASON_LOAD_BALANCING_RUNTIME";
+	// Used by load balancer to determine the overhead for each load balancing
+	public static final String LB_OVERHEAD = "MASON_LOAD_BALANCING_OVERHEAD";
+
+	public static final String MPI_SYNC_OVERHEAD = "MASON_MPI_SYNC_OVERHEAD";
+
 	private static int cap;
 	private static HashMap<String, TimingStat> m;
 	private static NanoClock clock;
