@@ -19,7 +19,6 @@ public class DNonUniformPartition extends DPartition {
 
 	boolean isDirty = false;
 	ArrayList<UpdateAction> updates;
-	ArrayList<Runnable> preCallbacks, postCallbacks;
 
 	private DNonUniformPartition(int size[]) {
 		this(size, false);
@@ -43,8 +42,6 @@ public class DNonUniformPartition extends DPartition {
 		}
 
 		updates = new ArrayList<UpdateAction>();
-		preCallbacks = new ArrayList<Runnable>();
-		postCallbacks = new ArrayList<Runnable>();
 	}
 
 	public static DNonUniformPartition getPartitionScheme(int size[]) {
@@ -294,15 +291,6 @@ public class DNonUniformPartition extends DPartition {
 
 		for (Runnable r : postCallbacks)
 			r.run();
-	}
-
-	// TODO let other classes who depend on the partition scheme to register proper actions when partiton changes
-	public void registerPreCommit(Runnable r) {
-		preCallbacks.add(r);
-	}
-
-	public void registerPostCommit(Runnable r) {
-		postCallbacks.add(r);
 	}
 
 	public static void main(String args[]) throws MPIException, InterruptedException {

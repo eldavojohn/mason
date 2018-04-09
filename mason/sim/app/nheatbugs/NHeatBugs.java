@@ -147,8 +147,6 @@ public class NHeatBugs extends SimState {
 
 				if (hb.lb.balance((int)hb.schedule.getSteps()) > 0) {
 					System.out.println("\n\nBalanced at step\n\n" + hb.schedule.getSteps());
-					hb.valgrid.reload(); hb.valgrid.sync();
-					hb.bugs.reload(); hb.bugs.sync();
 				}
 			} catch (Exception e) {
 				e.printStackTrace();

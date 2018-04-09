@@ -34,6 +34,29 @@ public abstract class HaloField {
 		this.aoi = aoi;
 		this.field = stor;
 
+		ps.registerPreCommit(new Runnable() {
+			public void run() {
+				try {
+					sync();
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			}
+		});
+
+		ps.registerPostCommit(new Runnable() {
+			public void run() {
+				try {
+					reload();
+					sync();
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			}
+		});
+
 		reload();
 	}
 

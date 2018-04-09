@@ -30,6 +30,14 @@ public class LoadBalancer {
 		this.interval = interval;
 		this.gc = new GraphColoring(p);
 
+		gc.color();
+
+		p.registerPostCommit(new Runnable() {
+			public void run() {
+				gc.color();
+			}
+		});
+
 		Timing.initMetrics(Timing.LB_OVERHEAD);
 	}
 
@@ -54,7 +62,6 @@ public class LoadBalancer {
 		if (interval < 0)
 			return false;
 
-		gc.color();
 		return step % (gc.numColors + interval) == gc.myColor;
 	}
 
@@ -83,6 +90,8 @@ public class LoadBalancer {
 				}
 			}
 		}
+
+		//System.out.println("maxdelta: " + maxDelta + " overhead " + Timing.get(Timing.LB_OVERHEAD).getMovingAverage());
 
 		// do not balance if the delta is too small
 		if (maxDelta < Timing.get(Timing.LB_OVERHEAD).getMovingAverage())
@@ -148,6 +157,8 @@ public class LoadBalancer {
 		int[] size = new int[] {10, 10};
 		int[] aoi = new int[] {1, 1};
 
+		Timing.init(10);
+		Timing.initMetrics(Timing.LB_RUNTIME);
 		MPI.Init(args);
 
 		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
@@ -163,26 +174,18 @@ public class LoadBalancer {
 		LoadBalancer lb = new LoadBalancer(hf, aoi, 0);
 
 		lb.balance(0);
-		hf.reload();
-		hf.sync();
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
-		hf.setRuntimes(new double[] {200 , 100, 100, 50});
+		hf.setRuntimes(new double[] {200000, 100000, 1000, 50000});
 
 		lb.balance(1);
-		hf.reload();
-		hf.sync();
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
 		//hf.setRuntimes(new double[]{ , , , });
 
 		lb.balance(2);
-		hf.reload();
-		hf.sync();
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
 		//hf.setRuntimes(new double[]{ , , , });
 
 		lb.balance(3);
-		hf.reload();
-		hf.sync();
 		MPITest.execInOrder(i -> System.out.println(hf), 500);
 
 		MPI.Finalize();

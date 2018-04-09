@@ -1,6 +1,7 @@
 package sim.field;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import mpi.*;
 
 import sim.util.IntHyperRect;
@@ -13,10 +14,15 @@ public abstract class DPartition {
 	boolean isToroidal;
 	public Comm comm;
 
+	ArrayList<Runnable> preCallbacks, postCallbacks;
+
 	DPartition(int[] size, boolean isToroidal) {
 		this.nd = size.length;
 		this.size = Arrays.copyOf(size, nd);
 		this.isToroidal = isToroidal;
+
+		preCallbacks = new ArrayList<Runnable>();
+		postCallbacks = new ArrayList<Runnable>();
 	}
 
 	public int getPid() {
@@ -54,4 +60,13 @@ public abstract class DPartition {
 	public abstract int[][] getNeighborIdsInOrder();
 
 	public abstract int toPartitionId(IntPoint p);
+
+	// TODO let other classes who depend on the partition scheme to register proper actions when partiton changes
+	public void registerPreCommit(Runnable r) {
+		preCallbacks.add(r);
+	}
+
+	public void registerPostCommit(Runnable r) {
+		postCallbacks.add(r);
+	}
 }
