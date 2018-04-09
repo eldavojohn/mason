@@ -61,7 +61,7 @@ public class DNonUniformPartition extends DPartition {
 		if (instance == null)
 			instance = new DNonUniformPartition(size, isToroidal);
 
-		if (instance.isToroidal == isToroidal)
+		if (instance.isToroidal != isToroidal)
 			throw new IllegalArgumentException("DNonUniformPartition has already been initialized to be " + (instance.isToroidal ? "Toroidal" : "non-Toroidal"));
 
 		return instance;
@@ -74,7 +74,7 @@ public class DNonUniformPartition extends DPartition {
 		return instance;
 	}
 
-	public void setMPITopo() {
+	private void setMPITopo() {
 		// TODO Currently a LP holds one partition. need to add support for cases that a LP holds multiple partitions
 		if (ps.size() != np)
 			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));

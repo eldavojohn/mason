@@ -153,7 +153,7 @@ public class LoadBalancer {
 		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
 		assert p.np == 4;
 		p.initUniformly(null);
-		p.setMPITopo();
+		p.commit();
 
 		FakeField hf = new FakeField(p, aoi, p.pid);
 		hf.sync();

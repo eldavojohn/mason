@@ -60,7 +60,7 @@ public class NObjectGrid2D<T> extends HaloField {
 
 		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
 		p.initUniformly(null);
-		p.setMPITopo();
+		p.commit();
 
 		NObjectGrid2D<TestObj> f = new NObjectGrid2D<TestObj>(p, aoi, s -> new TestObj[s], TestObj.getMaxObjectSize());
 

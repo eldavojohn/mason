@@ -25,6 +25,7 @@ public class Timing {
 		long nanoTime();
 	}
 
+	// TODO allow multiple init? or do we need to init at all?
 	public static void init(int capacity) {
 		cap = capacity;
 		m = new HashMap<String, TimingStat>();
@@ -64,8 +65,8 @@ public class Timing {
 	}
 
 	public static TimingStat get(String id) {
-		if (!m.containsKey(id))
-			throw new NoSuchElementException("Timer for " + id + " does not exist");
+		if (m == null || !m.containsKey(id))
+			throw new NoSuchElementException("Timer for " + id + " does not exist or Timing not init");
 		return m.get(id);
 	}
 

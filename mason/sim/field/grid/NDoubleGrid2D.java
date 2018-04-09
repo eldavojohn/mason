@@ -77,7 +77,7 @@ public class NDoubleGrid2D extends HaloField {
 		p.insertPartition(new IntHyperRect(1, new IntPoint(new int[] {0, 7}), new IntPoint(new int[] {5, 10})));
 		p.insertPartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 4})));
 		p.insertPartition(new IntHyperRect(3, new IntPoint(new int[] {5, 4}), new IntPoint(new int[] {10, 10})));
-		p.setMPITopo();
+		p.commit();
 
 		NDoubleGrid2D hf = new NDoubleGrid2D(p, aoi, p.pid);
 
@@ -129,7 +129,7 @@ public class NDoubleGrid2D extends HaloField {
 		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 6}), new IntPoint(new int[] {5, 10})));
 		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 5})));
 		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 5}), new IntPoint(new int[] {10, 10})));
-		p.setMPITopo();
+		p.commit();
 
 		hf.reload();
 		hf.sync();
@@ -152,7 +152,7 @@ public class NDoubleGrid2D extends HaloField {
 		**/
 		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {5, 0}), new IntPoint(new int[] {10, 6})));
 		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {5, 6}), new IntPoint(new int[] {10, 10})));
-		p.setMPITopo();
+		p.commit();
 
 		hf.reload();
 		hf.sync();
@@ -177,7 +177,7 @@ public class NDoubleGrid2D extends HaloField {
 		p.updatePartition(new IntHyperRect(1, new IntPoint(new int[] {0, 6}), new IntPoint(new int[] {6, 10})));
 		p.updatePartition(new IntHyperRect(2, new IntPoint(new int[] {4, 0}), new IntPoint(new int[] {10, 6})));
 		p.updatePartition(new IntHyperRect(3, new IntPoint(new int[] {6, 6}), new IntPoint(new int[] {10, 10})));
-		p.setMPITopo();
+		p.commit();
 
 		hf.reload();
 		hf.sync();

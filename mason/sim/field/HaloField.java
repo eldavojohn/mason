@@ -20,16 +20,14 @@ import sim.util.Timing;
 public abstract class HaloField {
 
 	protected int nd, numNeighbors, maxSendSize;
-	protected int[] aoi, fieldSize, haloSize, partSize;
+	protected int[] aoi, fieldSize, haloSize;
 
 	protected IntHyperRect world, haloPart, origPart, privPart;
 	protected Neighbor[] neighbors;
 	protected GridStorage field;
 	protected DPartition ps;
-
 	protected Comm comm;
 	protected Datatype MPIBaseType;
-
 
 	public HaloField(DPartition ps, int[] aoi, GridStorage stor) {
 		this.ps = ps;
@@ -45,7 +43,6 @@ public abstract class HaloField {
 		fieldSize = ps.getFieldSize();
 		world = ps.getField();
 		origPart = ps.getPartition();
-		partSize = origPart.getSize();
 
 		// Get the partition representing halo and local area by expanding the original partition by aoi at each dimension
 		haloPart = origPart.resize(aoi);
