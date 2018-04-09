@@ -15,18 +15,15 @@ import mpi.*;
 public class LoadBalancer {
 
 	DNonUniformPartition p;
-	HaloField f;
-
 	GraphColoring gc;
-	int interval, round = 0;
+	int interval;
 
-	// Use aoi as the offset to adjust partitions
-	int[] aoi;
+	// Offsets per adjustment on each dimension
+	int[] offsets;
 
-	public LoadBalancer(HaloField f, int[] aoi, int interval) {
+	public LoadBalancer(int[] offsets, int interval) {
 		this.p = DNonUniformPartition.getPartitionScheme();
-		this.f = f;
-		this.aoi = aoi;
+		this.offsets = offsets;
 		this.interval = interval;
 		this.gc = new GraphColoring(p);
 
@@ -37,8 +34,6 @@ public class LoadBalancer {
 				gc.color();
 			}
 		});
-
-		Timing.initMetrics(Timing.LB_OVERHEAD);
 	}
 
 	// Get all the neighbor ids and then
@@ -62,76 +57,46 @@ public class LoadBalancer {
 		if (interval < 0)
 			return false;
 
+		return step % (gc.numColors + interval) < gc.numColors;
+	}
+
+	private boolean isMyTurn(int step) {
 		return step % (gc.numColors + interval) == gc.myColor;
 	}
 
-	private BalanceAction getAction(int[][] avail) {
-		double myRt;
-
-		try {
-			myRt = Timing.get(Timing.LB_RUNTIME).getMovingAverage();
-		} catch (NoSuchElementException e) {
-			return new BalanceAction(); // return empty action if runtime metric is not set
-		}
-
-		int dim = 0, myPid = p.getPid(), target = myPid, offset = 0;
-		double maxDelta = 0;
-		HashMap<Integer, Double> m = f.getRuntimes();
-		int[] size = p.getPartition().getSize();
-
-		for ( int d = 0; d < p.nd; d++) {
-			for (int t : avail[d]) {
-				double delta = (myRt - m.get(t)) * aoi[d] / size[d];
-				if (Math.abs(delta) > maxDelta) {
-					maxDelta = Math.abs(delta);
-					dim = d;
-					target = t;
-					offset = delta > 0 ? -1 : 1;
-				}
-			}
-		}
-
-		//System.out.println("maxdelta: " + maxDelta + " overhead " + Timing.get(Timing.LB_OVERHEAD).getMovingAverage());
-
-		// do not balance if the delta is too small
-		if (maxDelta < Timing.get(Timing.LB_OVERHEAD).getMovingAverage())
-			offset = 0;
-
-		return new BalanceAction(myPid, target, dim, offset * aoi[dim]);
-	}
-
-	// Randomly choosing targets
-	// TODO use the random number generator in MASON
-	private BalanceAction getRandomAction(int[][] avail) {
-		java.util.Random r = new java.util.Random();
-
-		int[] nonEmptyIdxs = IntStream.range(0, p.nd).filter(x -> avail[x].length > 0).toArray();
-		if (nonEmptyIdxs == null)
-			return new BalanceAction();
-
-		int dim = nonEmptyIdxs[r.nextInt(nonEmptyIdxs.length)];
-		int target = avail[dim][r.nextInt(avail[dim].length)];
-		int offset = r.nextBoolean() ? aoi[dim] : -aoi[dim];
-
-		return new BalanceAction(p.pid, target, dim, offset);
-	}
-
-	private BalanceAction generateAction(int step) {
+	private int _balance(int step, HashMap<Integer, Double> rts, double overhead) throws MPIException, IOException {
 		if (!shouldBalance(step))
-			return new BalanceAction();
-
-		return getAction(getAvailNeighborIds());
-	}
-
-	public int balance(int step) throws MPIException, IOException {
-		Timing.start(Timing.LB_OVERHEAD);
+			return 0;
 
 		// Buffers to hold incoming actions
 		int[] actions = new int[p.np * BalanceAction.size];
 		int count = 0;
 
-		// Generate own load balancing action
-		BalanceAction myAction = generateAction(step);
+		BalanceAction myAction = new BalanceAction();
+
+		if (isMyTurn(step)) {
+			int dim = 0, myPid = p.getPid(), target = myPid, offset = 0;
+			double maxDelta = 0, myRt = rts.get(myPid);
+			int[] size = p.getPartition().getSize();
+			int[][] avail = getAvailNeighborIds();
+
+			for ( int d = 0; d < p.nd; d++) {
+				for (int t : avail[d]) {
+					double delta = (myRt - rts.get(t)) * offsets[d] / size[d];
+					if (Math.abs(delta) > maxDelta) {
+						maxDelta = Math.abs(delta);
+						dim = d;
+						target = t;
+						offset = delta > 0 ? -offsets[d] : offsets[d];
+					}
+				}
+			}
+
+			// balance only if the delta is large enough
+			if (maxDelta * (gc.numColors + interval) > overhead)
+				myAction = new BalanceAction(myPid, target, dim, offset);
+		}
+
 		// TODO maybe use DObjectMigrator here?
 		myAction.writeToBuf(actions, p.pid);
 
@@ -140,16 +105,19 @@ public class LoadBalancer {
 		// Exchange actions
 		p.getCommunicator().allGather(actions, BalanceAction.size, MPI.INT);
 
-		//MPITest.execInOrder(i -> System.out.println(String.format("[%d] %s", p.pid, Arrays.toString(actions))), 0);
-
 		// Everyone commits the changes to their local partition scheme
 		for (BalanceAction a : BalanceAction.toActions(actions))
 			count += a.applyToPartition(p);
 
 		p.commit();
 
-		Timing.stop(Timing.LB_OVERHEAD);
+		return count;
+	}
 
+	public int balance(int step, HashMap<Integer, Double> rts) throws MPIException, IOException {
+		Timing.start(Timing.LB_OVERHEAD);
+		int count = _balance(step, rts, Timing.get(Timing.LB_OVERHEAD).getMovingAverage());
+		Timing.stop(Timing.LB_OVERHEAD);
 		return count;
 	}
 
@@ -157,8 +125,6 @@ public class LoadBalancer {
 		int[] size = new int[] {10, 10};
 		int[] aoi = new int[] {1, 1};
 
-		Timing.init(10);
-		Timing.initMetrics(Timing.LB_RUNTIME);
 		MPI.Init(args);
 
 		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
@@ -166,54 +132,39 @@ public class LoadBalancer {
 		p.initUniformly(null);
 		p.commit();
 
-		FakeField hf = new FakeField(p, aoi, p.pid);
-		hf.sync();
+		NDoubleGrid2D f = new NDoubleGrid2D(p, aoi, p.pid);
+		f.sync();
+		MPITest.execOnlyIn(0, i -> System.out.println("Initial field"));
+		MPITest.execInOrder(i -> System.out.println(f), 500);
 
-		MPITest.execInOrder(i -> System.out.println(hf), 500);
+		LoadBalancer lb = new LoadBalancer(aoi, 0);
+		HashMap<Integer, Double> rts = new HashMap<Integer, Double>();
+		rts.put(0, 100.0);
+		rts.put(1, 100.0);
+		rts.put(2, 100.0);
+		rts.put(3, 100.0);
 
-		LoadBalancer lb = new LoadBalancer(hf, aoi, 0);
+		final int res1 = lb._balance(0, rts, 10);
+		MPITest.execOnlyIn(0, i -> System.out.println("Load Balancing #1: " + res1));
+		MPITest.execInOrder(i -> System.out.println(f), 500);
 
-		lb.balance(0);
-		MPITest.execInOrder(i -> System.out.println(hf), 500);
-		hf.setRuntimes(new double[] {200000, 100000, 1000, 50000});
+		rts.put(0, 1100.0);
+		rts.put(2, 100.0);
 
-		lb.balance(1);
-		MPITest.execInOrder(i -> System.out.println(hf), 500);
-		//hf.setRuntimes(new double[]{ , , , });
+		final int res2 = lb._balance(1, rts, 10);
+		MPITest.execOnlyIn(0, i -> System.out.println("Load Balancing #2: " + res2));
+		MPITest.execInOrder(i -> System.out.println(f), 500);
 
-		lb.balance(2);
-		MPITest.execInOrder(i -> System.out.println(hf), 500);
-		//hf.setRuntimes(new double[]{ , , , });
+		final int res3 = lb._balance(2, rts, 400);
+		MPITest.execOnlyIn(0, i -> System.out.println("Load Balancing #3: " + res3));
+		MPITest.execInOrder(i -> System.out.println(f), 500);
 
-		lb.balance(3);
-		MPITest.execInOrder(i -> System.out.println(hf), 500);
+		rts.put(2, 10.0);
+
+		final int res4 = lb._balance(3, rts, 71);
+		MPITest.execOnlyIn(0, i -> System.out.println("Load Balancing #4: " + res4));
+		MPITest.execInOrder(i -> System.out.println(f), 500);
 
 		MPI.Finalize();
-	}
-
-	static class FakeField extends NDoubleGrid2D {
-		public HashMap<Integer, Double> rt;
-
-		public FakeField(DPartition ps, int[] aoi, double initVal) {
-			super(ps, aoi, initVal);
-			rt = new HashMap<Integer, Double>();
-			for (int i = 0; i < ps.getNumProc(); i++)
-				rt.put(i, 100.0);
-		}
-
-		public void setRuntimes(double[] rts) {
-			for (int i = 0; i < ps.getNumProc(); i++)
-				rt.put(i, rts[i]);
-		}
-
-		@Override
-		public HashMap<Integer, Double> getRuntimes() {
-			HashMap<Integer, Double> ret = new HashMap<Integer, Double>();
-
-			ret.put(ps.getPid(), rt.get(ps.getPid()));
-			Arrays.stream(neighbors).forEach(x -> ret.put(x.pid, rt.get(x.pid)));
-
-			return ret;
-		}
 	}
 }

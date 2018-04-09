@@ -15,6 +15,7 @@ import mpi.*;
 import java.nio.*;
 
 import sim.util.Timing;
+import sim.util.MPITest;
 
 public class NHeatBugs extends SimState {
 	private static final long serialVersionUID = 1;
@@ -71,7 +72,7 @@ public class NHeatBugs extends SimState {
 	LoadBalancer lb;
 
 	public NHeatBugs(long seed) {
-		this(seed, 1000, 1000, 1000, 1);
+		this(seed, 3000, 3000, 0, 2);
 	}
 
 	public NHeatBugs(long seed, int width, int height, int count, int aoi) {
@@ -82,7 +83,12 @@ public class NHeatBugs extends SimState {
 
 		try {
 			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height});
-			p.initUniformly(null);
+			//p.initUniformly(null);
+			assert p.np == 2;
+			p.insertPartition(new IntHyperRect(0, new IntPoint(0, 0), new IntPoint(3000, 2800)));
+			p.insertPartition(new IntHyperRect(1, new IntPoint(0, 2800), new IntPoint(3000, 3000)));
+			//p.insertPartition(new IntHyperRect(2, new IntPoint(0, 40), new IntPoint(1000, 60)));
+			//p.insertPartition(new IntHyperRect(3, new IntPoint(0, 60), new IntPoint(1000, 1000)));
 			p.commit();
 
 			valgrid = new NDoubleGrid2D(p, this.aoi, 0);
@@ -93,7 +99,7 @@ public class NHeatBugs extends SimState {
 
 			privBugCount = bugCount / p.np;
 
-			lb = new LoadBalancer(valgrid, this.aoi, 50);
+			lb = new LoadBalancer(this.aoi, 500);
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 			System.exit(-1);
@@ -120,14 +126,12 @@ public class NHeatBugs extends SimState {
 			schedule.scheduleOnce(b, 1);
 		}
 
-		schedule.scheduleRepeating(Schedule.EPOCH, 0, new Inspector(), 500);
+		//schedule.scheduleRepeating(Schedule.EPOCH, 0, new Inspector(), 500);
 		schedule.scheduleRepeating(Schedule.EPOCH, 2, new Diffuser(), 1);
 		schedule.scheduleRepeating(Schedule.EPOCH, 3, new Synchronizer(), 1);
 	}
 
 	public static void main(String[] args) throws MPIException {
-		Timing.init(500);
-		Timing.initMetrics(Timing.LB_RUNTIME, Timing.MPI_SYNC_OVERHEAD);
 		doLoopMPI(NHeatBugs.class, args);
 		System.exit(0);
 	}
@@ -145,8 +149,9 @@ public class NHeatBugs extends SimState {
 				hb.bugs.sync();
 				hb.queue.sync();
 
-				if (hb.lb.balance((int)hb.schedule.getSteps()) > 0) {
-					System.out.println("\n\nBalanced at step\n\n" + hb.schedule.getSteps());
+				if (hb.lb.balance((int)hb.schedule.getSteps(), hb.valgrid.getRuntimes()) > 0) {
+					myPart = p.getPartition();
+					MPITest.execInOrder(x -> System.out.printf("[%d] Balanced at step %d new Partition %s\n", x, hb.schedule.getSteps(), p.getPartition()), 500);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();

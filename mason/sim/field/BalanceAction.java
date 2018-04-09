@@ -45,13 +45,21 @@ public class BalanceAction {
 		if (offset == 0 || src == dst)
 			return 0;
 
-		IntHyperRect srcp = p.getPartition(src);
-		IntHyperRect dstp = p.getPartition(dst);
+		IntHyperRect nsrcp = null, srcp = p.getPartition(src);
+		IntHyperRect ndstp = null, dstp = p.getPartition(dst);
 
 		int dir = srcp.ul.c[dim] < dstp.ul.c[dim] ? 1 : -1;
 
-		p.updatePartition(srcp.resize(dim, dir, offset));
-		p.updatePartition(dstp.resize(dim, -dir, -offset));
+		try {
+			nsrcp = srcp.resize(dim, dir, offset);
+			ndstp = dstp.resize(dim, -dir, -offset);
+		} catch (IllegalArgumentException e) {
+			System.err.println("Illegal partition adjustment " + this + " - partition remain unchanged");
+			return 0;
+		}
+
+		p.updatePartition(nsrcp);
+		p.updatePartition(ndstp);
 
 		return 1;
 	}
