@@ -3,8 +3,8 @@ package sim.util;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
-public class IntPoint implements Comparable<IntPoint> {
-	public int nd;
+public class IntPoint extends NdPoint {
+	// TODO make these private
 	public int[] c;
 
 	public IntPoint(int c[]) {
@@ -12,37 +12,26 @@ public class IntPoint implements Comparable<IntPoint> {
 		this.c = Arrays.copyOf(c, nd);
 	}
 
-	public IntPoint(int c1) {
-		this.nd = 1;
-		this.c = new int[] {c1};
-	}
-
-	public IntPoint(int c1, int c2) {
+	public IntPoint(int x, int y) {
 		this.nd = 2;
-		this.c = new int[] {c1, c2};
+		this.c = new int[] {x, y};
 	}
 
-	public IntPoint(int c1, int c2, int c3) {
+	public IntPoint(int x, int y, int z) {
 		this.nd = 3;
-		this.c = new int[] {c1, c2, c3};
+		this.c = new int[] {x, y, z};
 	}
 
-	// Sanity checks
-	public void assertEqualDim(int d) {
-		if (d < 0 || d >= this.nd)
-			throw new IllegalArgumentException(String.format("Illegal dimension %d given to %d", d, this.toString()));
+	// Make a copy of array so that IntPoint can remain immutable
+	public int[] getArray() {
+		return Arrays.copyOf(c, nd);
 	}
 
-	public void assertEqualDim(int[] a) {
-		if (this.nd != a.length)
-			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), Arrays.toString(a)));
+	public double[] getArrayInDouble() {
+		return Arrays.stream(c).mapToDouble(x -> x).toArray();
 	}
 
-	public void assertEqualDim(IntPoint p) {
-		if (this.nd != p.nd)
-			throw new IllegalArgumentException(String.format("%s and %s got different dimensions", this.toString(), p.toString()));
-	}
-
+	// TODO Move into NdRectangle
 	public int getRectArea(IntPoint that) {
 		assertEqualDim(that);
 		return nd == 0 ? 0 : Math.abs(Arrays.stream(getOffset(that)).reduce(1, (x, y) -> x * y));
@@ -51,10 +40,10 @@ public class IntPoint implements Comparable<IntPoint> {
 	public IntPoint shift(int dim, int offset) {
 		assertEqualDim(dim);
 
-		int[] newc = Arrays.copyOf(c, nd);
-		newc[dim] += offset;
+		int[] a = getArray();
+		a[dim] += offset;
 
-		return new IntPoint(newc);
+		return new IntPoint(a);
 	}
 
 	public IntPoint shift(int[] offsets) {
@@ -67,10 +56,48 @@ public class IntPoint implements Comparable<IntPoint> {
 		return new IntPoint(IntStream.range(0, nd).map(i -> c[i] - offsets[i]).toArray());
 	}
 
-	// Get the distances in each dimension between self and the given point
+	// TODO make these return DoublePoint
+	public NdPoint shift(int dim, double offset) {
+		throw new IllegalArgumentException("IntPoint cannot be shifted with double offsets");
+	}
+
+	public NdPoint shift(double[] offsets) {
+		throw new IllegalArgumentException("IntPoint cannot be shifted with double offsets");
+	}
+
+	public NdPoint rshift(double[] offsets) {
+		throw new IllegalArgumentException("IntPoint cannot be shifted with double offsets");
+	}
+
+	// TODO remove
 	public int[] getOffset(IntPoint that) {
+		return getOffsetsInt(that);
+	}
+
+	// Get the distances in each dimension between self and the given point
+	public int[] getOffsetsInt(NdPoint that) {
 		assertEqualDim(that);
-		return IntStream.range(0, nd).map(i -> this.c[i] - that.c[i]).toArray();
+
+		if (!(that instanceof IntPoint))
+			throw new IllegalArgumentException("Cannot get int offsets between IntPoint and "
+			                                   + that.getClass().getSimpleName());
+
+		int[] array = (int[]) that.getArray();
+		return IntStream.range(0, nd).map(i -> this.c[i] - array[i]).toArray();
+	}
+
+	public double[] getOffsetsDouble(NdPoint that) {
+		assertEqualDim(that);
+
+		if (that instanceof IntPoint) {
+			int[] array = (int[])that.getArray();
+			return IntStream.range(0, nd).mapToDouble(i -> this.c[i] - array[i]).toArray();
+		} else if (that instanceof DoublePoint) {
+			double[] array = (double[])that.getArray();
+			return IntStream.range(0, nd).mapToDouble(i -> this.c[i] - array[i]).toArray();
+		} else
+			throw new IllegalArgumentException("Cannot get double offsets between IntPoint and "
+			                                   + that.getClass().getSimpleName());
 	}
 
 	// Reduce dimension by removing the value at the dimth dimension
@@ -84,17 +111,20 @@ public class IntPoint implements Comparable<IntPoint> {
 		return new IntPoint(newc);
 	}
 
-	// Return whether the two IntPoints equals (have same value for all of their components)
-	public boolean equals(IntPoint that) {
+	public boolean equals(NdPoint that) {
 		assertEqualDim(that);
 
-		for (int i = 0; i < nd; i++)
-			if (this.c[i] != that.c[i])
-				return false;
-
-		return true;
+		Object a = that.getArray();
+		if (a instanceof int[])
+			return Arrays.equals(c, (int[])a);
+		else if (a instanceof double[]) {
+			double[] d = (double[])a;
+			return IntStream.range(0, nd).allMatch(i -> equals(c[i], d[i]));
+		} else
+			throw new IllegalArgumentException("Unknown type " + that.getClass().getSimpleName());
 	}
 
+	// TODO use NdRectangle
 	public IntPoint toToroidal(IntHyperRect bound) {
 		int[] size = bound.getSize(), offsets = new int[nd];
 
@@ -122,17 +152,112 @@ public class IntPoint implements Comparable<IntPoint> {
 
 	// Sort the points by their components
 	@Override
-	public int compareTo(IntPoint that) {
+	public int compareTo(NdPoint that) {
 		assertEqualDim(that);
 
-		for (int i = 0; i < nd; i++) {
-			if (this.c[i] == that.c[i])
-				continue;
-			return this.c[i] - that.c[i];
-		}
+		if (that instanceof IntPoint) {
+			int[] b = (int[])that.getArray();
+			for (int i = 0; i < nd; i++) {
+				if (this.c[i] == b[i])
+					continue;
+				return this.c[i] - b[i];
+			}
+		} else if (that instanceof DoublePoint) {
+			double[] b = (double[])that.getArray();
+			for (int i = 0; i < nd; i++) {
+				if (equals(this.c[i], b[i]))
+					continue;
+				return this.c[i] - b[i] > 0 ? 1 : -1;
+			}
+		} else
+			throw new IllegalArgumentException("Cannot compare IntPoint with "
+			                                   + that.getClass().getSimpleName());
 
 		return 0;
 	}
+
+	public boolean geq(NdPoint that) {
+		assertEqualDim(that);
+
+		if (that instanceof IntPoint) {
+			int[] b = (int[])that.getArray();
+			return IntStream.range(0, nd).allMatch(i -> c[i] >= b[i]);
+		} else if (that instanceof DoublePoint) {
+			double[] b = (double[])that.getArray();
+			return IntStream.range(0, nd).allMatch(i -> c[i] > b[i] || equals(c[i], b[i]));
+		} else
+			throw new IllegalArgumentException("Cannot compare IntPoint with "
+			                                   + that.getClass().getSimpleName());
+	}
+
+	public boolean gt(NdPoint that) {
+		assertEqualDim(that);
+
+		if (that instanceof IntPoint) {
+			int[] b = (int[])that.getArray();
+			return IntStream.range(0, nd).allMatch(i -> c[i] > b[i]);
+		} else if (that instanceof DoublePoint) {
+			double[] b = (double[])that.getArray();
+			return IntStream.range(0, nd).allMatch(i -> c[i] > b[i] && !equals(c[i], b[i]));
+		} else
+			throw new IllegalArgumentException("Cannot compare IntPoint with "
+			                                   + that.getClass().getSimpleName());
+	}
+
+	public boolean leq(NdPoint that) {
+		assertEqualDim(that);
+
+		if (that instanceof IntPoint) {
+			int[] b = (int[])that.getArray();
+			return IntStream.range(0, nd).allMatch(i -> c[i] <= b[i]);
+		} else if (that instanceof DoublePoint) {
+			double[] b = (double[])that.getArray();
+			return IntStream.range(0, nd).allMatch(i -> c[i] < b[i] || equals(c[i], b[i]));
+		} else
+			throw new IllegalArgumentException("Cannot compare IntPoint with "
+			                                   + that.getClass().getSimpleName());
+	}
+
+	public boolean lt(NdPoint that) {
+		assertEqualDim(that);
+
+		if (that instanceof IntPoint) {
+			int[] b = (int[])that.getArray();
+			return IntStream.range(0, nd).allMatch(i -> c[i] < b[i]);
+		} else if (that instanceof DoublePoint) {
+			double[] b = (double[])that.getArray();
+			return IntStream.range(0, nd).allMatch(i -> c[i] < b[i] && !equals(c[i], b[i]));
+		} else
+			throw new IllegalArgumentException("Cannot compare IntPoint with "
+			                                   + that.getClass().getSimpleName());
+	}
+
+	public NdPoint max(NdPoint that) {
+		assertEqualDim(that);
+
+		if (that instanceof IntPoint) {
+			int[] b = (int[])that.getArray();
+			return new IntPoint(IntStream.range(0, nd).map(i -> Math.max(c[i], b[i])).toArray());
+		} else if (that instanceof DoublePoint) {
+			double[] b = (double[])that.getArray();
+			return new DoublePoint(IntStream.range(0, nd).mapToDouble(i -> Math.max(c[i], b[i])).toArray());
+		} else
+			throw new IllegalArgumentException("Cannot get max of IntPoint and "
+			                                   + that.getClass().getSimpleName());
+	}
+
+	public NdPoint min(NdPoint that) {
+		if (that instanceof IntPoint) {
+			int[] b = (int[])that.getArray();
+			return new IntPoint(IntStream.range(0, nd).map(i -> Math.min(c[i], b[i])).toArray());
+		} else if (that instanceof DoublePoint) {
+			double[] b = (double[])that.getArray();
+			return new DoublePoint(IntStream.range(0, nd).mapToDouble(i -> Math.min(c[i], b[i])).toArray());
+		} else
+			throw new IllegalArgumentException("Cannot get min of IntPoint and "
+			                                   + that.getClass().getSimpleName());
+	}
+
 
 	public String toString() {
 		return Arrays.toString(c);
@@ -149,9 +274,9 @@ public class IntPoint implements Comparable<IntPoint> {
 		IntPoint p4 = new IntPoint(new int[] {1, 1});
 		IntPoint p5 = new IntPoint(new int[] {2, 3});
 		IntPoint p6 = new IntPoint(new int[] {1, 0});
-		IntPoint p7 = new IntPoint(new int[] {-1, 0});
+		IntPoint p7 = new IntPoint(new int[] { -1, 0});
 
-		for (IntPoint p : new IntPoint[]{p1, p2, p3, p4, p5, p6, p7})
+		for (IntPoint p : new IntPoint[] {p1, p2, p3, p4, p5, p6, p7})
 			System.out.println("toToroidal " + p.toToroidal(r));
 	}
 }
