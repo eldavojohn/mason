@@ -6,7 +6,7 @@ public class TimingStat {
 
 	int cap;
 	long cnt, conv, ts;
-	double avg, min, max, var;
+	double avg, min, max, var, last;
 	MovingAverage mav;
 	TimeUnit u;
 
@@ -22,6 +22,7 @@ public class TimingStat {
 	}
 
 	public void add(double val) {
+		last = val;
 		min = Math.min(min, val);
 		max = Math.max(max, val);
 
@@ -53,6 +54,10 @@ public class TimingStat {
 			throw new IllegalStateException("Timer is not started");
 		add((double)(curr - ts));
 		ts = -1L;
+	}
+
+	public double last() {
+		return last / conv;
 	}
 
 	public long getCount() {

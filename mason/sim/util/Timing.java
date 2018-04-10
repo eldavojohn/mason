@@ -69,6 +69,11 @@ public class Timing {
 		return m.get(id);
 	}
 
+	public static double getLast(String id) {
+		check(id);
+		return m.get(id).last();
+	}
+
 	private static void check(String id) {
 		if (!m.containsKey(id))
 			throw new NoSuchElementException("Timer for " + id + " does not exist");
