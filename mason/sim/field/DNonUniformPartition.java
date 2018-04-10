@@ -76,10 +76,11 @@ public class DNonUniformPartition extends DPartition {
 		if (ps.size() != np)
 			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));
 
-		// Get sorted neighbor ids list
-		int[] ns = Arrays.stream(getNeighborIds())
-		           .mapToObj(x -> ps.get(x)).sorted()
-		           .mapToInt(x -> x.id).toArray();
+		// Get sorted neighbor ids list -- why sorted? TODO BUG
+		// int[] ns = Arrays.stream(getNeighborIds())
+		//            .mapToObj(x -> ps.get(x)).sorted()
+		//            .mapToInt(x -> x.id).toArray();
+		int[] ns = getNeighborIds();
 
 		// Create a unweighted & undirected graph
 		try {
