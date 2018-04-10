@@ -76,10 +76,9 @@ public class DNonUniformPartition extends DPartition {
 		if (ps.size() != np)
 			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));
 
-		// Get sorted neighbor ids list -- why sorted? TODO BUG
-		// int[] ns = Arrays.stream(getNeighborIds())
-		//            .mapToObj(x -> ps.get(x)).sorted()
-		//            .mapToInt(x -> x.id).toArray();
+		// Need to ensure that the order of the neighbors is the same with that in MPI
+		// not a problem with NonUniformPartition
+		// may be a problem for UniformPartition where the cartesian topo is used
 		int[] ns = getNeighborIds();
 
 		// Create a unweighted & undirected graph
