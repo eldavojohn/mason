@@ -172,29 +172,6 @@ public abstract class HaloField {
 		// Unpack into the field
 		for (int i = 0; i < numNeighbors; i++)
 			field.unpack(neighbors[i].recvParam, recvbuf, recvPos[i], recvCnt[i]);
-
-		// Exchange aux data, e.g., runtime data for load balancing
-		double runtime;
-		try {
-			runtime = Timing.get(Timing.LB_RUNTIME).getMovingAverage();
-		} catch (NoSuchElementException e) {
-			return; // not set - no need to exchange
-		}
-
-		double[] avgSendBuf = new double[] {runtime};
-		double[] avgRecvBuf = new double[numNeighbors];
-
-		comm.neighborAllGather(avgSendBuf, 1, MPI.DOUBLE, avgRecvBuf, 1, MPI.DOUBLE);
-
-		for (int i = 0; i < numNeighbors; i++)
-			neighbors[i].avgRuntime = avgRecvBuf[i];
-	}
-
-	// TODO refactor the performance measurements into a separate class
-	public HashMap<Integer, Double> getRuntimes() {
-		HashMap<Integer, Double> ret = new HashMap<Integer, Double>();
-		Arrays.stream(neighbors).forEach(x -> ret.put(x.pid, x.avgRuntime));
-		return ret;
 	}
 
 	public void collect(int dst, GridStorage fullField) throws MPIException, IOException {
@@ -238,9 +215,6 @@ public abstract class HaloField {
 	class Neighbor {
 		int pid;
 		MPIParam sendParam, recvParam;
-
-		// TODO refactor the performance measurements into a separate class
-		double avgRuntime;
 
 		public Neighbor(IntHyperRect neighborPart) {
 			pid = neighborPart.id;

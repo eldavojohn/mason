@@ -72,7 +72,7 @@ public class NHeatBugs extends SimState {
 	LoadBalancer lb;
 
 	public NHeatBugs(long seed) {
-		this(seed, 3000, 3000, 0, 2);
+		this(seed, 1000, 1000, 0, 5);
 	}
 
 	public NHeatBugs(long seed, int width, int height, int count, int aoi) {
@@ -84,10 +84,10 @@ public class NHeatBugs extends SimState {
 		try {
 			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height});
 			//p.initUniformly(null);
-			assert p.np == 2;
-			p.insertPartition(new IntHyperRect(0, new IntPoint(0, 0), new IntPoint(3000, 2800)));
-			p.insertPartition(new IntHyperRect(1, new IntPoint(0, 2800), new IntPoint(3000, 3000)));
-			//p.insertPartition(new IntHyperRect(2, new IntPoint(0, 40), new IntPoint(1000, 60)));
+			assert p.np == 3;
+			p.insertPartition(new IntHyperRect(0, new IntPoint(0, 0), new IntPoint(1000, 800)));
+			p.insertPartition(new IntHyperRect(1, new IntPoint(0, 800), new IntPoint(1000, 900)));
+			p.insertPartition(new IntHyperRect(2, new IntPoint(0, 900), new IntPoint(1000, 1000)));
 			//p.insertPartition(new IntHyperRect(3, new IntPoint(0, 60), new IntPoint(1000, 1000)));
 			p.commit();
 
@@ -99,7 +99,7 @@ public class NHeatBugs extends SimState {
 
 			privBugCount = bugCount / p.np;
 
-			lb = new LoadBalancer(this.aoi, 500);
+			lb = new LoadBalancer(this.aoi, 8);
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 			System.exit(-1);
@@ -126,12 +126,14 @@ public class NHeatBugs extends SimState {
 			schedule.scheduleOnce(b, 1);
 		}
 
-		//schedule.scheduleRepeating(Schedule.EPOCH, 0, new Inspector(), 500);
 		schedule.scheduleRepeating(Schedule.EPOCH, 2, new Diffuser(), 1);
 		schedule.scheduleRepeating(Schedule.EPOCH, 3, new Synchronizer(), 1);
+		schedule.scheduleRepeating(Schedule.EPOCH, 4, new Balancer(), 1);
+		schedule.scheduleRepeating(Schedule.EPOCH, 5, new Inspector(), 10);
 	}
 
 	public static void main(String[] args) throws MPIException {
+		Timing.setWindow(20);
 		doLoopMPI(NHeatBugs.class, args);
 		System.exit(0);
 	}
@@ -141,6 +143,8 @@ public class NHeatBugs extends SimState {
 
 		public void step(SimState state) {
 			NHeatBugs hb = (NHeatBugs)state;
+			// Here we have completed all the computation work - stop the timer
+			Timing.stop(Timing.LB_RUNTIME);
 
 			Timing.start(Timing.MPI_SYNC_OVERHEAD);
 
@@ -148,15 +152,11 @@ public class NHeatBugs extends SimState {
 				hb.valgrid.sync();
 				hb.bugs.sync();
 				hb.queue.sync();
-
-				if (hb.lb.balance((int)hb.schedule.getSteps(), hb.valgrid.getRuntimes()) > 0) {
-					myPart = p.getPartition();
-					MPITest.execInOrder(x -> System.out.printf("[%d] Balanced at step %d new Partition %s\n", x, hb.schedule.getSteps(), p.getPartition()), 500);
-				}
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.exit(-1);
 			}
+
 			for (Object obj : hb.queue) {
 				privBugCount++;
 				NHeatBug b = (NHeatBug)obj;
@@ -169,16 +169,35 @@ public class NHeatBugs extends SimState {
 		}
 	}
 
+	private class Balancer implements Steppable {
+		public void step (final SimState state) {
+			NHeatBugs hb = (NHeatBugs)state;
+			try {
+				if (hb.lb.balance((int)hb.schedule.getSteps()) > 0) {
+					myPart = p.getPartition();
+					MPITest.execInOrder(x -> System.out.printf("[%d] Balanced at step %d new Partition %s\n", x, hb.schedule.getSteps(), p.getPartition()), 500);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.exit(-1);
+			}
+		}
+	}
+
 	private class Inspector implements Steppable {
 		public void step( final SimState state ) {
 			NHeatBugs hb = (NHeatBugs)state;
 			//String s = String.format("PID %d Step %d Agent Count %d\n", hb.partition.pid, hb.schedule.getSteps(), hb.queue.size());
 			//state.logger.info(String.format("PID %d Step %d Agent Count %d\n", hb.p.pid, hb.schedule.getSteps(), hb.privBugCount));
-			if (DNonUniformPartition.getPartitionScheme().getPid() == 0) {
-				state.logger.info("StepRuntime\t" + Timing.get(Timing.LB_RUNTIME) + "\n");
-				state.logger.info("SyncRuntime\t" + Timing.get(Timing.MPI_SYNC_OVERHEAD) + "\n");
-				state.logger.info("LBRuntime\t" + Timing.get(Timing.LB_OVERHEAD) + "\n");
-			}
+			//if (DNonUniformPartition.getPartitionScheme().getPid() == 0) {
+				state.logger.info(String.format("[%d][%d] Step Runtime: %g \tSync Runtime: %g \t LB Overhead: %g\n",
+				                                hb.p.getPid(),
+				                                hb.schedule.getSteps(),
+				                                Timing.get(Timing.LB_RUNTIME).getMovingAverage(),
+				                                Timing.get(Timing.MPI_SYNC_OVERHEAD).getMovingAverage(),
+				                                Timing.get(Timing.LB_OVERHEAD).getMovingAverage()
+				                               ));
+			//}
 			// for (Steppable i : hb.queue) {
 			// 	NHeatBug a = (NHeatBug)i;
 			// 	s += a.toString() + "\n";

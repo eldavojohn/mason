@@ -687,7 +687,8 @@ public class SimState implements java.io.Serializable
                             {
                             Timing.start(Timing.LB_RUNTIME);
                             boolean ret = schedule.step(state);
-                            Timing.stop(Timing.LB_RUNTIME);
+                            // Start the timer here for every step but stop it in one of the steppables
+                            // Timing.stop(Timing.LB_RUNTIME);
                             if (!ret) 
                                 {
                                 retval=true; 

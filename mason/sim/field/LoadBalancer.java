@@ -18,6 +18,8 @@ public class LoadBalancer {
 	GraphColoring gc;
 	int interval;
 
+	//Comm comm;
+
 	// Offsets per adjustment on each dimension
 	int[] offsets;
 
@@ -27,13 +29,23 @@ public class LoadBalancer {
 		this.interval = interval;
 		this.gc = new GraphColoring(p);
 
-		gc.color();
+		reload();
 
 		p.registerPostCommit(new Runnable() {
 			public void run() {
 				gc.color();
 			}
 		});
+	}
+
+	private void reload() {
+		gc.color();
+		// try {
+		// 	comm = MPI.COMM_WORLD.split(gc.myColor, p.getPid());
+		// } catch (MPIException e) {
+		// 	e.printStackTrace();
+		// 	System.exit(-1);
+		// }
 	}
 
 	// Get all the neighbor ids and then
@@ -64,9 +76,23 @@ public class LoadBalancer {
 		return step % (gc.numColors + interval) == gc.myColor;
 	}
 
-	private int _balance(int step, HashMap<Integer, Double> rts, double overhead) throws MPIException, IOException {
-		if (!shouldBalance(step))
-			return 0;
+	private HashMap<Integer, Double> collectRuntimes(double myrt) throws MPIException {
+		HashMap<Integer, Double> nrts = new HashMap<Integer, Double>();
+
+		int[] neighbors = p.getNeighborIds();
+		double[] sendBuf = new double[] {myrt};
+		double[] recvBuf = new double[neighbors.length];
+
+		p.getCommunicator().neighborAllGather(sendBuf, 1, MPI.DOUBLE, recvBuf, 1, MPI.DOUBLE);
+
+		IntStream.range(0, neighbors.length).forEach(i -> nrts.put(neighbors[i], recvBuf[i]));
+
+		return nrts;
+	}
+
+	private int doBalance(int step, double myrt, double overhead) throws MPIException, IOException {
+		// Collect runtimes of all the neighbors
+		HashMap<Integer, Double> nrts = collectRuntimes(myrt);
 
 		// Buffers to hold incoming actions
 		int[] actions = new int[p.np * BalanceAction.size];
@@ -75,14 +101,14 @@ public class LoadBalancer {
 		BalanceAction myAction = new BalanceAction();
 
 		if (isMyTurn(step)) {
-			int dim = 0, myPid = p.getPid(), target = myPid, offset = 0;
-			double maxDelta = 0, myRt = rts.get(myPid);
+			int dim = 0, target = 0, offset = 0;
 			int[] size = p.getPartition().getSize();
 			int[][] avail = getAvailNeighborIds();
+			double maxDelta = 0;
 
 			for ( int d = 0; d < p.nd; d++) {
 				for (int t : avail[d]) {
-					double delta = (myRt - rts.get(t)) * offsets[d] / size[d];
+					double delta = (myrt - nrts.get(t)) * offsets[d] / size[d];
 					if (Math.abs(delta) > maxDelta) {
 						maxDelta = Math.abs(delta);
 						dim = d;
@@ -94,13 +120,14 @@ public class LoadBalancer {
 
 			// balance only if the delta is large enough
 			if (maxDelta * (gc.numColors + interval) > overhead)
-				myAction = new BalanceAction(myPid, target, dim, offset);
+				myAction = new BalanceAction(p.getPid(), target, dim, offset);
 		}
 
 		// TODO maybe use DObjectMigrator here?
 		myAction.writeToBuf(actions, p.pid);
 
-		//MPITest.execInOrder(i -> System.out.println(String.format("[%d] %s", p.pid, myAction.toString())), 0);
+		// final BalanceAction fba = myAction;
+		// MPITest.execInOrder(i -> System.out.println(String.format("[%d] %s", p.pid, fba.toString())), 0);
 
 		// Exchange actions
 		p.getCommunicator().allGather(actions, BalanceAction.size, MPI.INT);
@@ -109,15 +136,34 @@ public class LoadBalancer {
 		for (BalanceAction a : BalanceAction.toActions(actions))
 			count += a.applyToPartition(p);
 
-		p.commit();
+		if (count > 0)
+			p.commit();
 
 		return count;
 	}
 
-	public int balance(int step, HashMap<Integer, Double> rts) throws MPIException, IOException {
+	public int balance(int step) throws MPIException, IOException {
+		if (!shouldBalance(step))
+			return 0;
+
+		double runtime;
+		try {
+			runtime = Timing.get(Timing.LB_RUNTIME).getMovingAverage();
+		} catch (NoSuchElementException e) {
+			return 0;
+		}
+
 		Timing.start(Timing.LB_OVERHEAD);
-		int count = _balance(step, rts, Timing.get(Timing.LB_OVERHEAD).getMovingAverage());
+
+		int count = doBalance(
+		                step,
+		                runtime,
+		                //Timing.get(Timing.LB_OVERHEAD).getMovingAverage()
+		                0.0
+		            );
+
 		Timing.stop(Timing.LB_OVERHEAD);
+
 		return count;
 	}
 
@@ -132,36 +178,35 @@ public class LoadBalancer {
 		p.initUniformly(null);
 		p.commit();
 
-		NDoubleGrid2D f = new NDoubleGrid2D(p, aoi, p.pid);
+		int pid = p.getPid();
+		NDoubleGrid2D f = new NDoubleGrid2D(p, aoi, pid);
 		f.sync();
+
 		MPITest.execOnlyIn(0, i -> System.out.println("Initial field"));
 		MPITest.execInOrder(i -> System.out.println(f), 500);
 
 		LoadBalancer lb = new LoadBalancer(aoi, 0);
-		HashMap<Integer, Double> rts = new HashMap<Integer, Double>();
-		rts.put(0, 100.0);
-		rts.put(1, 100.0);
-		rts.put(2, 100.0);
-		rts.put(3, 100.0);
 
-		final int res1 = lb._balance(0, rts, 10);
+		double[] rts = new double[] {100, 100, 100, 100};
+
+		final int res1 = lb.doBalance(0, rts[pid], 10);
 		MPITest.execOnlyIn(0, i -> System.out.println("Load Balancing #1: " + res1));
 		MPITest.execInOrder(i -> System.out.println(f), 500);
 
-		rts.put(0, 1100.0);
-		rts.put(2, 100.0);
+		rts[0] = 1100.0;
+		rts[2] = 100.0;
 
-		final int res2 = lb._balance(1, rts, 10);
+		final int res2 = lb.doBalance(1, rts[pid], 10);
 		MPITest.execOnlyIn(0, i -> System.out.println("Load Balancing #2: " + res2));
 		MPITest.execInOrder(i -> System.out.println(f), 500);
 
-		final int res3 = lb._balance(2, rts, 400);
+		final int res3 = lb.doBalance(2, rts[pid], 400);
 		MPITest.execOnlyIn(0, i -> System.out.println("Load Balancing #3: " + res3));
 		MPITest.execInOrder(i -> System.out.println(f), 500);
 
-		rts.put(2, 10.0);
+		rts[2] = 10.0;
 
-		final int res4 = lb._balance(3, rts, 71);
+		final int res4 = lb.doBalance(3, rts[pid], 71);
 		MPITest.execOnlyIn(0, i -> System.out.println("Load Balancing #4: " + res4));
 		MPITest.execInOrder(i -> System.out.println(f), 500);
 
