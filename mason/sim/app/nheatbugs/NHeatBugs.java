@@ -82,13 +82,12 @@ public class NHeatBugs extends SimState {
 		this.aoi = new int[] {aoi, aoi};
 
 		try {
-			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height});
-			//p.initUniformly(null);
-			assert p.np == 3;
-			p.insertPartition(new IntHyperRect(0, new IntPoint(0, 0), new IntPoint(1000, 800)));
-			p.insertPartition(new IntHyperRect(1, new IntPoint(0, 800), new IntPoint(1000, 900)));
-			p.insertPartition(new IntHyperRect(2, new IntPoint(0, 900), new IntPoint(1000, 1000)));
-			//p.insertPartition(new IntHyperRect(3, new IntPoint(0, 60), new IntPoint(1000, 1000)));
+			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height}, true);
+			assert p.np == 4;
+			p.insertPartition(new IntHyperRect(0, new IntPoint(0, 0), new IntPoint(100, 100)));
+			p.insertPartition(new IntHyperRect(1, new IntPoint(0, 100), new IntPoint(100, 1000)));
+			p.insertPartition(new IntHyperRect(2, new IntPoint(100, 0), new IntPoint(1000, 100)));
+			p.insertPartition(new IntHyperRect(3, new IntPoint(100, 100), new IntPoint(1000, 1000)));
 			p.commit();
 
 			valgrid = new NDoubleGrid2D(p, this.aoi, 0);
