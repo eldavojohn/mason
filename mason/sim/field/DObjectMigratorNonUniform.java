@@ -55,8 +55,35 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 	}
 
 
-	public DObjectMigratorNonUniform(DPartition partition) throws MPIException, IOException {
+	public DObjectMigratorNonUniform(DPartition partition) {
 		this.partition = partition;
+		reload();
+
+		partition.registerPreCommit(new Runnable() {
+			public void run() {
+				try {
+					sync();
+				} catch (MPIException | IOException | ClassNotFoundException e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			}
+		});
+
+		partition.registerPostCommit(new Runnable() {
+			public void run() {
+				reload();
+				try {
+					sync();
+				} catch (MPIException | IOException | ClassNotFoundException e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			}
+		});
+	}
+
+	public void reload() {
 		neighbors = partition.getNeighborIds();
 		nc = neighbors.length;
 
@@ -68,9 +95,14 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 		dst_displ = new int[nc];
 
 		// outputStreams for direct neighbors
-		outputStreams = new AgentOutputStream[nc];
-		for (int i = 0; i < nc; i++)
-			outputStreams[i] = new AgentOutputStream();
+		try {
+			outputStreams = new AgentOutputStream[nc];
+			for (int i = 0; i < nc; i++)
+				outputStreams[i] = new AgentOutputStream();
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
 
 		// neighbors
 		dstMap = new HashMap<Integer, AgentOutputStream>();
