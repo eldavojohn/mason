@@ -281,16 +281,28 @@ public class DNonUniformPartition extends DPartition {
 	}
 
 	// TODO add flags to avoid certain pre/post callbacks
-	public void commit() {
+	public int commit() {
+		if (!isDirty)
+			return 0;
+
 		for (Runnable r : preCallbacks)
 			r.run();
 
+		int count = updates.size();
+		
 		applyUpdates();
 		setMPITopo();
 		isDirty = false;
 
 		for (Runnable r : postCallbacks)
 			r.run();
+
+		return count;
+	}
+
+	public void abort() {
+		updates.clear();
+		isDirty = false;
 	}
 
 	public static void main(String args[]) throws MPIException, InterruptedException {
