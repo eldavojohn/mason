@@ -151,6 +151,19 @@ public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint
 		return this.id - that.id;
 	}
 
+	public static IntHyperRect getBoundingRect(IntHyperRect[] rects) {
+		if (rects.length == 0)
+			return null;
+
+		IntPoint ul = rects[0].ul, br = rects[0].br;
+		for (IntHyperRect rect : rects) {
+			ul = (IntPoint)ul.min(rect.ul);
+			br = (IntPoint)br.max(rect.ul);
+		}
+
+		return new IntHyperRect(-1, ul, br);
+	}
+
 	public Iterator<IntPoint> iterator() {
 		return new IntHyperRectIter();
 	}
