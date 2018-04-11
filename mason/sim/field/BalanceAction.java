@@ -1,70 +1,71 @@
 package sim.field;
 
+import java.util.Arrays;
+
 import sim.util.IntHyperRect;
 
-public class BalanceAction {
-	int src, dst, dim, offset;
+public class BalanceAction implements java.io.Serializable {
 
-	public static final int size = 4;
+	// Source and destination partition group, their outer boundary on the given dimension must align
+	int[] src, dst;
 
-	public BalanceAction() {
-		this.offset = 0;
-	}
+	// Dimension, direction, and the offset of the adjustment
+	int dim, dir, offset;
 
-	public BalanceAction(int src, int dst, int dim, int offset) {
-		this.src = src;
-		this.dst = dst;
+	public BalanceAction(int src, int dst, int dim, int dir, int offset) {
+		this.src = new int[] {src};
+		this.dst = new int[] {dst};
 		this.dim = dim;
+		this.dir = dir;
 		this.offset = offset;
 	}
 
-	public BalanceAction(int[] buf, int idx) {
-		this(buf[idx], buf[idx + 1], buf[idx + 2], buf[idx + 3]);
+	public BalanceAction(int src, int[] dst, int dim, int dir, int offset) {
+		this.src = new int[] {src};
+		this.dst = dst;
+		this.dim = dim;
+		this.dir = dir;
+		this.offset = offset;
 	}
 
-	public void writeToBuf(int[] buf, int idx) {
-		buf[idx * size] = src;
-		buf[idx * size + 1] = dst;
-		buf[idx * size + 2] = dim;
-		buf[idx * size + 3] = offset;
+	public BalanceAction(int[] src, int[] dst, int dim, int dir, int offset) {
+		this.src = src;
+		this.dst = dst;
+		this.dim = dim;
+		this.dir = dir;
+		this.offset = offset;
 	}
 
-	public static BalanceAction[] toActions(int[] buf) {
-		if (buf.length % size != 0)
-			throw new IllegalArgumentException("Incorrect input buffer length " + buf.length);
-
-		BalanceAction[] ret = new BalanceAction[buf.length / size];
-
-		for (int i = 0; i < buf.length; i += size)
-			ret[i / size] = new BalanceAction(buf, i);
-
-		return ret;
+	public static BalanceAction idle() {
+		return new BalanceAction(null, null, 0, 0, 0);
 	}
 
-	public int applyToPartition(DNonUniformPartition p) {
-		if (offset == 0 || src == dst)
-			return 0;
+	public void applyToPartition(DNonUniformPartition p) {
+		if (offset == 0)
+			return;
 
-		IntHyperRect nsrcp = null, srcp = p.getPartition(src);
-		IntHyperRect ndstp = null, dstp = p.getPartition(dst);
+		IntHyperRect n;
 
-		int dir = srcp.ul.c[dim] < dstp.ul.c[dim] ? 1 : -1;
-
-		try {
-			nsrcp = srcp.resize(dim, dir, offset);
-			ndstp = dstp.resize(dim, -dir, -offset);
-		} catch (IllegalArgumentException e) {
-			System.err.println("Illegal partition adjustment " + this + " - partition remain unchanged");
-			return 0;
+		for (int pid : src) {
+			n = p.getPartition(pid).resize(dim, dir, offset);
+			p.updatePartition(n);
 		}
-
-		p.updatePartition(nsrcp);
-		p.updatePartition(ndstp);
-
-		return 1;
+		for (int pid : dst) {
+			n = p.getPartition(pid).resize(dim, -dir, -offset);
+			p.updatePartition(n);
+		}
 	}
 
 	public String toString() {
-		return String.format("BalanceAction [%d-(%d, %d)-%d] ", src, dim, offset, dst);
+		if (dir > 0 && offset > 0)
+			return String.format("%s =(%d,%d)=> %s", Arrays.toString(src), dim, offset, Arrays.toString(dst));
+		else if (dir > 0 && offset < 0)
+			return String.format("%s <=(%d,%d)= %s", Arrays.toString(src), dim, offset, Arrays.toString(dst));
+		else if (dir < 0 && offset > 0)
+			return String.format("%s <=(%d,%d)= %s", Arrays.toString(dst), dim, offset, Arrays.toString(src));
+		else if (dir < 0 && offset < 0)
+			return String.format("%s =(%d,%d)=> %s", Arrays.toString(dst), dim, offset, Arrays.toString(src));
+
+		return String.format("%s =(%d,%d)= %s ", Arrays.toString(src), dim, offset, Arrays.toString(dst));
 	}
 }

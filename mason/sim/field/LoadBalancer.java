@@ -1,6 +1,6 @@
 package sim.field;
 
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -86,60 +86,131 @@ public class LoadBalancer {
 		p.getCommunicator().neighborAllGather(sendBuf, 1, MPI.DOUBLE, recvBuf, 1, MPI.DOUBLE);
 
 		IntStream.range(0, neighbors.length).forEach(i -> nrts.put(neighbors[i], recvBuf[i]));
+		nrts.put(p.getPid(), myrt);
 
 		return nrts;
 	}
 
-	private int doBalance(int step, double myrt, double overhead) throws MPIException, IOException {
-		// Collect runtimes of all the neighbors
-		HashMap<Integer, Double> nrts = collectRuntimes(myrt);
+	private BalanceAction generateAction(int step, HashMap<Integer, Double> rts, double overhead) {
+		int mdim = 0, mdir = 0, offset = 0;
+		int[] mdst = new int[] {p.getPid()};;
+		double maxDelta = 0;
 
-		// Buffers to hold incoming actions
-		int[] actions = new int[p.np * BalanceAction.size];
-		int count = 0;
+		double myrt = rts.get(p.getPid());
+		IntHyperRect myPart = p.getPartition();
+		int[] size = myPart.getSize();
 
-		BalanceAction myAction = new BalanceAction();
+		BalanceAction myAction = BalanceAction.idle();
 
-		if (isMyTurn(step)) {
-			int dim = 0, target = 0, offset = 0;
-			int[] size = p.getPartition().getSize();
-			int[][] avail = getAvailNeighborIds();
-			double maxDelta = 0;
+		if (!isMyTurn(step))
+			return myAction;
 
-			for ( int d = 0; d < p.nd; d++) {
-				for (int t : avail[d]) {
-					double delta = (myrt - nrts.get(t)) * offsets[d] / size[d];
+		for (int dim = 0; dim < p.nd; dim++) {
+			for (int dir : new int[] { -1, 1}) {
+				if (dir == 1 && myPart.br.c[dim] == p.size[dim] || dir == -1 && myPart.ul.c[dim] == 0)
+					continue; // skip the field boundaries
+				int[] nids = p.getNeighborIdsShift(dim, dir);
+
+				// Check the balance option with individual neighbors
+				for (int nid : nids) {
+					if (!p.getPartition(nid).isAligned(myPart, dim))
+						continue; // skip any single neighbor that doesn't align with me
+					double delta = (myrt - rts.get(nid)) * offsets[dim] / size[dim];
 					if (Math.abs(delta) > maxDelta) {
 						maxDelta = Math.abs(delta);
-						dim = d;
-						target = t;
-						offset = delta > 0 ? -offsets[d] : offsets[d];
+						mdim = dim;
+						mdir = dir;
+						mdst = new int[] {nid};
+						offset = delta > 0 ? -offsets[dim] : offsets[dim];
 					}
 				}
-			}
 
-			// balance only if the delta is large enough
-			if (maxDelta * (gc.numColors + interval) > overhead)
-				myAction = new BalanceAction(p.getPid(), target, dim, offset);
+				// Check the balance option with the group of the neighbors
+				final int currDim = dim;
+				IntHyperRect[] group = Arrays.stream(nids).mapToObj(i -> p.getPartition(i).reduceDim(currDim)).toArray(s -> new IntHyperRect[s]);
+				IntHyperRect bbox = IntHyperRect.getBoundingRect(group);
+				if (!bbox.equals(myPart.reduceDim(dim)))
+					continue; // skip if the group of the neighbors doesn't align with me
+				double avgRt = Arrays.stream(nids).mapToDouble(i -> rts.get(i)).sum() / nids.length;
+				double delta = (myrt - avgRt) * offsets[dim] / size[dim];
+				if (Math.abs(delta) > maxDelta) {
+					maxDelta = Math.abs(delta);
+					mdim = dim;
+					mdir = dir;
+					mdst = nids;
+					offset = delta > 0 ? -offsets[dim] : offsets[dim];
+				}
+			}
 		}
 
-		// TODO maybe use DObjectMigrator here?
-		myAction.writeToBuf(actions, p.pid);
+		// balance only if the delta is large enough
+		if (maxDelta * (gc.numColors + interval) > overhead)
+			myAction = new BalanceAction(p.getPid(), mdst, mdim, mdir, offset);
 
-		// final BalanceAction fba = myAction;
-		// MPITest.execInOrder(i -> System.out.println(String.format("[%d] %s", p.pid, fba.toString())), 0);
+		return myAction;
+	}
 
-		// Exchange actions
-		p.getCommunicator().allGather(actions, BalanceAction.size, MPI.INT);
+	private int doBalance(int step, double myrt, double overhead) throws MPIException, IOException {
+		// Collect runtimes of all the neighbors
+		HashMap<Integer, Double> rts = collectRuntimes(myrt);
 
-		// Everyone commits the changes to their local partition scheme
-		for (BalanceAction a : BalanceAction.toActions(actions))
-			count += a.applyToPartition(p);
+		BalanceAction myAction = generateAction(step, rts, overhead);
 
-		if (count > 0)
-			p.commit();
+		// Serialize myAction into byte[]
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		ObjectOutputStream os = new ObjectOutputStream(out);
+		os.writeObject(myAction);
+		os.flush();
+		byte[] sendBuf = out.toByteArray();
+		os.close();
+		out.close();
 
-		return count;
+		int[] sendSize = new int[p.np];
+		sendSize[p.getPid()] = sendBuf.length;
+
+		// Exchange the size of the serialized myAction
+		p.getCommunicator().allGather(sendSize, 1, MPI.INT);
+		int[] displ = IntStream.range(0, p.np).map(x -> Arrays.stream(sendSize).limit(x).sum()).toArray();
+		
+		// Exchange the actual serialized data
+		byte[] recvBuf = new byte[Arrays.stream(sendSize).sum()];
+		p.getCommunicator().allGatherv(sendBuf, sendBuf.length, MPI.BYTE, recvBuf, sendSize, displ, MPI.BYTE);
+
+		// Deserialize BalanceAction from each node
+		BalanceAction[] actions = new BalanceAction[p.np];
+		for (int i = 0; i < p.np; i++) {
+			// Skip deserializing my own action
+			if (i == p.getPid()) {
+				actions[i] = myAction;
+				continue;
+			}
+
+			ByteArrayInputStream in = new ByteArrayInputStream(recvBuf, displ[i], sendSize[i]);
+			ObjectInputStream is = new ObjectInputStream(in);
+
+			try {
+				actions[i] = (BalanceAction)is.readObject();
+			} catch (ClassNotFoundException e) {
+				e.printStackTrace();
+				System.exit(-1);
+			}
+
+			in.close();
+			is.close();
+		}
+
+		// Apply the actions to the partition
+		// Abort all the actions if there any illegal ones
+		for (BalanceAction a : actions)
+			try {
+				a.applyToPartition(p);
+			} catch (IllegalArgumentException e) {
+				p.abort();
+				System.err.println("Illegal partition adjustment: " + a + " - all partition change aborted...");
+				break;
+			}
+
+		return p.commit();
 	}
 
 	public int balance(int step) throws MPIException, IOException {
