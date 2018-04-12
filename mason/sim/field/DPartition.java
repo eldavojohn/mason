@@ -56,6 +56,7 @@ public abstract class DPartition {
 	public abstract IntHyperRect getPartition();
 	public abstract IntHyperRect getPartition(int pid);
 
+	public abstract int getNumNeighbors();
 	public abstract int[] getNeighborIds();
 	public abstract int[][] getNeighborIdsInOrder();
 

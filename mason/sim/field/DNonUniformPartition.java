@@ -214,6 +214,19 @@ public class DNonUniformPartition extends DPartition {
 		return getNeighborIds(pid);
 	}
 
+	public int getNumNeighbors() {
+		int nc = 0;
+
+		try {
+			nc = ((GraphComm)comm).getDistGraphNeighbors().getOutDegree();
+		} catch (MPIException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+
+		return nc;
+	}
+
 	// Get neighbor ids on each dimension (backward first, then forward)
 	public int[][] getNeighborIdsInOrder() {
 		int[][] ret = new int[nd * 2][];
@@ -289,7 +302,7 @@ public class DNonUniformPartition extends DPartition {
 			r.run();
 
 		int count = updates.size();
-		
+
 		applyUpdates();
 		setMPITopo();
 		isDirty = false;

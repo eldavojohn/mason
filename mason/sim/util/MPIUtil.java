@@ -135,7 +135,7 @@ public class MPIUtil {
 		return recvObjs;
 	}
 
-	// Each LP sends and receives one object to/from each of its neighbors 
+	// Each LP sends and receives one object to/from each of its neighbors
 	// in the order that is defined in partition scheme
 	public static <T extends Serializable> ArrayList<T> neighborAllToAll(DPartition p, T[] sendObjs) throws MPIException {
 		int nc = sendObjs.length;
@@ -158,6 +158,35 @@ public class MPIUtil {
 			recvObjs.add(deserialize(dstBuf, dstDispl[i], dstCount[i]));
 
 		return recvObjs;
+	}
+
+	// neighborAllGather for primitive type data
+	public static Object neighborAllGather(DPartition p, Object val, Datatype type) throws MPIException {
+		int nc = p.getNumNeighbors();
+		Object sendBuf, recvBuf;
+
+		// Use if-else since switch-case only accepts int
+		if (type == MPI.BYTE) {
+			sendBuf = new byte[] {(byte)val};
+			recvBuf = new byte[nc];
+		} else if (type == MPI.DOUBLE) {
+			sendBuf = new double[] {(double)val};
+			recvBuf = new double[nc];
+		} else if (type == MPI.INT) {
+			sendBuf = new int[] {(int)val};
+			recvBuf = new int[nc];
+		} else if (type == MPI.FLOAT) {
+			sendBuf = new float[] {(float)val};
+			recvBuf = new float[nc];
+		} else if (type == MPI.LONG) {
+			sendBuf = new long[] {(long)val};
+			recvBuf = new long[nc];
+		} else
+			throw new UnsupportedOperationException("The given MPI Datatype " + type + " is invalid / not implemented yet");
+
+		p.getCommunicator().neighborAllGather(sendBuf, 1, type, recvBuf, 1, type);
+
+		return recvBuf;
 	}
 
 	public static void main(String[] args) throws MPIException, IOException {

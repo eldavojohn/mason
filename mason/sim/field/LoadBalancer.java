@@ -77,21 +77,6 @@ public class LoadBalancer {
 		return step % (gc.numColors + interval) == gc.myColor;
 	}
 
-	private HashMap<Integer, Double> collectRuntimes(double myrt) throws MPIException {
-		HashMap<Integer, Double> nrts = new HashMap<Integer, Double>();
-
-		int[] neighbors = p.getNeighborIds();
-		double[] sendBuf = new double[] {myrt};
-		double[] recvBuf = new double[neighbors.length];
-
-		p.getCommunicator().neighborAllGather(sendBuf, 1, MPI.DOUBLE, recvBuf, 1, MPI.DOUBLE);
-
-		IntStream.range(0, neighbors.length).forEach(i -> nrts.put(neighbors[i], recvBuf[i]));
-		nrts.put(p.getPid(), myrt);
-
-		return nrts;
-	}
-
 	private BalanceAction generateAction(int step, HashMap<Integer, Double> rts, double overhead) {
 		int mdim = 0, mdir = 0, offset = 0;
 		int[] mdst = new int[] {p.getPid()};;
@@ -152,8 +137,12 @@ public class LoadBalancer {
 	}
 
 	private int doBalance(int step, double myrt, double overhead) throws MPIException, IOException {
-		// Collect runtimes of all the neighbors
-		HashMap<Integer, Double> rts = collectRuntimes(myrt);
+		// Collect runtimes from the neighbors
+		HashMap<Integer, Double> rts = new HashMap<Integer, Double>();
+		int[] neighbors = p.getNeighborIds();
+		double[] recvBuf = (double[])MPIUtil.neighborAllGather(p, myrt, MPI.DOUBLE);
+		IntStream.range(0, neighbors.length).forEach(i -> rts.put(neighbors[i], recvBuf[i]));
+		rts.put(p.getPid(), myrt);
 
 		BalanceAction myAction = generateAction(step, rts, overhead);
 
