@@ -12,6 +12,7 @@ import sim.field.DPartition;
 // Utility class that serialize/exchange/deserialize objects using MPI
 public class MPIUtil {
 
+	// Serialize a Serializable using Java's builtin serialization and return the byte array
 	private static byte[] serialize(Serializable obj) {
 		byte[] buf = null;
 
@@ -30,6 +31,9 @@ public class MPIUtil {
 		return buf;
 	}
 
+	// Serialize each Serializable in objs using Java's builtin serialization
+	// Concatenate their individual byte array together and return the final byte array
+	// The length of each byte array will be returned through count array
 	private static byte[] serialize(Serializable[] objs, int[] count) {
 		byte[] buf = null;
 
@@ -50,6 +54,7 @@ public class MPIUtil {
 		return buf;
 	}
 
+	// Deserialize the object of given type T that is stored in [pos, pos + len) in buf
 	private static <T extends Serializable> T deserialize(byte[] buf, int pos, int len) {
 		T obj = null;
 
@@ -66,12 +71,16 @@ public class MPIUtil {
 		return obj;
 	}
 
-	public static int[] getDispl(int[] count) {
+	// Compute the displacement according to the count
+	private static int[] getDispl(int[] count) {
 		return IntStream.range(0, count.length)
 		       .map(x -> Arrays.stream(count).limit(x).sum())
 		       .toArray();
 	}
 
+	// Each LP sends the sendObj to dst
+	// dst will return an ArrayList of np objects of type T
+	// others will return an empty ArrayList
 	public static <T extends Serializable> ArrayList<T> gather(DPartition p, T sendObj, int dst) throws MPIException {
 		int np = p.getNumProc();
 		int pid = p.getPid();
@@ -98,6 +107,8 @@ public class MPIUtil {
 		return recvObjs;
 	}
 
+	// Each LP contributes the sendObj
+	// All the LPs will receive all the sendObjs from all the LPs returned in the ArrayList
 	public static <T extends Serializable> ArrayList<T> allGather(DPartition p, T sendObj) throws MPIException {
 		int np = p.getNumProc();
 		int pid = p.getPid();
@@ -124,6 +135,8 @@ public class MPIUtil {
 		return recvObjs;
 	}
 
+	// Each LP sends and receives one object to/from each of its neighbors 
+	// in the order that is defined in partition scheme
 	public static <T extends Serializable> ArrayList<T> neighborAllToAll(DPartition p, T[] sendObjs) throws MPIException {
 		int nc = sendObjs.length;
 		int[] srcDispl, srcCount = new int[nc];
