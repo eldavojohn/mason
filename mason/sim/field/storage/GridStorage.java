@@ -1,6 +1,6 @@
 package sim.field.storage;
 
-import java.io.IOException;
+import java.io.Serializable;
 import java.util.stream.IntStream;
 
 import mpi.*;
@@ -13,7 +13,7 @@ import sim.util.MPIParam;
 public abstract class GridStorage {
 	Object storage;
 	IntHyperRect shape;
-	Datatype baseType;
+	Datatype baseType = MPI.BYTE;
 
 	int[] stride;
 
@@ -35,8 +35,8 @@ public abstract class GridStorage {
 	}
 
 	public abstract String toString();
-	public abstract int pack(MPIParam mp, byte[] buf, int idx) throws MPIException, IOException;
-	public abstract int unpack(MPIParam mp, byte[] buf, int idx, int len) throws MPIException, IOException;
+	public abstract Serializable pack(MPIParam mp) throws MPIException;
+	public abstract int unpack(MPIParam mp, Serializable buf) throws MPIException;
 	protected abstract Object allocate(int size);
 
 	public void reshape(IntHyperRect newShape) {
@@ -46,15 +46,13 @@ public abstract class GridStorage {
 			MPIParam toParam = new MPIParam(overlap, newShape, baseType);
 
 			try {
-				byte[] buf = new byte[MPI.COMM_WORLD.packSize(overlap.getArea(), baseType)];
-
-				pack(fromParam, buf, 0);
+				Serializable buf = pack(fromParam);
 				storage = allocate(newShape.getArea());
-				unpack(toParam, buf, 0, 0);
+				unpack(toParam, buf);
 
 				fromParam.type.free();
 				toParam.type.free();
-			} catch (MPIException | IOException e) {
+			} catch (MPIException e) {
 				e.printStackTrace();
 				System.exit(-1);
 			}

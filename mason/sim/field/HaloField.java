@@ -7,19 +7,17 @@ import java.util.stream.IntStream;
 import mpi.*;
 
 import sim.field.storage.GridStorage;
-import sim.field.storage.DoubleGridStorage;
 import sim.util.IntHyperRect;
 import sim.util.IntPoint;
-import sim.util.MovingAverage;
 import sim.util.MPIParam;
-import sim.util.Timing;
+import sim.util.MPIUtil;
 
 // TODO refactor HaloField to accept
 // continuous: double, int, object
 
 public abstract class HaloField {
 
-	protected int nd, numNeighbors, maxSendSize;
+	protected int nd, numNeighbors;
 	protected int[] aoi, fieldSize, haloSize;
 
 	protected IntHyperRect world, haloPart, origPart, privPart;
@@ -82,14 +80,6 @@ public abstract class HaloField {
 		            .mapToObj(x -> new Neighbor(ps.getPartition(x)))
 		            .toArray(size -> new Neighbor[size]);
 		numNeighbors = neighbors.length;
-
-		// Get the max size for one exchange, which is the area of the halo area x 2 (possible overlap)
-		try {
-			maxSendSize = comm.packSize((haloPart.getArea() - origPart.getArea()) * 2, MPIBaseType);
-		} catch (MPIException e) {
-			e.printStackTrace();
-			System.exit(-1);
-		}
 	}
 
 	public GridStorage getStorage() {
@@ -146,65 +136,25 @@ public abstract class HaloField {
 		return toToroidal(y, 1);
 	}
 
-	public void sync() throws MPIException, IOException {
-		byte[] sendbuf = new byte[maxSendSize], recvbuf = new byte[maxSendSize];
-		int[]  sendPos = new int[numNeighbors], recvPos = new int[numNeighbors];
-		int[]  sendCnt = new int[numNeighbors], recvCnt = new int[numNeighbors];
-
-		// Pack data into 1-d byte array
-		for (int i = 0, lastPos = 0; i < numNeighbors; i++) {
-			sendPos[i] = lastPos;
-			lastPos = field.pack(neighbors[i].sendParam, sendbuf, lastPos);
-			sendCnt[i] = lastPos - sendPos[i];
-		}
-
-		// Exchange the amount of data to be exchanged
-		comm.neighborAllToAll(sendCnt, 1, MPI.INT, recvCnt, 1, MPI.INT);
-
-		for (int i = 1; i < numNeighbors; i++)
-			recvPos[i] = recvPos[i - 1] + recvCnt[i - 1];
-
-		// Exchange actual data with neighbors
-		// TODO switch to neighborAlltoAllw (so no need to pack/unpack)
-		// once it is implemented in OpenMPI Java bindings
-		comm.neighborAllToAllv(sendbuf, sendCnt, sendPos, MPI.BYTE, recvbuf, recvCnt, recvPos, MPI.BYTE);
-
-		// Unpack into the field
+	public void sync() throws MPIException {
+		Serializable[] sendObjs = new Serializable[numNeighbors];
 		for (int i = 0; i < numNeighbors; i++)
-			field.unpack(neighbors[i].recvParam, recvbuf, recvPos[i], recvCnt[i]);
+			sendObjs[i] = field.pack(neighbors[i].sendParam);
+
+		ArrayList<Serializable> recvObjs = MPIUtil.<Serializable>neighborAllToAll(ps, sendObjs);
+		
+		for (int i = 0; i < numNeighbors; i++)
+			field.unpack(neighbors[i].recvParam, recvObjs.get(i));
 	}
 
-	public void collect(int dst, GridStorage fullField) throws MPIException, IOException {
-		int[] displ = null, count = null;
-		byte[] sendbuf = null, recvbuf = null;
-		int sendSize, pid = ps.getPid(), np = ps.getNumProc();
+	public void collect(int dst, GridStorage fullField) throws MPIException {
+		Serializable sendObj = field.pack(new MPIParam(origPart, haloPart, MPIBaseType));
 
-		if (pid == dst) {
-			count = new int[np];
-			displ = new int[np];
-		}
+		ArrayList<Serializable> recvObjs = MPIUtil.<Serializable>gather(ps, sendObj, dst);
 
-		// Everyone pack the data into byte array
-		sendbuf = new byte[comm.packSize(origPart.getArea(), MPIBaseType)];
-		sendSize = field.pack(new MPIParam(origPart, haloPart, MPIBaseType), sendbuf, 0);
-
-		// First gather the size of data to be exchanged
-		comm.gather(new int[] {sendSize}, 1, MPI.INT, count, 1, MPI.INT, dst);
-
-		// Dst compute the displacement array and init the recvbuf
-		if (pid == dst) {
-			for (int i = 1; i < np; i++)
-				displ[i] = displ[i - 1] + count[i - 1];
-			recvbuf = new byte[Arrays.stream(count).sum()];
-		}
-
-		// Now gather the actual data
-		comm.gatherv(sendbuf, sendSize, MPI.BYTE, recvbuf, count, displ, MPI.BYTE, dst);
-
-		// Dst unpack the data into fullField
-		if (pid == dst)
-			for (int i = 0; i < np; i++)
-				fullField.unpack(new MPIParam(ps.getPartition(i), world, MPIBaseType), recvbuf, displ[i], count[i]);
+		if (ps.getPid() == dst)
+			for (int i = 0; i < ps.getNumProc(); i++)
+				fullField.unpack(new MPIParam(ps.getPartition(i), world, MPIBaseType), recvObjs.get(i));
 	}
 
 	public String toString() {

@@ -1,5 +1,6 @@
 package sim.field.storage;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 import mpi.*;
@@ -17,12 +18,14 @@ public class DoubleGridStorage extends GridStorage {
 		Arrays.fill((double[])storage, initVal);
 	}
 
-	public int pack(MPIParam mp, byte[] buf, int idx) throws MPIException {
-		return MPI.COMM_WORLD.pack(slice((double[])storage, mp.idx), 1, mp.type, buf, idx);
+	public byte[] pack(MPIParam mp) throws MPIException {
+		byte[] buf = new byte[MPI.COMM_WORLD.packSize(mp.size, baseType)];
+		MPI.COMM_WORLD.pack(slice((double[])storage, mp.idx), 1, mp.type, buf, 0);
+		return buf;
 	}
 
-	public int unpack(MPIParam mp, byte[] buf, int idx, int len) throws MPIException {
-		return MPI.COMM_WORLD.unpack(buf, idx, slice((double[])storage, mp.idx), 1, mp.type);
+	public int unpack(MPIParam mp, Serializable buf) throws MPIException {
+		return MPI.COMM_WORLD.unpack((byte[])buf, 0, slice((double[])storage, mp.idx), 1, mp.type);
 	}
 
 	public String toString() {

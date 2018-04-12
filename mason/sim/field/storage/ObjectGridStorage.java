@@ -18,25 +18,13 @@ public class ObjectGridStorage<T> extends GridStorage {
 	ByteArrayInputStream in;
 	ObjectInputStream ois;
 
-	// Lambda function which accepts the size as its argument and returns a T array
-	IntFunction<T[]> alloc;
+	IntFunction<T[]> alloc; // Lambda function which accepts the size as its argument and returns a T array
 
 	public ObjectGridStorage(IntHyperRect shape, IntFunction<T[]> allocator, int maxObjSize) {
 		super(shape);
 		
 		alloc = allocator;
 		storage = allocate(shape.getArea());
-
-		// Create a datatype with its size to be maxObjSize
-		// this will not be used for actual packing/unpacking
-		// it will only be used for calculating the necessary size of packing buffer
-		try {
-			baseType = Datatype.createContiguous(maxObjSize, MPI.BYTE);
-			baseType.commit();
-		} catch (MPIException e) {
-			e.printStackTrace();
-			System.exit(-1);
-		}
 	}
 
 	protected Object allocate(int size) {
@@ -58,47 +46,7 @@ public class ObjectGridStorage<T> extends GridStorage {
 		return buf.toString();
 	}
 
-	public int pack(MPIParam mp, byte[] buf, int idx) throws MPIException, IOException {
-		out = new ByteArrayOutputStream();
-		oos = new ObjectOutputStream(out);
-
-		for (T obj : collect(mp)) {
-			oos.writeObject(obj);
-		}
-
-		oos.flush();
-		byte[] serialized = out.toByteArray();
-
-		System.arraycopy(serialized, 0, buf, idx, serialized.length);
-
-		oos.close();
-		out.close();
-
-		return idx + serialized.length;
-	}
-
-	public int unpack(MPIParam mp, byte[] buf, int idx, int len) throws MPIException, IOException {
-		if (len == 0)
-			return 0;
-
-		in = new ByteArrayInputStream(Arrays.copyOfRange(buf, idx, idx + len));
-		ois = new ObjectInputStream(in);
-
-		T[] objs = alloc.apply(mp.size);
-
-		for (int i = 0; i < mp.size; i++) {
-			try {
-				objs[i] = (T)ois.readObject();
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.exit(-1);
-			}
-		}
-
-		return distribute(mp, objs);
-	}
-
-	private T[] collect(MPIParam mp) {
+	public Serializable pack(MPIParam mp) {
 		T[] objs = alloc.apply(mp.size), stor = (T[])storage;
 		int curr = 0;
 
@@ -109,8 +57,8 @@ public class ObjectGridStorage<T> extends GridStorage {
 		return objs;
 	}
 
-	private int distribute(MPIParam mp, T[] objs) {
-		T[] stor = (T[])storage;
+	public int unpack(MPIParam mp, Serializable buf) {
+		T[] stor = (T[])storage, objs = (T[])buf;
 		int curr = 0;
 
 		for (IntHyperRect rect : mp.rects)
@@ -120,7 +68,7 @@ public class ObjectGridStorage<T> extends GridStorage {
 		return curr;
 	}
 
-	public static void main(String[] args) throws MPIException, IOException {
+	public static void main(String[] args) throws MPIException {
 		MPI.Init(args);
 
 		IntPoint p1 = new IntPoint(new int[] {0, 0});
@@ -136,11 +84,8 @@ public class ObjectGridStorage<T> extends GridStorage {
 		for (int i : new int[] {6, 12, 18})
 			stor[i] = new TestObj(i);
 
-		int maxPackSize = 25000;
-		byte[] buf = new byte[maxPackSize];
 		MPIParam mp = new MPIParam(r2, r1, s1.getMPIBaseType());
-		int packSize = s1.pack(mp, buf, 0);
-		s2.unpack(mp, buf, 0, packSize);
+		s2.unpack(mp, s1.pack(mp));
 
 		TestObj[] objs = (TestObj[])s2.getStorage();
 		for (TestObj obj : objs)
