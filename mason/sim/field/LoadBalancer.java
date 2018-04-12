@@ -8,6 +8,7 @@ import sim.util.IntHyperRect;
 import sim.util.GraphColoring;
 import sim.util.MPITest;
 import sim.util.Timing;
+import sim.util.MPIUtil;
 import sim.field.grid.NDoubleGrid2D;
 
 import mpi.*;
@@ -156,48 +157,7 @@ public class LoadBalancer {
 
 		BalanceAction myAction = generateAction(step, rts, overhead);
 
-		// Serialize myAction into byte[]
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		ObjectOutputStream os = new ObjectOutputStream(out);
-		os.writeObject(myAction);
-		os.flush();
-		byte[] sendBuf = out.toByteArray();
-		os.close();
-		out.close();
-
-		int[] sendSize = new int[p.np];
-		sendSize[p.getPid()] = sendBuf.length;
-
-		// Exchange the size of the serialized myAction
-		p.getCommunicator().allGather(sendSize, 1, MPI.INT);
-		int[] displ = IntStream.range(0, p.np).map(x -> Arrays.stream(sendSize).limit(x).sum()).toArray();
-		
-		// Exchange the actual serialized data
-		byte[] recvBuf = new byte[Arrays.stream(sendSize).sum()];
-		p.getCommunicator().allGatherv(sendBuf, sendBuf.length, MPI.BYTE, recvBuf, sendSize, displ, MPI.BYTE);
-
-		// Deserialize BalanceAction from each node
-		BalanceAction[] actions = new BalanceAction[p.np];
-		for (int i = 0; i < p.np; i++) {
-			// Skip deserializing my own action
-			if (i == p.getPid()) {
-				actions[i] = myAction;
-				continue;
-			}
-
-			ByteArrayInputStream in = new ByteArrayInputStream(recvBuf, displ[i], sendSize[i]);
-			ObjectInputStream is = new ObjectInputStream(in);
-
-			try {
-				actions[i] = (BalanceAction)is.readObject();
-			} catch (ClassNotFoundException e) {
-				e.printStackTrace();
-				System.exit(-1);
-			}
-
-			in.close();
-			is.close();
-		}
+		ArrayList<BalanceAction> actions = MPIUtil.<BalanceAction>allGather(p, myAction);
 
 		// Apply the actions to the partition
 		// Abort all the actions if there any illegal ones
