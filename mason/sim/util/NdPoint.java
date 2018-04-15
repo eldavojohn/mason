@@ -32,13 +32,19 @@ public abstract class NdPoint implements Comparable<NdPoint> {
 	public abstract NdPoint max(NdPoint that);
 	public abstract NdPoint min(NdPoint that);
 
-	// TODO complete these in subclasses
-	// public abstract boolean equals(NdPoint that);
-	// public abstract NdPoint toToroidal(NdRectangle bound);
+	public abstract boolean equals(NdPoint that);
+	// TODO Complete this in subclass
+	//public abstract NdPoint toToroidal(NdRectangle bound);
 
 	// TODO better design?
 	public abstract int[] getOffsetsInt(NdPoint that);
 	public abstract double[] getOffsetsDouble(NdPoint that);
+
+	public double getDistance(NdPoint that, int l) {
+		double[] a = that.getArrayInDouble();
+		double[] c = this.getArrayInDouble();
+		return Math.pow(IntStream.range(0, nd).mapToDouble(i -> Math.pow(Math.abs(a[i] - c[i]), l)).sum(), 1.0 / l);
+	}
 
 	protected static boolean equals(double a, double b) {
 		return Math.abs(a - b) < Math.ulp(1.0);

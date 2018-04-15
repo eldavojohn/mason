@@ -5,7 +5,6 @@ import java.util.stream.IntStream;
 
 public class DoublePoint extends NdPoint {
 	// TODO make these private
-	public int nd;
 	public double[] c;
 
 	public DoublePoint(double c[]) {

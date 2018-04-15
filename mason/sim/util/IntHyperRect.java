@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.stream.IntStream;
 
+// TODO Move to NdRectangle
 public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint> {
 	public int nd, id;
 	public IntPoint ul, br;
@@ -44,6 +45,10 @@ public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint
 	public boolean contains(IntPoint p) {
 		ul.assertEqualDim(p);
 		return IntStream.range(0, p.nd).allMatch(i -> ul.c[i] <= p.c[i] && p.c[i] < br.c[i]);
+	}
+
+	public boolean contains(NdPoint p) {
+		return ul.leq(p) && br.gt(p);
 	}
 
 	// Return whether the given rect is inside this rectangle
