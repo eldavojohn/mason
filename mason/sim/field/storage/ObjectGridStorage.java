@@ -12,15 +12,10 @@ import sim.util.IntPoint;
 import sim.util.MPIParam;
 
 public class ObjectGridStorage<T> extends GridStorage {
-	ByteArrayOutputStream out;
-	ObjectOutputStream oos;
-
-	ByteArrayInputStream in;
-	ObjectInputStream ois;
 
 	IntFunction<T[]> alloc; // Lambda function which accepts the size as its argument and returns a T array
 
-	public ObjectGridStorage(IntHyperRect shape, IntFunction<T[]> allocator, int maxObjSize) {
+	public ObjectGridStorage(IntHyperRect shape, IntFunction<T[]> allocator) {
 		super(shape);
 		
 		alloc = allocator;
@@ -77,8 +72,8 @@ public class ObjectGridStorage<T> extends GridStorage {
 		IntPoint p4 = new IntPoint(new int[] {4, 4});
 		IntHyperRect r1 = new IntHyperRect(0, p1, p2);
 		IntHyperRect r2 = new IntHyperRect(1, p3, p4);
-		ObjectGridStorage<TestObj> s1 = new ObjectGridStorage<TestObj>(r1, size -> new TestObj[size], TestObj.getMaxObjectSize());
-		ObjectGridStorage<TestObj> s2 = new ObjectGridStorage<TestObj>(r1, size -> new TestObj[size], TestObj.getMaxObjectSize());
+		ObjectGridStorage<TestObj> s1 = new ObjectGridStorage<TestObj>(r1, size -> new TestObj[size]);
+		ObjectGridStorage<TestObj> s2 = new ObjectGridStorage<TestObj>(r1, size -> new TestObj[size]);
 
 		TestObj[] stor = (TestObj[])s1.getStorage();
 		for (int i : new int[] {6, 12, 18})

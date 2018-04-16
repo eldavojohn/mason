@@ -92,7 +92,7 @@ public class NHeatBugs extends SimState {
 
 			valgrid = new NDoubleGrid2D(p, this.aoi, 0);
 			valgrid2 = new NDoubleGrid2D(p, this.aoi, 0);
-			bugs = new NObjectGrid2D<NHeatBug>(p, this.aoi, s -> new NHeatBug[s], 64);
+			bugs = new NObjectGrid2D<NHeatBug>(p, this.aoi, s -> new NHeatBug[s]);
 
 			queue = new DObjectMigratorNonUniform(p);
 

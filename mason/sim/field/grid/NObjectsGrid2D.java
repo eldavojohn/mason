@@ -18,8 +18,8 @@ import sim.field.storage.TestObj;
 
 public class NObjectsGrid2D<T> extends HaloField {
 
-	public NObjectsGrid2D(DPartition ps, int[] aoi, int maxObjSize) {
-		super(ps, aoi, new ObjectGridStorage<ArrayList>(ps.getPartition(), s -> new ArrayList[s], maxObjSize));
+	public NObjectsGrid2D(DPartition ps, int[] aoi) {
+		super(ps, aoi, new ObjectGridStorage<ArrayList>(ps.getPartition(), s -> new ArrayList[s]));
 
 		if (this.nd != 2)
 			throw new IllegalArgumentException("The number of dimensions is expected to be 2, got: " + this.nd);
@@ -69,7 +69,7 @@ public class NObjectsGrid2D<T> extends HaloField {
 		p.initUniformly(null);
 		p.commit();
 
-		NObjectsGrid2D<TestObj> f = new NObjectsGrid2D<TestObj>(p, aoi, TestObj.getMaxObjectSize());
+		NObjectsGrid2D<TestObj> f = new NObjectsGrid2D<TestObj>(p, aoi);
 
 		MPITest.execOnlyIn(0, x -> {
 			f.set(0, 3, new TestObj(10));
@@ -97,7 +97,7 @@ public class NObjectsGrid2D<T> extends HaloField {
 		MPITest.execOnlyIn(0, i -> System.out.println("After Sync..."));
 		MPITest.execInOrder(i -> System.out.println(f), 500);
 
-		GridStorage full = new ObjectGridStorage<ArrayList<TestObj>>(p.getField(), s -> new ArrayList[s], TestObj.getMaxObjectSize());
+		GridStorage full = new ObjectGridStorage<ArrayList<TestObj>>(p.getField(), s -> new ArrayList[s]);
 		f.collect(0, full);
 
 		MPITest.execOnlyIn(0, i -> System.out.println("Full Field...\n" + full));
