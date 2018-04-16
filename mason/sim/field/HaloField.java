@@ -1,6 +1,11 @@
 package sim.field;
 
 import java.io.*;
+import java.net.InetAddress;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -16,7 +21,7 @@ import sim.util.MPIUtil;
 // TODO refactor HaloField to accept
 // continuous: double, int, object
 
-public abstract class HaloField {
+public abstract class HaloField implements RemoteField {
 
 	protected int nd, numNeighbors;
 	protected int[] aoi, fieldSize, haloSize;
@@ -28,10 +33,15 @@ public abstract class HaloField {
 	protected Comm comm;
 	protected Datatype MPIBaseType;
 
+	protected RemoteField[] remoteFields;
+	protected final int RMI_REGISTRY_PORT = 1099;
+
 	public HaloField(DPartition ps, int[] aoi, GridStorage stor) {
 		this.ps = ps;
 		this.aoi = aoi;
 		this.field = stor;
+
+		initRemote(0);
 
 		ps.registerPreCommit(new Runnable() {
 			public void run() {
@@ -81,6 +91,54 @@ public abstract class HaloField {
 		            .mapToObj(x -> new Neighbor(ps.getPartition(x)))
 		            .toArray(size -> new Neighbor[size]);
 		numNeighbors = neighbors.length;
+	}
+
+	protected void initRemote(int registryHostId) {
+		// Generate a random name
+		String myName = UUID.randomUUID().toString();
+
+		try {
+			String hostAddr = null;
+
+			// one LP creates a rmiregistry
+			if (ps.getPid() == registryHostId) {
+				hostAddr = InetAddress.getLocalHost().getHostAddress();
+				System.out.printf("Starting rmiregistry in %s on port %d\n", hostAddr, RMI_REGISTRY_PORT);
+				LocateRegistry.createRegistry(RMI_REGISTRY_PORT);
+			}
+
+			// Broadcast that LP's ip address to other LPs so they can connect to the registry
+			hostAddr = MPIUtil.<String>bcast(ps, hostAddr, registryHostId);
+			Registry registry = LocateRegistry.getRegistry(hostAddr, RMI_REGISTRY_PORT);
+
+			// Create a RMI server and register it in the registry
+			RemoteField rf = (RemoteField) UnicastRemoteObject.exportObject(this, 0);
+			registry.bind(myName, rf);
+
+			// Exchange the names with all other LPs so that each LP can create RemoteField clients for all other LPs
+			ArrayList<String> names = MPIUtil.<String>allGather(ps, myName);
+			remoteFields = new RemoteField[ps.np];
+			for (int i = 0; i < ps.np; i++)
+				remoteFields[i] = (RemoteField)registry.lookup(names.get(i));
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+	}
+
+	// TODO make a copy of the storage which will be used by the remote field access
+	protected Serializable getFromRemote(IntPoint p) {
+		Serializable ret = null;
+		int pid = ps.toPartitionId(p);
+
+		try {
+			ret = remoteFields[pid].getRMI(p);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+
+		return ret;
 	}
 
 	public GridStorage getStorage() {
@@ -143,7 +201,7 @@ public abstract class HaloField {
 			sendObjs[i] = field.pack(neighbors[i].sendParam);
 
 		ArrayList<Serializable> recvObjs = MPIUtil.<Serializable>neighborAllToAll(ps, sendObjs);
-		
+
 		for (int i = 0; i < numNeighbors; i++)
 			field.unpack(neighbors[i].recvParam, recvObjs.get(i));
 	}
@@ -186,7 +244,7 @@ public abstract class HaloField {
 			ArrayList<IntHyperRect> overlaps = new ArrayList<IntHyperRect>();
 
 			if (ps.isToroidal())
-				for (IntPoint p : IntPointGenerator.getLayer(nd, 1)){
+				for (IntPoint p : IntPointGenerator.getLayer(nd, 1)) {
 					IntHyperRect sp = p2.shift(IntStream.range(0, nd).map(i -> p.c[i] * fieldSize[i]).toArray());
 					if (p1.isIntersect(sp))
 						overlaps.add(p1.getIntersection(sp));

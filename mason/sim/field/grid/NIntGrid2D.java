@@ -1,6 +1,7 @@
 package sim.field.grid;
 
 import java.io.IOException;
+import java.rmi.RemoteException;
 
 import mpi.*;
 
@@ -25,14 +26,22 @@ public class NIntGrid2D extends HaloField {
 		return (int[])field.getStorage();
 	}
 
+	public Integer getRMI(IntPoint p) throws RemoteException {
+		if (!inLocal(p))
+			throw new RemoteException("The point " + p + " does not exist in this partition " + ps.getPid() + " " + ps.getPartition());
+
+		return getStorageArray()[field.getFlatIdx(toLocalPoint(p))];
+	}
+
 	public final int get(final int x, final int y) {
 		return get(new IntPoint(x, y));
 	}
 
 	public final int get(IntPoint p) {
-		// In this partition and its surrounding ghost cells
-		if (!inLocalAndHalo(p))
-			throw new IllegalArgumentException(String.format("PID %d get %s is out of local boundary", ps.getPid(), p.toString()));
+		if (!inLocalAndHalo(p)) {
+			System.out.println(String.format("PID %d get %s is out of local boundary, accessing remotely through RMI", ps.getPid(), p.toString()));
+			return (int)getFromRemote(p);
+		}
 
 		return getStorageArray()[field.getFlatIdx(toLocalPoint(p))];
 	}
@@ -53,7 +62,7 @@ public class NIntGrid2D extends HaloField {
 		MPI.Init(args);
 
 		int[] aoi = new int[] {2, 2};
-		int[] size = new int[] {8, 8};
+		int[] size = new int[] {10, 10};
 
 		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
 		p.initUniformly(null);
@@ -65,6 +74,14 @@ public class NIntGrid2D extends HaloField {
 
 		MPITest.execInOrder(i -> System.out.println(f), 500);
 
+		MPITest.execOnlyIn(0, i -> System.out.println("Testing RMI remote calls"));
+		// Choose the points that are out of halo area
+		int pid = p.getPid();
+		int x = f.stx(2 + 5 * ((pid + 1) / 2));
+		int y = f.sty(2 + 5 * ((pid + 1) % 2));
+		MPITest.execInOrder(i -> System.out.println(String.format("PID %d accessing <%d, %d> result %d", i, x, y, f.get(x, y))), 200);
+
+		// TODO stuck here
 		MPI.Finalize();
 	}
 }

@@ -1,9 +1,10 @@
 package sim.util;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
-public abstract class NdPoint implements Comparable<NdPoint> {
+public abstract class NdPoint implements Comparable<NdPoint>, Serializable {
 	// TODO make this private
 	public int nd;
 

@@ -1,6 +1,7 @@
 package sim.field.grid;
 
 import java.io.IOException;
+import java.rmi.RemoteException;
 
 import mpi.*;
 
@@ -25,14 +26,23 @@ public class NDoubleGrid2D extends HaloField {
 		return (double[])field.getStorage();
 	}
 
+	// Use Double instead of double because of the serializable type
+	public Double getRMI(IntPoint p) throws RemoteException {
+		if (!inLocal(p))
+			throw new RemoteException("The point " + p + " does not exist in this partition " + ps.getPid() + " " + ps.getPartition());
+
+		return getStorageArray()[field.getFlatIdx(toLocalPoint(p))];
+	}
+
 	public final double get(final int x, final int y) {
 		return get(new IntPoint(x, y));
 	}
 
 	public final double get(IntPoint p) {
-		// In this partition and its surrounding ghost cells
-		if (!inLocalAndHalo(p))
-			throw new IllegalArgumentException(String.format("PID %d get %s is out of local boundary", ps.getPid(), p.toString()));
+		if (!inLocalAndHalo(p)) {
+			System.out.println(String.format("PID %d get %s is out of local boundary, accessing remotely through RMI", ps.getPid(), p.toString()));
+			return (double)getFromRemote(p);
+		}
 
 		return getStorageArray()[field.getFlatIdx(toLocalPoint(p))];
 	}

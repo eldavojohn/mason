@@ -78,6 +78,25 @@ public class MPIUtil {
 		       .toArray();
 	}
 
+	// LP root broadcasts a Serializable object to all other LPs
+	public static <T extends Serializable> T bcast(DPartition p, T obj, int root) throws MPIException {
+		byte[] buf = null;
+
+		if (p.getPid() == root)
+			buf = serialize(obj);
+
+		int[] count = new int[] {buf == null ? 0 : buf.length};
+
+		p.getCommunicator().bcast(count, 1, MPI.INT, root);
+
+		if (p.getPid() != root)
+			buf = new byte[count[0]];
+
+		p.getCommunicator().bcast(buf, count[0], MPI.BYTE, root);
+
+		return (T)deserialize(buf, 0, count[0]);
+	}
+
 	// Each LP sends the sendObj to dst
 	// dst will return an ArrayList of np objects of type T
 	// others will return an empty ArrayList

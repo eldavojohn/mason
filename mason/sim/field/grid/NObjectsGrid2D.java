@@ -1,6 +1,8 @@
 package sim.field.grid;
 
 import java.io.IOException;
+import java.io.Serializable;
+import java.rmi.RemoteException;
 import java.util.function.IntFunction;
 import java.util.ArrayList;
 
@@ -16,7 +18,7 @@ import sim.field.storage.GridStorage;
 import sim.field.storage.ObjectGridStorage;
 import sim.field.storage.TestObj;
 
-public class NObjectsGrid2D<T> extends HaloField {
+public class NObjectsGrid2D<T extends Serializable> extends HaloField {
 
 	public NObjectsGrid2D(DPartition ps, int[] aoi) {
 		super(ps, aoi, new ObjectGridStorage<ArrayList>(ps.getPartition(), s -> new ArrayList[s]));
@@ -29,14 +31,22 @@ public class NObjectsGrid2D<T> extends HaloField {
 		return (ArrayList<T>[])field.getStorage();
 	}
 
+	public ArrayList<T> getRMI(IntPoint p) throws RemoteException {
+		if (!inLocal(p))
+			throw new RemoteException("The point " + p + " does not exist in this partition " + ps.getPid() + " " + ps.getPartition());
+
+		return getStorageArray()[field.getFlatIdx(toLocalPoint(p))];
+	}
+
 	public final ArrayList<T> get(final int x, final int y) {
 		return get(new IntPoint(x, y));
 	}
 
 	public final ArrayList<T> get(IntPoint p) {
-		// In this partition and its surrounding ghost cells
-		if (!inLocalAndHalo(p))
-			throw new IllegalArgumentException(String.format("PID %d get %s is out of local boundary", ps.getPid(), p.toString()));
+		if (!inLocalAndHalo(p)) {
+			System.out.println(String.format("PID %d get %s is out of local boundary, accessing remotely through RMI", ps.getPid(), p.toString()));
+			return (ArrayList<T>)getFromRemote(p);
+		}
 
 		return getStorageArray()[field.getFlatIdx(toLocalPoint(p))];
 	}
