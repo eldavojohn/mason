@@ -37,7 +37,16 @@ public abstract class GridStorage {
 	public abstract String toString();
 	public abstract Serializable pack(MPIParam mp) throws MPIException;
 	public abstract int unpack(MPIParam mp, Serializable buf) throws MPIException;
+	
+	// Method that allocates an array of objects of desired type
+	// This method will be called after the new shape has been set
 	protected abstract Object allocate(int size);
+
+	private void reload(IntHyperRect newShape) {
+		this.shape = newShape;
+		this.stride = getStride(newShape.getSize());
+		this.storage = allocate(newShape.getArea());
+	}
 
 	public void reshape(IntHyperRect newShape) {
 		if (newShape.isIntersect(shape)) {
@@ -47,7 +56,7 @@ public abstract class GridStorage {
 
 			try {
 				Serializable buf = pack(fromParam);
-				storage = allocate(newShape.getArea());
+				reload(newShape);
 				unpack(toParam, buf);
 
 				fromParam.type.free();
@@ -57,10 +66,7 @@ public abstract class GridStorage {
 				System.exit(-1);
 			}
 		} else
-			storage = allocate(newShape.getArea());
-
-		shape = newShape;
-		stride = getStride(shape.getSize());
+			reload(newShape);
 	}
 
 	public int getFlatIdx(IntPoint p) {
@@ -73,7 +79,7 @@ public abstract class GridStorage {
 		return IntStream.range(0, p.nd).map(i -> p.c[i] * s[i]).sum();
 	}
 
-	private static int[] getStride(int[] size) {
+	protected static int[] getStride(int[] size) {
 		int[] ret = new int[size.length];
 
 		ret[size.length - 1] = 1;
