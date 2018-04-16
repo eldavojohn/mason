@@ -15,9 +15,11 @@ public class MPIParam {
 
 	// Will be used by ObjectGridStorage to collect all the objects from rects
 	// this is due to the limitations of openmpi java bindings
+	// coordinates of the rects stored here are local
 	public List<IntHyperRect> rects;
 
 	// TODO need to track all previously allocated datatypes and implement free() to free them all
+	// TODO should store rects in local coordinates?
 
 	public MPIParam(IntHyperRect rect, IntHyperRect bound, Datatype baseType) {
 		int[] bsize = bound.getSize();
