@@ -170,37 +170,7 @@ public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint
 	}
 
 	public Iterator<IntPoint> iterator() {
-		return new IntHyperRectIter();
-	}
-
-	private class IntHyperRectIter implements Iterator<IntPoint> {
-		int[] coords;
-		int curr, ub;
-
-		public IntHyperRectIter() {
-			coords = Arrays.copyOf(ul.c, nd);
-			ub = getArea();
-			curr = 0;
-		}
-
-		public boolean hasNext() {
-			return curr < ub;
-		}
-
-		public IntPoint next() {
-			IntPoint ret = new IntPoint(coords);
-
-			for (int i = nd - 1; i >= 0; i--) {
-				coords[i]++;
-				if (coords[i] == br.c[i])
-					coords[i] = ul.c[i];
-				else
-					break;
-			}
-
-			curr++;
-			return ret;
-		}
+		return IntPointGenerator.getBlock(this).iterator();
 	}
 
 	public String toString() {
@@ -211,14 +181,6 @@ public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint
 	public IntHyperRect reduceDim(int dim) {
 		return new IntHyperRect(id, ul.reduceDim(dim), br.reduceDim(dim));
 	}
-
-	// public int[] getRelPos(IntHyperRect that) {
-	// 	assertEqualDim(that);
-
-	// 	return IntStream.range(0, this.nd)
-	// 	       .map(i -> this.ul.c[i] >= that.br.c[i] ? -1 : (that.ul.c[i] >= this.br.c[i]) ? 1 : 0)
-	// 	       .toArray();
-	// }
 
 	// Split the rect into multiple rectangles based on the given array of points
 	public ArrayList<IntHyperRect> split(IntPoint[] ps) {

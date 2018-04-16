@@ -9,6 +9,7 @@ import mpi.*;
 import sim.field.storage.GridStorage;
 import sim.util.IntHyperRect;
 import sim.util.IntPoint;
+import sim.util.IntPointGenerator;
 import sim.util.MPIParam;
 import sim.util.MPIUtil;
 
@@ -185,11 +186,8 @@ public abstract class HaloField {
 			ArrayList<IntHyperRect> overlaps = new ArrayList<IntHyperRect>();
 
 			if (ps.isToroidal())
-				// iterate throw all {-1, 0, 1}^nd possible combinations
-				for (int k = 0; k < (int)Math.pow(3, nd); k++) {
-					final int idx = k;
-					int[] offsets = IntStream.range(0, nd).map(i -> (1 - idx / (int)Math.pow(3, nd - i - 1) % 3) * fieldSize[i]).toArray();
-					IntHyperRect sp = p2.shift(offsets);
+				for (IntPoint p : IntPointGenerator.getLayer(nd, 1)){
+					IntHyperRect sp = p2.shift(IntStream.range(0, nd).map(i -> p.c[i] * fieldSize[i]).toArray());
 					if (p1.isIntersect(sp))
 						overlaps.add(p1.getIntersection(sp));
 				}
