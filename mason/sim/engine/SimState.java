@@ -471,7 +471,10 @@ public class SimState implements java.io.Serializable
 						// Invoke the constructor and return the instance
 						return (SimState)constructor.newInstance(args_obj);
 					}
-				} catch (Exception e) {
+				} 
+				catch (Exception e) {
+					if(e instanceof InvocationTargetException)
+						e.getCause().printStackTrace();
 					throw new RuntimeException("Exception occurred while trying to construct the simulation " + c + "\n" + e);
 				}
 			}
