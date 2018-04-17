@@ -6,24 +6,26 @@
 
 package sim.app.dflockers2;
 import sim.engine.*;
-import sim.field.CommAgent;
+import sim.field.SelfStreamedAgent;
 import sim.field.DObjectMigrator.AgentOutputStream;
 import sim.field.continuous.*;
 import sim.util.*;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 
 import ec.util.*;
 
-public class DFlocker extends CommAgent implements Steppable, sim.portrayal.Orientable2D {
+public class DFlocker implements Steppable, SelfStreamedAgent, sim.portrayal.Orientable2D {
     private static final long serialVersionUID = 1;
 
     public Double2D loc = new Double2D(0, 0);
     public Double2D lastd = new Double2D(0, 0);
     public boolean dead = false;
 
+    public DFlocker() {
+    	this(new Double2D(0, 0));
+    }
     public DFlocker(Double2D location) { loc = location;}
 
     public double getOrientation() { return orientation2D(); }
@@ -43,7 +45,7 @@ public class DFlocker extends CommAgent implements Steppable, sim.portrayal.Orie
         return lastd;
     }
     
-    public  void writePrimitiveTypeData(AgentOutputStream out)
+    public  void writeStream(AgentOutputStream out)
 	{		
 		try
 		{
@@ -59,7 +61,7 @@ public class DFlocker extends CommAgent implements Steppable, sim.portrayal.Orie
 		}
 	}
     
-    public void readPrimitiveTypeData(ObjectInputStream in)
+    public void readStream(ObjectInputStream in)
 	{
 		try
 		{

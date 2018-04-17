@@ -18,9 +18,9 @@ public class DFlockers extends SimState {
     private static final long serialVersionUID = 1;
 
     public DContinuous2D flockers;
-    public double width = 1000;
-    public double height = 1000;
-    public int numFlockers = 50000;
+    public double width = 600;
+    public double height = 600;
+    public int numFlockers = 21600;
     public double cohesion = 1.0;
     public double avoidance = 1.0;
     public double randomness = 1.0;
@@ -41,7 +41,7 @@ public class DFlockers extends SimState {
         super.start();
 
         partition = new DUniformPartition(new int[] {(int)width, (int)height});
-        flockers = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, new DFlocker(new Double2D(0, 0)), partition, this.schedule);
+        flockers = new DContinuous2D(neighborhood / 1.5, width, height, neighborhood, partition, this.schedule);
 
         schedule.scheduleRepeating(Schedule.EPOCH, 0, new Synchronizer(), 1);
 
@@ -72,8 +72,8 @@ public class DFlockers extends SimState {
         public void step(SimState state) {
             try {
                 flockers.sync();
-                //String s = String.format("PID %d Steps %d Number of Agents %d\n", partition.pid, schedule.getSteps(), flockers.size() - flockers.ghosts.size());
-                //System.out.print(s);
+//                String s = String.format("PID %d Steps %d Number of Agents %d\n", partition.pid, schedule.getSteps(), flockers.size() - flockers.ghosts.size());
+//                System.out.print(s);
             } catch (Exception e) {
                 e.printStackTrace();
                 System.exit(-1);

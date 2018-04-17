@@ -2,7 +2,6 @@ package sim.field;
 
 import java.io.*;
 import java.util.*;
-
 import sim.util.*;
 import ec.util.*;
 
@@ -95,12 +94,56 @@ public class DObjectMigrator implements Iterable<Object> {
 	public int size() {
 		return objects.size();
 	}
-
+	
+	public void writeHeader(AgentOutputStream aos, MigratingAgent wrapper) throws IOException
+	{
+		String className = wrapper.wrappedAgent.getClass().getName();
+		aos.os.writeObject(className);
+		aos.os.writeInt(wrapper.destination);
+		aos.os.writeBoolean(wrapper.migrate);
+		aos.os.writeDouble(wrapper.loc.x);
+		aos.os.writeDouble(wrapper.loc.y);
+		aos.os.flush();
+	}
+	
+	public MigratingAgent readHeader(ObjectInputStream is, String className) throws IOException
+	{
+		// read destination
+		int dst = is.readInt();
+		// read Wrapper data
+		boolean migrate = is.readBoolean();
+		double x = is.readDouble();
+		double y = is.readDouble();
+		// create the new agent
+		SelfStreamedAgent newAgent = null;
+		try
+		{
+			newAgent = (SelfStreamedAgent) Class.forName(className).newInstance();
+		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+		// read in the data
+		MigratingAgent wrapper = new MigratingAgent(dst, newAgent, new Double2D(x, y), migrate);
+		return wrapper;
+	}
+	
 	public void migrate(final Object obj, final int dst) {
-		MigratedObject mo = new MigratedObject(obj, dst);
+		MigratingAgent wrapper = (MigratingAgent) obj;
 		assert dstMap.containsKey(dst);
 		try {
-			dstMap.get(dst).write(mo);
+			if(wrapper.wrappedAgent instanceof SelfStreamedAgent)
+			{
+				// write header information, all agent has this info
+				writeHeader(dstMap.get(dst), wrapper);
+				// write agent
+				((SelfStreamedAgent) wrapper.wrappedAgent).writeStream(dstMap.get(dst));
+				// have to flush the data, in case user forget this step
+				dstMap.get(dst).os.flush();
+			}
+			else {
+				dstMap.get(dst).write(wrapper);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.exit(-1);
@@ -128,7 +171,7 @@ public class DObjectMigrator implements Iterable<Object> {
 		for (int i = 0; i < nc; i++)
 			objstream.write(outputStreams[i].toByteArray());
 		byte[] sendbuf = objstream.toByteArray();
-		System.out.println("partition id is "+partition.pid + ", sendbuf size is "+sendbuf.length);
+
 		// First exchange count[] of the send byte buffers with neighbors so that we can setup recvbuf
 		partition.comm.neighborAllToAll(src_count, 1, MPI.INT, dst_count, 1, MPI.INT);
 		for (int i = 0, total = 0; i < nc; i++) {
@@ -141,14 +184,30 @@ public class DObjectMigrator implements Iterable<Object> {
 		partition.comm.neighborAllToAllv(sendbuf, src_count, src_displ, MPI.BYTE, recvbuf, dst_count, dst_displ, MPI.BYTE);
 
 		// read and handle incoming objects
-		ArrayList<MigratedObject> migrated = new ArrayList<MigratedObject>();
+		ArrayList<MigratingAgent> bufferList = new ArrayList<MigratingAgent>();
 		for (int i = 0; i < nc; i++) {
 			ByteArrayInputStream in = new ByteArrayInputStream(Arrays.copyOfRange(recvbuf, dst_displ[i], dst_displ[i] + dst_count[i]));
 			ObjectInputStream is = new ObjectInputStream(in);
 			boolean more = true;
 			while (more) {
 				try {
-					migrated.add((MigratedObject)is.readObject());
+					MigratingAgent wrapper = null;
+					Object object = is.readObject();
+					if (object instanceof String)
+					{
+						String className = (String)object;
+						// return the wrapper with header information filled in
+						wrapper = readHeader(is, className);
+						((SelfStreamedAgent)wrapper.wrappedAgent).readStream(is);						
+					}
+					else {
+						wrapper = (MigratingAgent)object;
+					}
+					if (partition.pid != wrapper.destination) {
+						assert dstMap.containsKey(wrapper.destination);
+						bufferList.add(wrapper);
+					} else
+						objects.add(wrapper);
 				} catch (EOFException e) {
 					more = false;
 				}
@@ -159,13 +218,24 @@ public class DObjectMigrator implements Iterable<Object> {
 		for (int i = 0; i < nc; i++)
 			outputStreams[i].reset();
 
-		// Handle incoming objects
-		for (MigratedObject mo : migrated) {
-			if (partition.pid != mo.dst) {
-				assert dstMap.containsKey(mo.dst);
-				dstMap.get(mo.dst).write(mo);
-			} else
-				objects.add(mo.obj);
+		// Handling the agent in bufferList
+		for (int i = 0; i < bufferList.size(); ++i)
+		{
+			MigratingAgent wrapper = (MigratingAgent) bufferList.get(i);
+			int dst = wrapper.destination;
+			if(wrapper.wrappedAgent instanceof SelfStreamedAgent)
+			{
+				// write header information, all agent has this info
+				writeHeader(dstMap.get(dst), wrapper);
+				// write agent
+				((SelfStreamedAgent) wrapper.wrappedAgent).writeStream(dstMap.get(dst));
+				// have to flush the data, in case user forget this step
+				dstMap.get(dst).os.flush();
+			}
+			else {
+				dstMap.get(dst).write(wrapper);
+			}
 		}
+		bufferList.clear();
 	}
 }
