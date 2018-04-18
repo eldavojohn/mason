@@ -63,6 +63,9 @@ public class DAgent implements Steppable
         int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
         MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
         setNewRoute((LineString) mg.getGeometry(), true);
+        double x = state.communicator.toXCoord(position.x);
+        double y = state.communicator.toYCoord(position.y);
+        System.out.println("position is " + x + "," + y);
 
         // Now set up attributes for this agent
         if (state.random.nextBoolean())
@@ -214,7 +217,10 @@ public class DAgent implements Steppable
     {
         DCampusWorld campState = (DCampusWorld) state;
         move(campState);
-        campState.communicator.setObjectLocation(this, position);
+        double x = campState.communicator.toXCoord(position.x);
+        double y = campState.communicator.toYCoord(position.y);
+        System.out.println("position is " + x + "," + y);
+        campState.communicator.setObjectLocation(this, new Double2D(x, y));
     }
 
 

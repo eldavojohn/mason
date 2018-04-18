@@ -27,8 +27,8 @@ import sim.engine.Schedule;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.field.DUniformPartition;
-import sim.field.continuous.Continuous2D;
 import sim.field.continuous.DContinuous2D;
+import sim.field.continuous.GeomDContinuous2D;
 import sim.field.geo.GeomVectorField;
 import sim.io.geo.ShapeFileExporter;
 import sim.io.geo.ShapeFileImporter;
@@ -49,7 +49,7 @@ public class DCampusWorld extends SimState
     public static final int HEIGHT = 300; 
     
     /** How many agents in the simulation */ 
-	public int numAgents = 1000;
+	public int numAgents = 100;
 
     /** Fields to hold the associated GIS information */ 
     public GeomVectorField walkways = new GeomVectorField(WIDTH, HEIGHT);
@@ -59,7 +59,7 @@ public class DCampusWorld extends SimState
     // where all the agents live
     public GeomVectorField agents = new GeomVectorField(WIDTH, HEIGHT);
 
-    public DContinuous2D communicator;
+    public GeomDContinuous2D communicator;
     public DUniformPartition partition;
 
     // Stores the walkway network connections.  We represent the walkways as a PlanarGraph, which allows 
@@ -110,11 +110,17 @@ public class DCampusWorld extends SimState
             MBR.expandToInclude(walkways.getMBR());
 
             System.out.println("Done reading data");
+            
+            partition = new DUniformPartition(new int[] {(int)WIDTH, (int)HEIGHT});
+            DContinuous2D continuousField = new DContinuous2D(10 / 1.5, WIDTH, HEIGHT, 10, partition, this.schedule);
+            communicator = new GeomDContinuous2D(continuousField);
+            
 
             // Now synchronize the MBR for all GeomFields to ensure they cover the same area
             buildings.setMBR(MBR);
             roads.setMBR(MBR);
             walkways.setMBR(MBR);
+            communicator.setMBR(MBR);
 
             network.createFromGeomField(walkways);
 
@@ -161,9 +167,6 @@ public class DCampusWorld extends SimState
     {
         super.start();
         
-        partition = new DUniformPartition(new int[] {(int)WIDTH, (int)HEIGHT});
-        communicator = new DContinuous2D(10 / 1.5, WIDTH, HEIGHT, 10, partition, this.schedule);
-
         schedule.scheduleRepeating(Schedule.EPOCH, 0, new Synchronizer(), 1);
 
         agents.clear(); // clear any existing agents from previous runs
