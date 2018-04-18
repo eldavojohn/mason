@@ -32,12 +32,10 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	}
 
 	public String toString() {
-		HashSet<T>[] cells = (HashSet<T>[])storage;
-
 		StringBuffer buf = new StringBuffer(String.format("ContStorage-%s\n", shape));
 
-		for (IntPoint p : IntPointGenerator.getBlock(dsize))
-			buf.append("Cell " + p + ":\t" + cells[getFlatIdx(p)] + "\n");
+		for (IntPoint dp : IntPointGenerator.getBlock(dsize))
+			buf.append("Cell " + dp + ":\t" + getCelldp(dp) + "\n");
 
 		return buf.toString();
 	}
@@ -45,7 +43,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	public Serializable pack(MPIParam mp) {
 		ArrayList objs = new ArrayList();
 
-		for (IntHyperRect rect : mp.rects) 
+		for (IntHyperRect rect : mp.rects)
 			// shift the rect with local coordinates back to global coordinates
 			for (T obj : getObjects(rect.shift(shape.ul.c))) {
 				// put the object itself and its location
@@ -59,6 +57,11 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	public int unpack(MPIParam mp, Serializable buf) {
 		Object[] objs = (Object[])buf;
 
+		// Remove any objects that are in the unpack area (overwrite the area)
+		// shift the rect with local coordinates back to global coordinates
+		for (IntHyperRect rect : mp.rects)
+			removeObjects(rect.shift(shape.ul.c));
+
 		for (int i = 0; i < objs.length; i += 2)
 			putObject((T)objs[i], (NdPoint)objs[i + 1]);
 
@@ -66,101 +69,108 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	}
 
 	protected IntPoint discretize(final NdPoint p) {
-		double[] offsets = shape.ul.getOffsetsDouble(p);
+		final double[] offsets = shape.ul.getOffsetsDouble(p);
 		return new IntPoint(IntStream.range(0, offsets.length)
 		                    .map(i -> -(int)offsets[i] / discretizations[i])
 		                    .toArray());
 	}
 
-	public List<T> getObjects(final NdPoint p) {
-		HashSet<T>[] cells = (HashSet<T>[])storage;
-		return cells[getFlatIdx(discretize(p))].stream()
-		       .filter(obj -> m.get(obj).equals(p))
-		       .collect(Collectors.toList());
+	// Get the corresponding cell given a continuous point
+	public HashSet<T> getCell(final NdPoint p) {
+		return getCelldp(discretize(p));
 	}
 
-	public List<T> getObjects(final IntHyperRect r) {
-		ArrayList<T> objs = new ArrayList<T>();
-		HashSet<T>[] cells = (HashSet<T>[])storage;
-
-		for (IntPoint p : IntPointGenerator.getBlock(discretize(r.ul), discretize(r.br)))
-			cells[getFlatIdx(p)].stream()
-			.filter(obj -> r.contains(m.get(obj)))
-			.forEach(obj -> objs.add(obj));
-
-		return objs;
+	// Get the corresponding cell given a discretized point
+	protected HashSet<T> getCelldp(final IntPoint p) {
+		return ((HashSet<T>[])storage)[getFlatIdx(p)];
 	}
 
+	// Put the object to the given point
 	public void putObject(final T obj, final NdPoint p) {
-		HashSet<T>[] cells = (HashSet<T>[])storage;
 		m.put(obj, p);
-		cells[getFlatIdx(discretize(p))].add(obj);
+		getCell(p).add(obj);
 	}
 
-	public void removeObject(final T obj) {
-		HashSet<T>[] cells = (HashSet<T>[])storage;
-		cells[getFlatIdx(discretize(m.get(obj)))].remove(obj);
-	}
-
-	public void removeObjects(final NdPoint p) {
-		for (T obj : getObjects(p))
-			removeObject(obj);
-	}
-
+	// Get the location of the given location
 	public NdPoint getLocation(final T obj) {
 		return m.get(obj);
 	}
 
+	// Get all the objects at the given point
+	public List<T> getObjects(final NdPoint p) {
+		return getCell(p).stream().filter(obj -> m.get(obj).equals(p)).collect(Collectors.toList());
+	}
+
+	// Get all the objects inside the given rectangle
+	public List<T> getObjects(final IntHyperRect r) {
+		final ArrayList<T> objs = new ArrayList<T>();
+
+		for (IntPoint dp : IntPointGenerator.getBlock(discretize(r.ul), discretize(r.br)))
+			getCelldp(dp).stream().filter(obj -> r.contains(m.get(obj))).forEach(obj -> objs.add(obj));
+
+		return objs;
+	}
+
+	// Remove the object from the storage
+	public void removeObject(final T obj) {
+		getCell(m.remove(obj)).remove(obj);
+	}
+
+	// Remove all the objects at the given point
+	public void removeObjects(final NdPoint p) {
+		getObjects(p).stream().forEach(obj -> removeObject(obj));
+	}
+
+	// Remove all the objects inside the given rectangle
+	public void removeObjects(final IntHyperRect r) {
+		getObjects(r).stream().forEach(obj -> removeObject(obj));
+	}
+
+	// Return a list of k nearest neighbors sorted by their distances
+	// to the query obj, if that many exists
 	public List<T> getNearestNeighbors(final T obj, final int need) {
-		final int nd = shape.nd;
 		final NdPoint loc = m.get(obj);
 		final IntPoint dloc = discretize(loc);
-		final ArrayList<T> objs = new ArrayList<T>();
-		final HashSet<T>[] cells = (HashSet<T>[])storage;
-		final ArrayList<T> candidates = new ArrayList<T>(cells[getFlatIdx(dloc)]);
-		final int maxLayer = IntStream.range(0, nd)
+		final int maxLayer = IntStream.range(0, shape.nd)
 		                     .map(i -> Math.max(dloc.c[i], dsize[i] - dloc.c[i]))
 		                     .max().getAsInt();
-
-		int currLayer = 1;
+		final ArrayList<T> objs = new ArrayList<T>();
+		final ArrayList<T> candidates = new ArrayList<T>(getCelldp(dloc));
 		candidates.remove(obj); // remove self
 
+		int currLayer = 1;
+		
 		while (objs.size() < need && currLayer <= maxLayer) {
-			for (IntPoint p : IntPointGenerator.getLayer(dloc, currLayer))
-				if (IntStream.range(0, nd).allMatch(i -> p.c[i] >= 0 && p.c[i] < dsize[i]))
-					candidates.addAll(cells[getFlatIdx(p)]);
+			for (IntPoint dp : IntPointGenerator.getLayer(dloc, currLayer))
+				if (IntStream.range(0, shape.nd).allMatch(i -> dp.c[i] >= 0 && dp.c[i] < dsize[i]))
+					candidates.addAll(getCelldp(dp));
 
-			if (candidates.size() + objs.size() >= need) {
-				candidates.sort(Comparator.comparingDouble(o -> m.get(o).getDistance(loc, 2)));
-				objs.addAll(candidates.subList(0, need - objs.size()));
-				break;
-			} else
-				objs.addAll(candidates);
-
+			candidates.sort(Comparator.comparingDouble(o -> m.get(o).getDistance(loc, 2)));
+			objs.addAll(candidates.subList(0, Math.min(candidates.size(), need - objs.size())));
 			candidates.clear();
+
 			currLayer++;
 		}
 
 		return objs;
 	}
 
+	// Return a list of neighbors of the given object within the given radius
 	public List<T> getNeighborsWithin(final T obj, final double radius) {
-		final int nd = shape.nd;
 		final NdPoint loc = m.get(obj);
 		final IntPoint dloc = discretize(loc);
 		final ArrayList<T> objs = new ArrayList<T>();
-		final HashSet<T>[] cells = (HashSet<T>[])storage;
 
 		// Calculate how many discretized cells we need to search
 		final int[] offsets = Arrays.stream(discretizations).map(x -> (int)Math.ceil(radius / x)).toArray();
 
 		// Generate the start/end point subject to the boundaries
-		final IntPoint ul = new IntPoint(IntStream.range(0, nd).map(i -> Math.max(dloc.c[i] - offsets[i], 0)).toArray());
-		final IntPoint br = new IntPoint(IntStream.range(0, nd).map(i -> Math.min(dloc.c[i] + offsets[i] + 1, dsize[i])).toArray());
+		final IntPoint ul = new IntPoint(IntStream.range(0, shape.nd).map(i -> Math.max(dloc.c[i] - offsets[i], 0)).toArray());
+		final IntPoint br = new IntPoint(IntStream.range(0, shape.nd).map(i -> Math.min(dloc.c[i] + offsets[i] + 1, dsize[i])).toArray());
 
 		// Collect all the objects that are not obj itself and within the given radius
-		for (IntPoint p : IntPointGenerator.getBlock(ul, br))
-			cells[getFlatIdx(p)].stream()
+		for (IntPoint dp : IntPointGenerator.getBlock(ul, br))
+			getCelldp(dp).stream()
 			.filter(x -> x != obj && m.get(x).getDistance(loc, 2) <= radius)
 			.forEach(x -> objs.add(x));
 
