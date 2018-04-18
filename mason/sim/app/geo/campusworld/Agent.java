@@ -13,11 +13,13 @@ import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;
 import com.vividsolutions.jts.geom.Point;
+import com.vividsolutions.jts.geomgraph.Position;
 import com.vividsolutions.jts.linearref.LengthIndexedLine;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Node;
 import sim.engine.SimState;
 import sim.engine.Steppable;
+import sim.util.Double2D;
 import sim.util.geo.GeomPlanarGraphDirectedEdge;
 import sim.util.geo.GeomPlanarGraphEdge;
 import sim.util.geo.MasonGeometry;
@@ -37,6 +39,7 @@ public class Agent implements Steppable
     private static final long serialVersionUID = -1113018274619047013L;
     // point that denotes agent's position
     private MasonGeometry location;
+    public Double2D position;
     // The base speed of the agent.
     private double basemoveRate = 1.0;
     // How much to move the agent by in each step(); may become negative if
@@ -201,7 +204,7 @@ public class Agent implements Steppable
         pointMoveTo.setCoordinate(c);
         location.getGeometry().apply(pointMoveTo);
         getGeometry().geometry.geometryChanged();
-
+        position = new Double2D(c.x, c.y);
     }
 
 
@@ -210,7 +213,7 @@ public class Agent implements Steppable
     {
         CampusWorld campState = (CampusWorld) state;
         move(campState);
-        
+        System.out.println("position is " + position.x + "," + position.y);
 //        campState.agents.setGeometryLocation(getGeometry(), pointMoveTo);
     }
 

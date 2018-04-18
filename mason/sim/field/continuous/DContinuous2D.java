@@ -2,6 +2,8 @@ package sim.field.continuous;
 
 import java.util.*;
 
+import com.vividsolutions.jts.geom.Envelope;
+
 import sim.field.*;
 import sim.util.*;
 import sim.engine.*;
@@ -14,6 +16,9 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 	public HaloFieldContinuous f;
 	DObjectMigrator m;
 	Schedule sched;
+	
+	/** The minimum bounding rectangle (MBR) of all the stored geometries. */
+    public Envelope MBR;
 
 	public List<Object> ghosts;
 	List<Object> futureGhosts;
@@ -40,8 +45,8 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 	public boolean setObjectLocation(Object obj, final Double2D loc) {
 		double[] loc_arr = new double[] {loc.x, loc.y};
 		
-		// if (!f.inLocalAndHalo(loc_arr))
-		// 	throw new IllegalArgumentException(String.format("New location outside local partition and its halo area"));
+		 if (!f.inLocalAndHalo(loc_arr))
+		 	throw new IllegalArgumentException(String.format("New location outside local partition and its halo area"));
 
 		super.setObjectLocation(obj, loc);
 
