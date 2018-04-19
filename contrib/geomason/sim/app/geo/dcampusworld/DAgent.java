@@ -11,11 +11,14 @@ package sim.app.geo.dcampusworld;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;
 import com.vividsolutions.jts.geom.Point;
+import com.vividsolutions.jts.geom.prep.PreparedGeometryFactory;
 import com.vividsolutions.jts.linearref.LengthIndexedLine;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Node;
@@ -42,7 +45,7 @@ import sim.util.geo.PointMoveTo;
 public class DAgent implements Steppable, SelfStreamedAgent
 {
 
-    private static final long serialVersionUID = -1113018274619047013L;
+    private static final long serialVersionUID = 1L;
     // point that denotes agent's position
     private MasonGeometry location;
     public Double2D position;
@@ -52,7 +55,10 @@ public class DAgent implements Steppable, SelfStreamedAgent
     // agent is moving from the end to the start of current line.
     private double moveRate = basemoveRate;
     // Used by agent to walk along line segment; assigned in setNewRoute()
-    private LengthIndexedLine segment = null;
+
+    // segmentGeometry is the hack to bypass the problem that LengthIndexedLine class is not serializable 
+    private Geometry segmentGeometry = null;
+    private transient LengthIndexedLine segment = null;
     double startIndex = 0.0; // start position of current line
     double endIndex = 0.0; // end position of current line
     double currentIndex = 0.0; // current location along line
@@ -116,6 +122,19 @@ public class DAgent implements Steppable, SelfStreamedAgent
         location.addDoubleAttribute("MOVE RATE", basemoveRate);
     }
 
+    private void writeObject(ObjectOutputStream out) throws IOException {
+    	// just do not write segment to stream
+    	out.defaultWriteObject();
+    }
+    
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+    	in.defaultReadObject();
+    	// reconstruct segment from segmentGeometry
+    	if (segmentGeometry != null)
+        {
+            segment = new LengthIndexedLine(segmentGeometry);
+        }
+    }
 
 
     /**
@@ -203,6 +222,8 @@ public class DAgent implements Steppable, SelfStreamedAgent
      */
     private void setNewRoute(LineString line, boolean start)
     {
+    	// update segmentGeometry in case of serialization
+    	segmentGeometry = line;
         segment = new LengthIndexedLine(line);
         startIndex = segment.getStartIndex();
         endIndex = segment.getEndIndex();
@@ -309,7 +330,7 @@ public class DAgent implements Steppable, SelfStreamedAgent
 			out.os.writeObject(position);
 			out.os.writeDouble(basemoveRate);
 			out.os.writeDouble(moveRate);
-			out.os.writeObject(segment);
+			out.os.writeObject(segmentGeometry);
 			out.os.writeDouble(startIndex);
 			out.os.writeDouble(endIndex);
 			out.os.writeDouble(currentIndex);
@@ -331,7 +352,8 @@ public class DAgent implements Steppable, SelfStreamedAgent
 			position = (Double2D)in.readObject();
 			basemoveRate = in.readDouble();
 			moveRate = in.readDouble();
-			segment = (LengthIndexedLine)in.readObject();
+			segmentGeometry = (Geometry)in.readObject();
+			segment = new LengthIndexedLine(segmentGeometry);
 			startIndex = in.readDouble();
 			endIndex = in.readDouble();
 			currentIndex = in.readDouble();

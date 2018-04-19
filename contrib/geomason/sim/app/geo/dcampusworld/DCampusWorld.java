@@ -42,13 +42,13 @@ import sim.util.geo.MasonGeometry;
  */
 public class DCampusWorld extends SimState
 {
-    private static final long serialVersionUID = -4554882816749973618L;
+    private static final long serialVersionUID = 1L;
 
     public static final int WIDTH = 300; 
     public static final int HEIGHT = 300; 
     
     /** How many agents in the simulation */ 
-	public int numAgents = 1;
+	public int numAgents = 10;
 
     /** Fields to hold the associated GIS information */ 
     public GeomVectorField walkways = new GeomVectorField(WIDTH, HEIGHT);
