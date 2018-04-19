@@ -7,7 +7,7 @@
 
 JAVAC = javac ${FLAGS}
 
-FLAGS = -target 1.8 -source 1.8 -g -nowarn -cp ".:library/bsh-2.0b4.jar:library/itext-1.2.jar:library/jcommon-1.0.21.jar:library/jfreechart-1.0.17.jar:library/jmf.jar:library/portfolio.jar:library/mpi.jar:library/jts-1.13.jar:library/geomason.1.5.jar"
+FLAGS = -target 1.8 -source 1.8 -g -nowarn -cp ".:library/bsh-2.0b4.jar:library/itext-1.2.jar:library/jcommon-1.0.21.jar:library/jfreechart-1.0.17.jar:library/jmf.jar:library/portfolio.jar:library/mpi.jar"
 
 VERSION = 19
 
@@ -17,8 +17,6 @@ DIRS = \
 sim/app/heatbugs/*.java \
 sim/app/dheatbugs/*.java \
 sim/app/dheatbugsrma/*.java \
-sim/app/geo/campusworld/*.java \
-sim/app/geo/dcampusworld/*.java \
 sim/app/hexabugs/*.java \
 sim/app/asteroids/*.java \
 sim/app/antsforage/*.java \

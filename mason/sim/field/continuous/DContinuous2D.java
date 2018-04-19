@@ -1,9 +1,6 @@
 package sim.field.continuous;
 
 import java.util.*;
-
-import com.vividsolutions.jts.geom.Envelope;
-
 import sim.field.*;
 import sim.util.*;
 import sim.engine.*;
@@ -17,9 +14,6 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 	DObjectMigrator m;
 	Schedule sched;
 	
-	/** The minimum bounding rectangle (MBR) of all the stored geometries. */
-    public Envelope MBR;
-
 	public List<Object> ghosts;
 	List<Object> futureGhosts;
 

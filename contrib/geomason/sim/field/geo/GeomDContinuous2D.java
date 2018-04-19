@@ -1,8 +1,9 @@
-package sim.field.continuous;
+package sim.field.geo;
 
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Point;
 
+import sim.field.continuous.DContinuous2D;
 import sim.field.geo.GeomField;
 import sim.field.grid.Grid2D;
 import sim.util.Double2D;
