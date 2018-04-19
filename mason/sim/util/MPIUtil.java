@@ -94,7 +94,28 @@ public class MPIUtil {
 
 		p.getCommunicator().bcast(buf, count[0], MPI.BYTE, root);
 
-		return (T)deserialize(buf, 0, count[0]);
+		return MPIUtil.<T>deserialize(buf, 0, count[0]);
+	}
+
+	// Reverse of gather
+	public static <T extends Serializable> T scatter(DPartition p, T[] sendObjs, int root) throws MPIException {
+		int pid = p.getPid(), np = p.getNumProc(), dstCount;
+		int[] srcDispl = null, srcCount = new int[np];
+		byte[] srcBuf = null, dstBuf;
+
+		if (pid == root) {
+			srcBuf = serialize(sendObjs, srcCount);
+			srcDispl = getDispl(srcCount);
+		}
+
+		p.getCommunicator().scatter(srcCount, 1, MPI.INT, root);
+		
+		dstCount = srcCount[0];
+		dstBuf = new byte[dstCount];
+
+		p.getCommunicator().scatterv(srcBuf, srcCount, srcDispl, MPI.BYTE, dstBuf, dstCount, MPI.BYTE, root);
+
+		return MPIUtil.<T>deserialize(dstBuf, 0, dstCount);
 	}
 
 	// Each LP sends the sendObj to dst
@@ -121,7 +142,7 @@ public class MPIUtil {
 				if (i == pid)
 					recvObjs.add(sendObj);
 				else
-					recvObjs.add(deserialize(dstBuf, dstDispl[i], dstCount[i]));
+					recvObjs.add(MPIUtil.<T>deserialize(dstBuf, dstDispl[i], dstCount[i]));
 
 		return recvObjs;
 	}
@@ -149,7 +170,7 @@ public class MPIUtil {
 			if (i == pid)
 				recvObjs.add(sendObj);
 			else
-				recvObjs.add(deserialize(dstBuf, dstDispl[i], dstCount[i]));
+				recvObjs.add(MPIUtil.<T>deserialize(dstBuf, dstDispl[i], dstCount[i]));
 
 		return recvObjs;
 	}
@@ -174,12 +195,12 @@ public class MPIUtil {
 		p.getCommunicator().neighborAllToAllv(srcBuf, srcCount, srcDispl, MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE);
 
 		for (int i = 0; i < nc; i++)
-			recvObjs.add(deserialize(dstBuf, dstDispl[i], dstCount[i]));
+			recvObjs.add(MPIUtil.<T>deserialize(dstBuf, dstDispl[i], dstCount[i]));
 
 		return recvObjs;
 	}
 
-	// neighborAllGather for primitive type data
+	// neighborAllGather for primitive type data (fixed length)
 	public static Object neighborAllGather(DPartition p, Object val, Datatype type) throws MPIException {
 		int nc = p.getNumNeighbors();
 		Object sendBuf, recvBuf;
@@ -228,6 +249,14 @@ public class MPIUtil {
 			for (Integer[] r : res)
 				for (Integer i : r)
 					System.out.println(i);
+		}, 100);
+
+		Integer[] scattered = MPIUtil.<Integer[]>scatter(p, res.toArray(new Integer[0][]), dst);
+
+		MPITest.execInOrder(x -> {
+			System.out.println("scattered from src " + dst + " PID " + x);
+			for (Integer i : scattered)
+				System.out.println(i);
 		}, 100);
 
 		ArrayList<Integer[]> res2 = MPIUtil.<Integer[]>allGather(p, t);
