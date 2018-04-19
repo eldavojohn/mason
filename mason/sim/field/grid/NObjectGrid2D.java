@@ -101,6 +101,15 @@ public class NObjectGrid2D<T extends Serializable> extends HaloField {
 
 		MPITest.execOnlyIn(0, i -> System.out.println("Full Field...\n" + full));
 
+		TestObj[] array = (TestObj[])full.getStorage();
+		array[5] = new TestObj(99);
+		MPITest.execOnlyIn(0, i -> System.out.println("Modified Full Field...\n" + full));
+		
+		f.distribute(0, full);
+
+		MPITest.execOnlyIn(0, i -> System.out.println("After distributing modified Full Field..."));
+		MPITest.execInOrder(i -> System.out.println(f), 500);
+
 		MPI.Finalize();
 	}
 }

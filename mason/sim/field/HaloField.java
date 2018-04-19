@@ -234,6 +234,20 @@ public abstract class HaloField implements RemoteField {
 				fullField.unpack(new MPIParam(ps.getPartition(i), world, MPIBaseType), recvObjs.get(i));
 	}
 
+	public void distribute(int src, GridStorage fullField) throws MPIException {
+		Serializable[] sendObjs = new Serializable[ps.getNumProc()];
+
+		if (ps.getPid() == src)
+			for (int i = 0; i < ps.getNumProc(); i++)
+				sendObjs[i] = fullField.pack(new MPIParam(ps.getPartition(i), world, MPIBaseType));
+
+		Serializable recvObj = MPIUtil.<Serializable>scatter(ps, sendObjs, src);
+		field.unpack(new MPIParam(origPart, haloPart, MPIBaseType), recvObj);
+
+		// Sync the halo
+		sync();
+	}
+
 	public String toString() {
 		return String.format("PID %d Storage %s", ps.getPid(), field);
 	}
