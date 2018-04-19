@@ -19,6 +19,7 @@ import mpi.MPI;
 import mpi.MPIException;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URL;
 import java.util.Iterator;
 import java.util.logging.Level;
@@ -49,7 +50,7 @@ public class DCampusWorld extends SimState
     public static final int HEIGHT = 300; 
     
     /** How many agents in the simulation */ 
-	public int numAgents = 100;
+	public int numAgents = 1;
 
     /** Fields to hold the associated GIS information */ 
     public GeomVectorField walkways = new GeomVectorField(WIDTH, HEIGHT);
@@ -126,11 +127,10 @@ public class DCampusWorld extends SimState
 
             addIntersectionNodes(network.nodeIterator(), junctions);
 
-        } catch (FileNotFoundException ex)
+        } catch (Exception ex)
         {
             Logger.getLogger(DCampusWorld.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
+        } 
     }
 
 
@@ -140,10 +140,11 @@ public class DCampusWorld extends SimState
     /**
      * Add agents to the simulation and to the agent GeomVectorField. Note that
      * each agent does not have any attributes.
+     * @throws MPIException 
      */
-    void addAgents()
+    void addAgents() throws MPIException
     {
-        for (int i = 0; i < numAgents; i++)
+        for (int i = 0; i < numAgents / partition.np; i++)
         {
             DAgent a = new DAgent(this);
             agents.addGeometry(a.getGeometry());
@@ -170,7 +171,13 @@ public class DCampusWorld extends SimState
         schedule.scheduleRepeating(Schedule.EPOCH, 0, new Synchronizer(), 1);
 
         agents.clear(); // clear any existing agents from previous runs
-        addAgents();
+        try
+		{
+			addAgents();
+		} catch (MPIException e)
+		{
+			e.printStackTrace();
+		}
         agents.setMBR(buildings.getMBR());
 
         // Ensure that the spatial index is made aware of the new agent

@@ -8,5 +8,4 @@ public interface SelfStreamedAgent extends Cloneable
 {	
 	public void writeStream(AgentOutputStream out);
 	public void readStream(ObjectInputStream in);
-	public Object clone();
 }
