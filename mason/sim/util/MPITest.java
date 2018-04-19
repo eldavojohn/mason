@@ -7,7 +7,7 @@ import mpi.*;
 
 public class MPITest {
 
-	static final Comm comm = MPI.COMM_WORLD;
+	private static final Comm comm = MPI.COMM_WORLD;
 
 	private MPITest() {}
 
@@ -32,5 +32,13 @@ public class MPITest {
 			e.printStackTrace();
 			System.exit(-1);
 		}
+	}
+
+	public static void printInOrder(String s) {
+		execInOrder(i -> System.out.printf("[%d] %s\n", i, s), 0);
+	}
+
+	public static void printOnlyIn(int pid, String s) {
+		execOnlyIn(pid, i -> System.out.printf("[%d] %s\n", i, s));
 	}
 }
