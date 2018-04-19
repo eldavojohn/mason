@@ -81,7 +81,6 @@ public class NIntGrid2D extends HaloField {
 		int y = f.sty(2 + 5 * ((pid + 1) % 2));
 		MPITest.execInOrder(i -> System.out.println(String.format("PID %d accessing <%d, %d> result %d", i, x, y, f.get(x, y))), 200);
 
-		// TODO stuck here
 		MPI.Finalize();
 	}
 }

@@ -33,6 +33,8 @@ public abstract class HaloField implements RemoteField {
 	protected Comm comm;
 	protected Datatype MPIBaseType;
 
+	protected String myRemoteName;
+	protected Registry origRegistry, registry;
 	protected RemoteField[] remoteFields;
 	protected final int RMI_REGISTRY_PORT = 1099;
 
@@ -95,7 +97,7 @@ public abstract class HaloField implements RemoteField {
 
 	protected void initRemote(int registryHostId) {
 		// Generate a random name
-		String myName = UUID.randomUUID().toString();
+		myRemoteName = UUID.randomUUID().toString();
 
 		try {
 			String hostAddr = null;
@@ -104,22 +106,38 @@ public abstract class HaloField implements RemoteField {
 			if (ps.getPid() == registryHostId) {
 				hostAddr = InetAddress.getLocalHost().getHostAddress();
 				System.out.printf("Starting rmiregistry in %s on port %d\n", hostAddr, RMI_REGISTRY_PORT);
-				LocateRegistry.createRegistry(RMI_REGISTRY_PORT);
+				origRegistry = LocateRegistry.createRegistry(RMI_REGISTRY_PORT);
 			}
 
 			// Broadcast that LP's ip address to other LPs so they can connect to the registry
 			hostAddr = MPIUtil.<String>bcast(ps, hostAddr, registryHostId);
-			Registry registry = LocateRegistry.getRegistry(hostAddr, RMI_REGISTRY_PORT);
+			registry = LocateRegistry.getRegistry(hostAddr, RMI_REGISTRY_PORT);
 
 			// Create a RMI server and register it in the registry
 			RemoteField rf = (RemoteField) UnicastRemoteObject.exportObject(this, 0);
-			registry.bind(myName, rf);
+			registry.bind(myRemoteName, rf);
 
 			// Exchange the names with all other LPs so that each LP can create RemoteField clients for all other LPs
-			ArrayList<String> names = MPIUtil.<String>allGather(ps, myName);
+			ArrayList<String> names = MPIUtil.<String>allGather(ps, myRemoteName);
 			remoteFields = new RemoteField[ps.np];
 			for (int i = 0; i < ps.np; i++)
 				remoteFields[i] = (RemoteField)registry.lookup(names.get(i));
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+	}
+
+	// Need to call teardown to de-register the RMI registry stuff
+	// so that the code won't stuch in the end
+	// TODO move the RMI stuff to a separate class
+	// TODO hook this to MPI finalize so that this will be called before exit
+	public void teardownRemote(int registryHostId) {
+		try {
+			registry.unbind(myRemoteName);
+			UnicastRemoteObject.unexportObject(this, true);
+			if (origRegistry != null)
+				UnicastRemoteObject.unexportObject(origRegistry, true);
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.exit(-1);
