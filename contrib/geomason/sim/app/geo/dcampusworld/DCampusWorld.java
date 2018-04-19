@@ -18,8 +18,6 @@ import com.vividsolutions.jts.planargraph.Node;
 import mpi.MPI;
 import mpi.MPIException;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.net.URL;
 import java.util.Iterator;
 import java.util.logging.Level;
@@ -29,7 +27,7 @@ import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.field.DUniformPartition;
 import sim.field.continuous.DContinuous2D;
-import sim.field.continuous.GeomDContinuous2D;
+import sim.field.geo.GeomDContinuous2D;
 import sim.field.geo.GeomVectorField;
 import sim.io.geo.ShapeFileExporter;
 import sim.io.geo.ShapeFileImporter;

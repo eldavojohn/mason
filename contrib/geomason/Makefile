@@ -16,8 +16,8 @@
 JAVAC = javac 
 
 # GeoMason supports Java 5; note that MASON proper only supports Java 4.
-JAVACFLAGS = -target 1.5 -source 1.5 ${FLAGS}
-FLAGS = -g -nowarn
+JAVACFLAGS = -target 1.8 -source 1.8 ${FLAGS}
+FLAGS = -g -nowarn -cp ".:../../mason/:lib/jts-1.13.jar"
 
 VERSION = 1.5
 
@@ -26,21 +26,50 @@ JARFILE = geomason.${VERSION}.jar
 SRC_DISTRO  = geomason.src.${VERSION}.tgz
 DEMO_DISTRO = geomason.demos.${VERSION}.tgz
 
-all: jar demos
+
+ALL_FILES = \
+sim/field/geo/*.java \
+sim/io/geo/ArcInfoASCGridImporter.java \
+sim/io/geo/ShapeFileImporter.java	\
+sim/io/geo/ArcInfoASCGridExporter.java \
+sim/io/geo/ShapeFileExporter.java	\
+sim/portrayal/geo/*.java \
+sim/util/geo/*.java \
+sim/io/geo/ShapeFileExporter.java	\
+sim/app/geo/campusworld/*.java \
+sim/app/geo/dcampusworld/*.java \
+sim/app/geo/colorworld/*.java \
+sim/app/geo/nearbyworld/*.java \
+sim/app/geo/networkworld/*.java	\
+sim/app/geo/touchingworld/*.java \
+sim/app/geo/sleuth/*.java \
+sim/app/geo/schellingspace/*.java \
+sim/app/geo/schellingpolygon/*.java	\
+sim/app/geo/gridlock/*.java	\
+sim/app/geo/waterworld/*.java \
+sim/app/geo/sillypeds/*.java \
+sim/app/geo/sickStudents/*.java	\
+sim/app/geo/turkana/*.java
+
+all:
+	@ echo This makes GeoMason code along with demos
+	@ echo
+	${JAVAC} ${JAVACFLAGS} ${ALL_FILES}
 
 
-DEMOS = sim/app/geo/campusworld/*.java		\
-sim/app/geo/colorworld/*.java			\
-sim/app/geo/nearbyworld/*.java			\
-sim/app/geo/networkworld/*.java			\
-sim/app/geo/touchingworld/*.java		\
-sim/app/geo/sleuth/*.java			\
-sim/app/geo/schellingspace/*.java		\
-sim/app/geo/schellingpolygon/*.java		\
-sim/app/geo/gridlock/*.java			\
-sim/app/geo/waterworld/*.java			\
-sim/app/geo/sillypeds/*.java			\
-sim/app/geo/sickStudents/*.java			\
+DEMOS = \
+sim/app/geo/campusworld/*.java \
+sim/app/geo/colorworld/*.java \
+sim/app/geo/nearbyworld/*.java \
+sim/app/geo/networkworld/*.java	\
+sim/app/geo/touchingworld/*.java \
+sim/app/geo/sleuth/*.java \
+sim/app/geo/schellingspace/*.java \
+sim/app/geo/schellingpolygon/*.java	\
+sim/app/geo/gridlock/*.java	\
+sim/app/geo/waterworld/*.java \
+sim/app/geo/sillypeds/*.java \
+sim/app/geo/sickStudents/*.java	\
 sim/app/geo/turkana/*.java
 
 # Note that we do not restrict demos to Java 1.4 as is this case with MASON
