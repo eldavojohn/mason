@@ -9,6 +9,9 @@
  */
 package sim.app.geo.dcampusworld;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;
@@ -16,8 +19,12 @@ import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.linearref.LengthIndexedLine;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Node;
+
+import mpi.MPIException;
 import sim.engine.SimState;
 import sim.engine.Steppable;
+import sim.field.DObjectMigrator.AgentOutputStream;
+import sim.field.SelfStreamedAgent;
 import sim.util.Double2D;
 import sim.util.geo.GeomPlanarGraphDirectedEdge;
 import sim.util.geo.GeomPlanarGraphEdge;
@@ -32,7 +39,7 @@ import sim.util.geo.PointMoveTo;
  * it continues in a random direction.
  *
  */
-public class DAgent implements Steppable
+public class DAgent implements Steppable, SelfStreamedAgent
 {
 
     private static final long serialVersionUID = -1113018274619047013L;
@@ -52,8 +59,13 @@ public class DAgent implements Steppable
     PointMoveTo pointMoveTo = new PointMoveTo();
 
     static private GeometryFactory fact = new GeometryFactory();
+    
+    public DAgent()
+    {
+    	
+    }
 
-    public DAgent(DCampusWorld state)
+    public DAgent(DCampusWorld state) throws MPIException
     {
         location = new MasonGeometry(fact.createPoint(new Coordinate(10, 10))); // magic numbers
 
@@ -62,10 +74,24 @@ public class DAgent implements Steppable
                 // Find the first line segment and set our position over the start coordinate.
         int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
         MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
-        setNewRoute((LineString) mg.getGeometry(), true);
-        double x = state.communicator.toXCoord(position.x);
-        double y = state.communicator.toYCoord(position.y);
-        System.out.println("position is " + x + "," + y);
+        while(true)
+        {
+        	setNewRoute((LineString) mg.getGeometry(), true);
+        	double x = state.communicator.toXCoord(position.x);
+        	double y = state.communicator.toYCoord(position.y);
+//        	System.out.println("position is " + x + "," + y);
+        	if (state.partition.toPartitionId(new double[]{x, y}) == state.partition.pid)
+        	{
+        		position = new Double2D(x, y);
+        		break;
+        	}
+        }
+        
+//        setNewRoute((LineString) mg.getGeometry(), true);
+//    	double x = state.communicator.toXCoord(position.x);
+//    	double y = state.communicator.toYCoord(position.y);
+//    	System.out.println("position is " + x + "," + y);
+//    	position = new Double2D(x, y);
 
         // Now set up attributes for this agent
         if (state.random.nextBoolean())
@@ -219,7 +245,7 @@ public class DAgent implements Steppable
         move(campState);
         double x = campState.communicator.toXCoord(position.x);
         double y = campState.communicator.toYCoord(position.y);
-        System.out.println("position is " + x + "," + y);
+//        System.out.println("in steppable, position is " + x + "," + y);
         campState.communicator.setObjectLocation(this, new Double2D(x, y));
     }
 
@@ -271,5 +297,51 @@ public class DAgent implements Steppable
 
         moveTo(currentPos);
     }
+
+
+
+	@Override
+	public void writeStream(AgentOutputStream out)
+	{
+		try
+		{
+			out.os.writeObject(location);
+			out.os.writeObject(position);
+			out.os.writeDouble(basemoveRate);
+			out.os.writeDouble(moveRate);
+			out.os.writeObject(segment);
+			out.os.writeDouble(startIndex);
+			out.os.writeDouble(endIndex);
+			out.os.writeDouble(currentIndex);
+			out.os.writeObject(pointMoveTo);
+		} catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(-1);
+		}
+		
+	}
+
+	@Override
+	public void readStream(ObjectInputStream in)
+	{
+		try
+		{
+			location = (MasonGeometry)in.readObject();
+			position = (Double2D)in.readObject();
+			basemoveRate = in.readDouble();
+			moveRate = in.readDouble();
+			segment = (LengthIndexedLine)in.readObject();
+			startIndex = in.readDouble();
+			endIndex = in.readDouble();
+			currentIndex = in.readDouble();
+			pointMoveTo = (PointMoveTo)in.readObject();
+		}
+		catch (IOException|ClassNotFoundException e)
+		{
+			e.printStackTrace();
+			System.exit(-1);
+		} 
+	}
 
 }
