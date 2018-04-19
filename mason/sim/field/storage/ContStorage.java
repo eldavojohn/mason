@@ -35,37 +35,41 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		StringBuffer buf = new StringBuffer(String.format("ContStorage-%s\n", shape));
 
 		for (IntPoint dp : IntPointGenerator.getBlock(dsize))
-			buf.append("Cell " + dp + ":\t" + getCelldp(dp) + "\n");
+			if (getCelldp(dp).size() > 0)
+				buf.append("Cell " + dp + ":\t" + getCelldp(dp) + "\n");
 
 		return buf.toString();
 	}
 
 	public Serializable pack(MPIParam mp) {
-		ArrayList objs = new ArrayList();
+		ArrayList<ArrayList<Serializable>> ret = new ArrayList<ArrayList<Serializable>>();
 
-		for (IntHyperRect rect : mp.rects)
-			// shift the rect with local coordinates back to global coordinates
+		for (IntHyperRect rect : mp.rects) {
+			ArrayList<Serializable> objs = new ArrayList<Serializable>();
 			for (T obj : getObjects(rect.shift(shape.ul.c))) {
-				// put the object itself and its location
 				objs.add(obj);
-				objs.add(m.get(obj));
+				// Append the object's location relative to the rectangle
+				objs.add(m.get(obj).rshift(shape.ul.c).rshift(rect.ul.c));
 			}
+			ret.add(objs);
+		}
 
-		return objs.toArray();
+		return ret;
 	}
 
 	public int unpack(MPIParam mp, Serializable buf) {
-		Object[] objs = (Object[])buf;
+		ArrayList<ArrayList<Serializable>> objs = (ArrayList<ArrayList<Serializable>>)buf;
 
 		// Remove any objects that are in the unpack area (overwrite the area)
 		// shift the rect with local coordinates back to global coordinates
 		for (IntHyperRect rect : mp.rects)
 			removeObjects(rect.shift(shape.ul.c));
 
-		for (int i = 0; i < objs.length; i += 2)
-			putObject((T)objs[i], (NdPoint)objs[i + 1]);
+		for (int k = 0; k < mp.rects.size(); k++)
+			for (int i = 0; i < objs.get(k).size(); i += 2)
+				setLocation((T)objs.get(k).get(i), ((NdPoint)objs.get(k).get(i + 1)).shift(mp.rects.get(k).ul.c).shift(shape.ul.c));
 
-		return objs.length / 2;
+		return objs.stream().mapToInt(x -> x.size()).sum();
 	}
 
 	protected IntPoint discretize(final NdPoint p) {
@@ -73,6 +77,10 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		return new IntPoint(IntStream.range(0, offsets.length)
 		                    .map(i -> -(int)offsets[i] / discretizations[i])
 		                    .toArray());
+	}
+
+	public void clear() {
+		this.storage = allocate(shape.getArea());
 	}
 
 	// Get the corresponding cell given a continuous point
@@ -86,8 +94,9 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	}
 
 	// Put the object to the given point
-	public void putObject(final T obj, final NdPoint p) {
-		m.put(obj, p);
+	public void setLocation(final T obj, final NdPoint p) {
+		if (m.put(obj, p) != null)
+			getCell(p).remove(obj);
 		getCell(p).add(obj);
 	}
 
@@ -139,7 +148,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		candidates.remove(obj); // remove self
 
 		int currLayer = 1;
-		
+
 		while (objs.size() < need && currLayer <= maxLayer) {
 			for (IntPoint dp : IntPointGenerator.getLayer(dloc, currLayer))
 				if (IntStream.range(0, shape.nd).allMatch(i -> dp.c[i] >= 0 && dp.c[i] < dsize[i]))
@@ -192,11 +201,11 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		TestObj obj4 = new TestObj(4); DoublePoint loc4 = new DoublePoint(31, 45.6);
 		TestObj obj5 = new TestObj(5); DoublePoint loc5 = new DoublePoint(31, 45.60001);
 
-		f.putObject(obj1, loc1);
-		f.putObject(obj2, loc2);
-		f.putObject(obj3, loc3);
-		f.putObject(obj4, loc4);
-		f.putObject(obj5, loc5);
+		f.setLocation(obj1, loc1);
+		f.setLocation(obj2, loc2);
+		f.setLocation(obj3, loc3);
+		f.setLocation(obj4, loc4);
+		f.setLocation(obj5, loc5);
 
 		System.out.println("get objects at " + loc1);
 		for (TestObj obj : f.getObjects(loc1))
@@ -206,6 +215,14 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		for (TestObj obj : f.getObjects(loc4))
 			System.out.println(obj);
 
+		System.out.println("get objects at " + loc5);
+		for (TestObj obj : f.getObjects(loc5))
+			System.out.println(obj);
+
+		System.out.println("Move " + obj4 + " from " + loc4 + " to " + loc5 + ", get objects at " + loc4);
+		f.setLocation(obj4, loc5);
+		for (TestObj obj : f.getObjects(loc4))
+			System.out.println(obj);
 		System.out.println("get objects at " + loc5);
 		for (TestObj obj : f.getObjects(loc5))
 			System.out.println(obj);
@@ -242,9 +259,9 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		for (TestObj obj : f.getObjects(rect))
 			System.out.println(obj);
 
-		f.putObject(obj1, loc1);
-		f.putObject(obj3, loc3);
-		f.putObject(obj4, loc4);
+		f.setLocation(obj1, loc1);
+		f.setLocation(obj3, loc3);
+		f.setLocation(obj4, loc4);
 		System.out.println("after putting " + obj1 + " " + obj3 + " " + obj4 + " " + "back, get objects in " + rect);
 		System.out.println(f);
 
