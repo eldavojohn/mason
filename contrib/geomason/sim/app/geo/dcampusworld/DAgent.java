@@ -80,24 +80,24 @@ public class DAgent implements Steppable, SelfStreamedAgent
                 // Find the first line segment and set our position over the start coordinate.
         int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
         MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
-        while(true)
-        {
-        	setNewRoute((LineString) mg.getGeometry(), true);
-        	double x = state.communicator.toXCoord(position.x);
-        	double y = state.communicator.toYCoord(position.y);
-//        	System.out.println("position is " + x + "," + y);
-        	if (state.partition.toPartitionId(new double[]{x, y}) == state.partition.pid)
-        	{
-        		position = new Double2D(x, y);
-        		break;
-        	}
-        }
+//        while(true)
+//        {
+//        	setNewRoute((LineString) mg.getGeometry(), true);
+//        	double x = state.communicator.toXCoord(position.x);
+//        	double y = state.communicator.toYCoord(position.y);
+////        	System.out.println("position is " + x + "," + y);
+//        	if (state.partition.toPartitionId(new double[]{x, y}) == state.partition.pid)
+//        	{
+//        		position = new Double2D(x, y);
+//        		break;
+//        	}
+//        }
         
-//        setNewRoute((LineString) mg.getGeometry(), true);
-//    	double x = state.communicator.toXCoord(position.x);
-//    	double y = state.communicator.toYCoord(position.y);
+        setNewRoute((LineString) mg.getGeometry(), true);
+    	double x = state.communicator.toXCoord(position.x);
+    	double y = state.communicator.toYCoord(position.y);
 //    	System.out.println("position is " + x + "," + y);
-//    	position = new Double2D(x, y);
+    	position = new Double2D(x, y);
 
         // Now set up attributes for this agent
         if (state.random.nextBoolean())
