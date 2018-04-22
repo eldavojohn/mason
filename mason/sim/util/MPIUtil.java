@@ -97,6 +97,25 @@ public class MPIUtil {
 		return MPIUtil.<T>deserialize(buf, 0, count[0]);
 	}
 
+	// TODO new api?
+	public static <T extends Serializable> T bcast(T obj, int root) throws MPIException {
+		byte[] buf = null;
+
+		if (MPI.COMM_WORLD.getRank() == root)
+			buf = serialize(obj);
+
+		int[] count = new int[] {buf == null ? 0 : buf.length};
+
+		MPI.COMM_WORLD.bcast(count, 1, MPI.INT, root);
+
+		if (MPI.COMM_WORLD.getRank() != root)
+			buf = new byte[count[0]];
+
+		MPI.COMM_WORLD.bcast(buf, count[0], MPI.BYTE, root);
+
+		return MPIUtil.<T>deserialize(buf, 0, count[0]);
+	}
+
 	// Reverse of gather
 	public static <T extends Serializable> T scatter(DPartition p, T[] sendObjs, int root) throws MPIException {
 		int pid = p.getPid(), np = p.getNumProc(), dstCount;

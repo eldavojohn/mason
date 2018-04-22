@@ -75,12 +75,16 @@ public class NIntGrid2D extends HaloField {
 		MPITest.execInOrder(i -> System.out.println(f), 500);
 
 		MPITest.execOnlyIn(0, i -> System.out.println("Testing RMI remote calls"));
+		sim.field.RemoteProxy.Init(0);
+		f.initRemote();
+
 		// Choose the points that are out of halo area
 		int pid = p.getPid();
 		int x = f.stx(2 + 5 * ((pid + 1) / 2));
 		int y = f.sty(2 + 5 * ((pid + 1) % 2));
 		MPITest.execInOrder(i -> System.out.println(String.format("PID %d accessing <%d, %d> result %d", i, x, y, f.get(x, y))), 200);
 
+		sim.field.RemoteProxy.Finalize();
 		MPI.Finalize();
 	}
 }

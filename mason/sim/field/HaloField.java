@@ -1,11 +1,7 @@
 package sim.field;
 
 import java.io.*;
-import java.net.InetAddress;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
 import java.rmi.RemoteException;
-import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -33,17 +29,12 @@ public abstract class HaloField implements RemoteField {
 	protected Comm comm;
 	protected Datatype MPIBaseType;
 
-	protected String myRemoteName;
-	protected Registry origRegistry, registry;
-	protected RemoteField[] remoteFields;
-	protected final int RMI_REGISTRY_PORT = 1099;
+	protected RemoteProxy proxy;
 
 	public HaloField(DPartition ps, int[] aoi, GridStorage stor) {
 		this.ps = ps;
 		this.aoi = aoi;
 		this.field = stor;
-
-		initRemote(0);
 
 		ps.registerPreCommit(new Runnable() {
 			public void run() {
@@ -95,53 +86,8 @@ public abstract class HaloField implements RemoteField {
 		numNeighbors = neighbors.length;
 	}
 
-	protected void initRemote(int registryHostId) {
-		// Generate a random name
-		myRemoteName = UUID.randomUUID().toString();
-
-		try {
-			String hostAddr = null;
-
-			// one LP creates a rmiregistry
-			if (ps.getPid() == registryHostId) {
-				hostAddr = InetAddress.getLocalHost().getHostAddress();
-				System.out.printf("Starting rmiregistry in %s on port %d\n", hostAddr, RMI_REGISTRY_PORT);
-				origRegistry = LocateRegistry.createRegistry(RMI_REGISTRY_PORT);
-			}
-
-			// Broadcast that LP's ip address to other LPs so they can connect to the registry
-			hostAddr = MPIUtil.<String>bcast(ps, hostAddr, registryHostId);
-			registry = LocateRegistry.getRegistry(hostAddr, RMI_REGISTRY_PORT);
-
-			// Create a RMI server and register it in the registry
-			RemoteField rf = (RemoteField) UnicastRemoteObject.exportObject(this, 0);
-			registry.bind(myRemoteName, rf);
-
-			// Exchange the names with all other LPs so that each LP can create RemoteField clients for all other LPs
-			ArrayList<String> names = MPIUtil.<String>allGather(ps, myRemoteName);
-			remoteFields = new RemoteField[ps.np];
-			for (int i = 0; i < ps.np; i++)
-				remoteFields[i] = (RemoteField)registry.lookup(names.get(i));
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.exit(-1);
-		}
-	}
-
-	// Need to call teardown to de-register the RMI registry stuff
-	// so that the code won't stuch in the end
-	// TODO move the RMI stuff to a separate class
-	// TODO hook this to MPI finalize so that this will be called before exit
-	public void teardownRemote(int registryHostId) {
-		try {
-			registry.unbind(myRemoteName);
-			UnicastRemoteObject.unexportObject(this, true);
-			if (origRegistry != null)
-				UnicastRemoteObject.unexportObject(origRegistry, true);
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.exit(-1);
-		}
+	public void initRemote() {
+		proxy = new RemoteProxy(ps, this);
 	}
 
 	// TODO make a copy of the storage which will be used by the remote field access
@@ -150,10 +96,12 @@ public abstract class HaloField implements RemoteField {
 		int pid = ps.toPartitionId(p);
 
 		try {
-			ret = remoteFields[pid].getRMI(p);
+			ret = proxy.getField(pid).getRMI(p);
 		} catch (RemoteException e) {
 			e.printStackTrace();
 			System.exit(-1);
+		} catch (NullPointerException e) {
+			throw new IllegalArgumentException("Remote Proxy is not initialized");
 		}
 
 		return ret;
