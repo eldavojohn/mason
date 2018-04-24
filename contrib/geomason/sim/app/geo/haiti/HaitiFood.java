@@ -1,4 +1,4 @@
-package haiti;
+package sim.app.geo.haiti;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -91,7 +92,7 @@ public class HaitiFood extends SimState {
 		super(seed);
 		
 		roadsFile = "haitiData/roads1.txt";
-		roadVectorFile ="haitiRoads/Haiti_all_roads_Clip.shp";
+		roadVectorFile ="haitiData/Haiti_all_roads_Clip.shp";
 		destructionFile ="haitiData/destruction.txt";
 		if(reliefFile == null)
 			reliefFile ="haitiData/relief1.txt";
@@ -115,7 +116,7 @@ public class HaitiFood extends SimState {
 		this.interval = interval;
 
 		roadsFile = "haitiData/roads1.txt";
-		roadVectorFile = "haitiRoads/Haiti_all_roads_Clip.shp";
+		roadVectorFile = "haitiData/Haiti_all_roads_Clip.shp";
 		destructionFile = "haitiData/destruction.txt"; 
 		popFile = "haitiData/pop.txt";
 		if (reliefFile == null)
@@ -180,6 +181,12 @@ public class HaitiFood extends SimState {
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}catch(MalformedURLException e){
+			e.printStackTrace();
+		} catch (IOException e)
+		{
+			e.printStackTrace();
+		} catch (Exception e)
+		{
 			e.printStackTrace();
 		}
 

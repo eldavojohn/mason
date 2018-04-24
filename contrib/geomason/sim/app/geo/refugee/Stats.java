@@ -1,4 +1,4 @@
-package refugee;
+package sim.app.geo.refugee;
 import java.io.*;
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import net.sf.csv4j.CSVReader;
-import refugee.refugeeData.RefugeeData;
+import refugeeData.RefugeeData;
 
 public class Stats {
 

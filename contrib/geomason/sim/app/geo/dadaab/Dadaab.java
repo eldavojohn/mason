@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package dadaab;
+package sim.app.geo.dadaab;
 
 /**
  *
@@ -550,21 +550,7 @@ public class Dadaab extends SimState {
     public static void main(String[] args){
 
       // doLoop(Landscape.class, args);
-      doLoop(new MakesSimState()
-        {
-            @Override
-            public SimState newInstance(long seed, String[] args)
-            {
-
-                return new Dadaab(seed, args);
-            }
-
-            @Override
-            public Class simulationClass()
-            {
-                return Dadaab.class;
-            }
-        }, args);
+      doLoop(Dadaab.class, args);
       
         System.exit(0);
   }

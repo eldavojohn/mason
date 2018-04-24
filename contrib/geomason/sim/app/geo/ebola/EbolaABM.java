@@ -1,7 +1,7 @@
-package ebola;
+package sim.app.geo.ebola;
 
 
-import ebola.ebolaData.EbolaData;
+import ebolaData.EbolaData;
 import ec.util.MersenneTwisterFast;
 import net.sf.csv4j.CSVReader;
 import org.jfree.data.category.DefaultCategoryDataset;
