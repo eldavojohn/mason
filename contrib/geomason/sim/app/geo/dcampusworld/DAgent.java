@@ -99,6 +99,7 @@ public class DAgent implements Steppable, SelfStreamedAgent
 //    	System.out.println("position is " + x + "," + y);
     	position = new Double2D(x, y);
 
+
         // Now set up attributes for this agent
         if (state.random.nextBoolean())
         {

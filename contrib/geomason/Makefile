@@ -19,6 +19,7 @@ JAVAC = javac
 JAVACFLAGS = -target 1.8 -source 1.8 ${FLAGS}
 FLAGS = -g -nowarn -cp ".:../../mason/:lib/jts-1.13.jar:lib/HaitiData.jar"
 
+
 VERSION = 1.5
 
 JARFILE = geomason.${VERSION}.jar
@@ -59,6 +60,7 @@ sim/app/geo/haiti/*.java \
 # sim/app/geo/kibera/*.java \
 # sim/app/geo/refugee/*.java \
 # sim/app/geo/riftland/*.java \
+
 
 all:
 	@ echo This makes GeoMason code along with demos
