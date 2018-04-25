@@ -58,7 +58,7 @@ public abstract class DPartition {
 
 	public abstract int getNumNeighbors();
 	public abstract int[] getNeighborIds();
-	public abstract int[][] getNeighborIdsInOrder();
+	//public abstract int[][] getNeighborIdsInOrder();
 
 	public abstract int toPartitionId(IntPoint p);
 

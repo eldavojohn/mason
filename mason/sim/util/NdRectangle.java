@@ -25,6 +25,18 @@ public class NdRectangle implements Comparable<NdRectangle>, Iterable<IntPoint> 
 		this.br = br;
 	}
 
+	public NdRectangle(int id, NdPoint ul, NdPoint br) {
+		this(id, -1, ul, br);
+	}
+
+	public NdRectangle(int[] size) {
+		this(-1, -1, new IntPoint(new int[size.length]), new IntPoint(size));
+	}
+
+	public NdRectangle(double[] size) {
+		this(-1, -1, new DoublePoint(new double[size.length]), new DoublePoint(size));
+	}
+
 	public int getLPId() {
 		return proc;
 	}
@@ -323,6 +335,23 @@ public class NdRectangle implements Comparable<NdRectangle>, Iterable<IntPoint> 
 	public String toString() {
 		return String.format("%s<%d, %s, %s>", this.getClass().getSimpleName(), id, ul.toString(), br.toString());
 	}
+
+	// // TODO temporary solution - remove after all related structures has been converted to use NdRectangle
+	// public IntHyperRect toIntRect(int newId) {
+	// 	IntPoint nul, nbr;
+
+	// 	if (ul instanceof IntPoint)
+	// 		nul = ul;
+	// 	else
+	// 		nul = new IntPoint(Arrays.stream(((DoublePoint)ul).c).mapToInt(x -> (int)x).toArray());
+
+	// 	if (br instanceof IntPoint)
+	// 		nbr = br;
+	// 	else
+	// 		nbr = new IntPoint(Arrays.stream(((DoublePoint)br).c).mapToInt(x -> (int)x).toArray());
+
+	// 	return new IntHyperRect(newId, nul, nr);
+	// }
 
 	public static void main(String[] args) {
 		IntPoint p1 = new IntPoint(1, 1);

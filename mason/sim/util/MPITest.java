@@ -35,10 +35,10 @@ public class MPITest {
 	}
 
 	public static void printInOrder(String s) {
-		execInOrder(i -> System.out.printf("[%d] %s\n", i, s), 0);
+		execInOrder(i -> System.out.printf("[%2d] %s\n", i, s), 0);
 	}
 
 	public static void printOnlyIn(int pid, String s) {
-		execOnlyIn(pid, i -> System.out.printf("[%d] %s\n", i, s));
+		execOnlyIn(pid, i -> System.out.printf("[%2d] %s\n", i, s));
 	}
 }
