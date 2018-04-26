@@ -59,21 +59,24 @@ public abstract class HaloField implements RemoteField {
 			}
 		});
 
+		// init variables that don't change with the partition scheme
+		nd = ps.getNumDim();
+		world = ps.getField();
+		fieldSize = ps.getFieldSize();
+		MPIBaseType = field.getMPIBaseType();
+
+		// init variables that may change with the partition scheme
 		reload();
 	}
 
 	public void reload() {
-		nd = ps.getNumDim();
 		comm = ps.getCommunicator();
-		fieldSize = ps.getFieldSize();
-		world = ps.getField();
 		origPart = ps.getPartition();
 
 		// Get the partition representing halo and local area by expanding the original partition by aoi at each dimension
 		haloPart = origPart.resize(aoi);
 		haloSize = haloPart.getSize();
 
-		MPIBaseType = field.getMPIBaseType();
 		field.reshape(haloPart);
 
 		// Get the partition representing private area by shrinking the original partition by aoi at each dimension
