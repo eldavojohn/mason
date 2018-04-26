@@ -20,11 +20,11 @@ public class DNonUniformPartition extends DPartition {
 	boolean isDirty = false;
 	ArrayList<UpdateAction> updates;
 
-	private DNonUniformPartition(int size[]) {
+	protected DNonUniformPartition(int size[]) {
 		this(size, false);
 	}
 
-	private DNonUniformPartition(int size[], boolean isToroidal) {
+	protected DNonUniformPartition(int size[], boolean isToroidal) {
 		super(size, isToroidal);
 
 		this.st = new AugmentedSegmentTree[nd];
@@ -71,7 +71,7 @@ public class DNonUniformPartition extends DPartition {
 		return instance;
 	}
 
-	private void setMPITopo() {
+	protected void setMPITopo() {
 		// TODO Currently a LP holds one partition. need to add support for cases that a LP holds multiple partitions
 		if (ps.size() != np)
 			throw new IllegalArgumentException(String.format("The number of partitions (%d) must equal to the number of LPs (%d)", ps.size(), np));
@@ -257,7 +257,7 @@ public class DNonUniformPartition extends DPartition {
 		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
 	}
 
-	private void applyUpdates() {
+	protected void applyUpdates() {
 		for (UpdateAction u : updates)
 			switch (u.action) {
 			case INSERT:
