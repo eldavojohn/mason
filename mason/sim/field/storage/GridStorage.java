@@ -49,6 +49,9 @@ public abstract class GridStorage {
 	}
 
 	public void reshape(IntHyperRect newShape) {
+		if (newShape.equals(shape))
+			return;
+		
 		if (newShape.isIntersect(shape)) {
 			IntHyperRect overlap = newShape.getIntersection(shape);
 			MPIParam fromParam = new MPIParam(overlap, shape, baseType);
