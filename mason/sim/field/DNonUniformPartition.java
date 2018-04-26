@@ -202,8 +202,8 @@ public class DNonUniformPartition extends DPartition {
 
 		// TODO Better way?
 		// Expanded all dimensions by epsilon
-		double[] exp_ul = Arrays.stream(rect.ul.c).mapToDouble(x -> (double)x - epsilon).toArray();
-		double[] exp_br = Arrays.stream(rect.br.c).mapToDouble(x -> (double)x + epsilon).toArray();
+		double[] exp_ul = Arrays.stream(rect.ul().getArray()).mapToDouble(x -> (double)x - epsilon).toArray();
+		double[] exp_br = Arrays.stream(rect.br().getArray()).mapToDouble(x -> (double)x + epsilon).toArray();
 
 		// Remove self
 		return coveredPartitionIds(exp_ul, exp_br).stream()
@@ -235,7 +235,7 @@ public class DNonUniformPartition extends DPartition {
 			final int curr_dim = i / 2, dir = i % 2 - 1;
 			ret[i] = Arrays.stream(getNeighborIdsShift(curr_dim, dir))
 			         .mapToObj(x -> ps.get(x).reduceDim(curr_dim)).sorted()
-			         .mapToInt(x -> x.id).toArray();
+			         .mapToInt(x -> x.getId()).toArray();
 		}
 
 		return ret;
@@ -245,8 +245,10 @@ public class DNonUniformPartition extends DPartition {
 	public int[] getNeighborIdsShift(int dim, int dir) {
 		IntHyperRect rect = getPartition();
 
-		double[] exp_ul = Arrays.stream(rect.ul.c).mapToDouble(x -> (double)x).toArray();
-		double[] exp_br = Arrays.stream(rect.br.c).mapToDouble(x -> (double)x).toArray();
+		// double[] exp_ul = Arrays.stream(rect.ul().getArray()).mapToDouble(x -> (double)x).toArray();
+		// double[] exp_br = Arrays.stream(rect.br().getArray()).mapToDouble(x -> (double)x).toArray();
+		double[] exp_ul = rect.ul().getArrayInDouble();
+		double[] exp_br = rect.br().getArrayInDouble();
 
 		if (dir >= 0)
 			exp_br[dim] += epsilon;
@@ -587,7 +589,7 @@ class UpdateAction {
 	}
 
 	public static UpdateAction insert(IntHyperRect r) {
-		return new UpdateAction(r, r.id, Action.INSERT);
+		return new UpdateAction(r, r.getId(), Action.INSERT);
 	}
 
 	public static UpdateAction remove(int id) {
@@ -595,6 +597,6 @@ class UpdateAction {
 	}
 
 	public static UpdateAction update(IntHyperRect r) {
-		return new UpdateAction(r, r.id, Action.UPDATE);
+		return new UpdateAction(r, r.getId(), Action.UPDATE);
 	}
 }

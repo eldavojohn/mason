@@ -58,8 +58,8 @@ public class LoadBalancer {
 
 		for (int d = 0; d < p.nd; d++) {
 			final int fd = d;
-			IntStream s = IntStream.concat(self.br.c[d] == p.size[d] ? IntStream.empty() : Arrays.stream(p.getNeighborIdsShift(d, 0)),
-			                               self.ul.c[d] == 0 ? IntStream.empty() : Arrays.stream(p.getNeighborIdsShift(d, -1)));
+			IntStream s = IntStream.concat(self.br().getArray()[d] == p.size[d] ? IntStream.empty() : Arrays.stream(p.getNeighborIdsShift(d, 0)),
+			                               self.ul().getArray()[d] == 0 ? IntStream.empty() : Arrays.stream(p.getNeighborIdsShift(d, -1)));
 			ret[d] = s.filter(i -> p.getPartition(i).isAligned(self, fd)).toArray();
 		}
 
@@ -93,7 +93,7 @@ public class LoadBalancer {
 
 		for (int dim = 0; dim < p.nd; dim++) {
 			for (int dir : new int[] { -1, 1}) {
-				if (dir == 1 && myPart.br.c[dim] == p.size[dim] || dir == -1 && myPart.ul.c[dim] == 0)
+				if (dir == 1 && myPart.br().getArray()[dim] == p.size[dim] || dir == -1 && myPart.ul().getArray()[dim] == 0)
 					continue; // skip the field boundaries
 				int[] nids = p.getNeighborIdsShift(dim, dir);
 

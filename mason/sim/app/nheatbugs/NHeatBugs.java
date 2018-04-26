@@ -117,8 +117,8 @@ public class NHeatBugs extends SimState {
 			double heatOutput = random.nextDouble() * (maxOutputHeat - minOutputHeat) + minOutputHeat;
 			int px, py;
 			do {
-				px = random.nextInt(size[0]) + myPart.ul.c[0];
-				py = random.nextInt(size[1]) + myPart.ul.c[1];
+				px = random.nextInt(size[0]) + myPart.ul().getArray()[0];
+				py = random.nextInt(size[1]) + myPart.ul().getArray()[1];
 			} while (bugs.get(px, py) != null);
 			NHeatBug b = new NHeatBug(idealTemp, heatOutput, randomMovementProbability, px, py);
 			bugs.set(px, py, b);

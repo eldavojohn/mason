@@ -7,8 +7,8 @@ import java.util.stream.IntStream;
 
 // TODO Move to NdRectangle
 public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint> {
-	public int nd, id;
-	public IntPoint ul, br;
+	int nd, id;
+	IntPoint ul, br;
 
 	public IntHyperRect(int id, IntPoint ul, IntPoint br) {
 		this.id = id;
@@ -28,6 +28,26 @@ public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint
 
 	public IntHyperRect(int[] size) {
 		this(-1, new IntPoint(new int[size.length]), new IntPoint(size));
+	}
+
+	public int getNd() {
+		return nd;
+	}
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int newId) {
+		id = newId;
+	}
+
+	public IntPoint ul() {
+		return ul;
+	}
+
+	public IntPoint br() {
+		return br;
 	}
 
 	// Return the area of the hyper rectangle

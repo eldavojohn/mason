@@ -140,7 +140,7 @@ public abstract class HaloField implements RemoteField {
 	}
 
 	public IntPoint toLocalPoint(IntPoint p) {
-		return p.rshift(haloPart.ul.c);
+		return p.rshift(haloPart.ul().getArray());
 	}
 
 	public IntPoint toToroidal(IntPoint p) {
@@ -209,7 +209,7 @@ public abstract class HaloField implements RemoteField {
 		MPIParam sendParam, recvParam;
 
 		public Neighbor(IntHyperRect neighborPart) {
-			pid = neighborPart.id;
+			pid = neighborPart.getId();
 			ArrayList<IntHyperRect> sendOverlaps = generateOverlaps(origPart, neighborPart.resize(aoi));
 			ArrayList<IntHyperRect> recvOverlaps = generateOverlaps(haloPart, neighborPart);
 

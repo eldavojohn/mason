@@ -21,7 +21,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	}
 
 	protected Object allocate(int size) {
-		this.dsize = IntStream.range(0, shape.nd).map(i -> shape.getSize()[i] / discretizations[i]).toArray();
+		this.dsize = IntStream.range(0, shape.getNd()).map(i -> shape.getSize()[i] / discretizations[i]).toArray();
 		// Overwrite the original stride with the new stride of dsize;
 		// so that getFlatIdx() can correctly get the cell index of a discretized point
 		// TODO better approach?
@@ -46,10 +46,10 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 
 		for (IntHyperRect rect : mp.rects) {
 			ArrayList<Serializable> objs = new ArrayList<Serializable>();
-			for (T obj : getObjects(rect.shift(shape.ul.c))) {
+			for (T obj : getObjects(rect.shift(shape.ul().getArray()))) {
 				objs.add(obj);
 				// Append the object's location relative to the rectangle
-				objs.add(m.get(obj).rshift(shape.ul.c).rshift(rect.ul.c));
+				objs.add(m.get(obj).rshift(shape.ul().getArray()).rshift(rect.ul().getArray()));
 			}
 			ret.add(objs);
 		}
@@ -63,17 +63,17 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		// Remove any objects that are in the unpack area (overwrite the area)
 		// shift the rect with local coordinates back to global coordinates
 		for (IntHyperRect rect : mp.rects)
-			removeObjects(rect.shift(shape.ul.c));
+			removeObjects(rect.shift(shape.ul().getArray()));
 
 		for (int k = 0; k < mp.rects.size(); k++)
 			for (int i = 0; i < objs.get(k).size(); i += 2)
-				setLocation((T)objs.get(k).get(i), ((NdPoint)objs.get(k).get(i + 1)).shift(mp.rects.get(k).ul.c).shift(shape.ul.c));
+				setLocation((T)objs.get(k).get(i), ((NdPoint)objs.get(k).get(i + 1)).shift(mp.rects.get(k).ul().getArray()).shift(shape.ul().getArray()));
 
 		return objs.stream().mapToInt(x -> x.size()).sum();
 	}
 
 	protected IntPoint discretize(final NdPoint p) {
-		final double[] offsets = shape.ul.getOffsetsDouble(p);
+		final double[] offsets = shape.ul().getOffsetsDouble(p);
 		return new IntPoint(IntStream.range(0, offsets.length)
 		                    .map(i -> -(int)offsets[i] / discretizations[i])
 		                    .toArray());
@@ -114,7 +114,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	public List<T> getObjects(final IntHyperRect r) {
 		final ArrayList<T> objs = new ArrayList<T>();
 
-		for (IntPoint dp : IntPointGenerator.getBlock(discretize(r.ul), discretize(r.br)))
+		for (IntPoint dp : IntPointGenerator.getBlock(discretize(r.ul()), discretize(r.br())))
 			getCelldp(dp).stream().filter(obj -> r.contains(m.get(obj))).forEach(obj -> objs.add(obj));
 
 		return objs;
@@ -140,7 +140,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	public List<T> getNearestNeighbors(final T obj, final int need) {
 		final NdPoint loc = m.get(obj);
 		final IntPoint dloc = discretize(loc);
-		final int maxLayer = IntStream.range(0, shape.nd)
+		final int maxLayer = IntStream.range(0, shape.getNd())
 		                     .map(i -> Math.max(dloc.c[i], dsize[i] - dloc.c[i]))
 		                     .max().getAsInt();
 		final ArrayList<T> objs = new ArrayList<T>();
@@ -151,7 +151,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 
 		while (objs.size() < need && currLayer <= maxLayer) {
 			for (IntPoint dp : IntPointGenerator.getLayer(dloc, currLayer))
-				if (IntStream.range(0, shape.nd).allMatch(i -> dp.c[i] >= 0 && dp.c[i] < dsize[i]))
+				if (IntStream.range(0, shape.getNd()).allMatch(i -> dp.c[i] >= 0 && dp.c[i] < dsize[i]))
 					candidates.addAll(getCelldp(dp));
 
 			candidates.sort(Comparator.comparingDouble(o -> m.get(o).getDistance(loc, 2)));
@@ -174,8 +174,8 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		final int[] offsets = Arrays.stream(discretizations).map(x -> (int)Math.ceil(radius / x)).toArray();
 
 		// Generate the start/end point subject to the boundaries
-		final IntPoint ul = new IntPoint(IntStream.range(0, shape.nd).map(i -> Math.max(dloc.c[i] - offsets[i], 0)).toArray());
-		final IntPoint br = new IntPoint(IntStream.range(0, shape.nd).map(i -> Math.min(dloc.c[i] + offsets[i] + 1, dsize[i])).toArray());
+		final IntPoint ul = new IntPoint(IntStream.range(0, shape.getNd()).map(i -> Math.max(dloc.c[i] - offsets[i], 0)).toArray());
+		final IntPoint br = new IntPoint(IntStream.range(0, shape.getNd()).map(i -> Math.min(dloc.c[i] + offsets[i] + 1, dsize[i])).toArray());
 
 		// Collect all the objects that are not obj itself and within the given radius
 		for (IntPoint dp : IntPointGenerator.getBlock(ul, br))
