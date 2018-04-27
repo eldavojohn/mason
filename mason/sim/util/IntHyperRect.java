@@ -153,6 +153,10 @@ public class IntHyperRect implements Comparable<IntHyperRect>, Iterable<IntPoint
 		return new Segment((double)ul.c[dim], (double)br.c[dim], id);
 	}
 
+	public IntPoint getCenter() {
+		return new IntPoint(IntStream.range(0, nd).map(i -> (br.c[i] - ul.c[i]) / 2 + ul.c[i]).toArray());
+	}
+
 	// Return whether two hyper rectangles align along the given dimension
 	public boolean isAligned(IntHyperRect that, int dim) {
 		return this.reduceDim(dim).equals(that.reduceDim(dim));

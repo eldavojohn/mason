@@ -187,6 +187,9 @@ public class QTNode {
 	// Change my shape as well as all my children's
 	protected void reshape(IntHyperRect newShape) {
 		shape = newShape;
+		if (!newShape.contains(origin))
+			origin = newShape.getCenter();
+		
 		for (int i = 0; i < children.size(); i++)
 			children.get(i).reshape(getChildShape(i));
 	}
