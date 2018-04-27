@@ -3,46 +3,41 @@ package sim.util;
 import java.util.*;
 import java.util.stream.*;
 
-// TODO Divide this into QTNode class and QuadTree class
 // TODO Currently all shapes are restricted to IntHyperRect - switch to NdRectangle once it is completed
 public class QTNode {
 
 	final int nd;
-	int level, id, pos; // which level in the tree the node is in, its node id, and the position in its parent's children list
+	int level, id; // which level in the tree the node is in, its node id
+	int proc; // which processer this node is mapped to
 
 	IntPoint origin;
 	IntHyperRect shape;
 
 	QTNode parent;
 	List<QTNode> children;
-	
-	Map<Integer, QTNode> allNodes;
-	List<Integer> availIds;
 
-	// Shape of field and the maximum number of partitions it can hold
-	public QTNode(IntHyperRect shape, int np) {
+	public QTNode(IntHyperRect shape, QTNode parent) {
 		this.nd = shape.getNd();
 		this.shape = shape;
-
-		final int div = 1 << nd;
-		if (np % (div - 1) != 1)
-			throw new IllegalArgumentException("the number of processors/regions is illegal");
-
+		this.parent = parent;
 		this.children = new ArrayList<QTNode>();
-		this.availIds = IntStream.range(1, np / (div - 1) * div + 1).boxed().collect(Collectors.toList());
-		this.allNodes = new HashMap<Integer, QTNode>();
-
-		this.id = 0;
-		this.level = 0;
-		this.parent = null;
-
-		allNodes.put(0, this);
+		this.level = parent == null ? 0 : parent.getLevel() + 1;
 	}
 
-	protected QTNode(IntHyperRect shape) {
-		this.nd = shape.getNd();
-		this.shape = shape;
-		this.children = new ArrayList<QTNode>();
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int newId) {
+		id = newId;
+	}
+
+	public int getProc() {
+		return proc;
+	}
+
+	public void setProc(int newProc) {
+		proc = newProc;
 	}
 
 	public int getLevel() {
@@ -57,16 +52,17 @@ public class QTNode {
 		return shape;
 	}
 
-	public List<QTNode> getChildren() {
-		return children;
-	}
-
 	public QTNode getParent() {
 		return parent;
 	}
 
-	public int getId() {
-		return id;
+	// Get my child of the given index
+	public QTNode getChild(int i) {
+		return children.get(i);
+	}
+
+	public List<QTNode> getChildren() {
+		return children;
 	}
 
 	public boolean isRoot() {
@@ -77,83 +73,25 @@ public class QTNode {
 		return children.size() == 0;
 	}
 
-	public QTNode getNode(int id) {
-		return allNodes.get(id);
-	}
+	// Return whether I am the ancester of the given node
+	public boolean isAncestorOf(QTNode node) {
+		QTNode curr = node;
 
-	// Get the siblings (including itself) of the given node id
-	public List<QTNode> getSiblings(int id) {
-		QTNode node = allNodes.get(id);
-
-		if(node.getParent() == null)
-			return new ArrayList<QTNode>() {{ add(node); }};
-
-		return node.getParent().getChildren();
-	}
-
-	public List<QTNode> getAllNodes() {
-		return new ArrayList<QTNode>(allNodes.values());
-	}
-
-	public List<QTNode> getAllLeaves() {
-		return allNodes.values().stream().filter(node -> node.isLeaf()).collect(Collectors.toList());
-	}
-
-	public List<QTNode> split(IntPoint newOrigin) {
-		if (!shape.contains(newOrigin))
-			throw new IllegalArgumentException("newOrigin " + newOrigin + " is outside the region " + shape);
-
-		origin = newOrigin;
-
-		if (isLeaf())
-			children = IntStream.range(0, 1 << nd)
-			           .mapToObj(i -> getNewChild(getChildShape(i), i))
-			           .collect(Collectors.toList());
-		else
-			for (int i = 0; i < children.size(); i++)
-				children.get(i).reshape(getChildShape(i));
-
-		return children;
-	}
-
-	protected QTNode getNewChild(IntHyperRect shape, int pos) {
-		if (availIds.size() == 0)
-			throw new IllegalArgumentException("Reached maximum number of regions, cannot add more child");
-
-		QTNode child = new QTNode(shape);
-
-		child.availIds = availIds;
-		child.allNodes = allNodes;
-
-		child.id = availIds.remove(0);
-		child.level = level + 1;
-		child.parent = this;
-		child.pos = pos;
-
-		allNodes.put(child.id, child);
-
-		return child;
-	}
-
-	public void merge() {
-		if (isLeaf())
-			return;
-
-		for (QTNode child : children) {
-			child.merge();
-			allNodes.remove(child.id);
-			availIds.add(child.id);
+		while (curr != null) {
+			curr = curr.getParent();
+			if (curr == this)
+				return true;
 		}
 
-		children.clear();
-		origin = null;
-		pos = -1;
+		return false;
 	}
 
+	// Get the immediate child node that contains the given point
 	public QTNode getChildNode(IntPoint p) {
 		return children.get(toChildIdx(p));
 	}
 
+	// Get the leaf node that contains the given point
 	public QTNode getLeafNode(IntPoint p) {
 		QTNode curr = this;
 
@@ -163,12 +101,97 @@ public class QTNode {
 		return curr;
 	}
 
+	// Get all the leaves that are my offsprings
+	public List<QTNode> getLeaves() {
+		List<QTNode> ret = new ArrayList<QTNode>();
+		List<QTNode> stack = new ArrayList<QTNode>() {{ addAll(children); }};
+
+		while (stack.size() > 0) {
+			QTNode curr = stack.remove(0);
+			if (curr.isLeaf())
+				ret.add(curr);
+			else
+				stack.addAll(curr.getChildren());
+		}
+
+		return ret;
+	}
+
+	// Split this node based on the given origin or move the origin if already splitted
+	// return the newly created QTNodes (if any)
+	public List<QTNode> split(IntPoint newOrigin) {
+		List<QTNode> ret = new ArrayList<QTNode>();
+
+		if (!shape.contains(newOrigin))
+			throw new IllegalArgumentException("newOrigin " + newOrigin + " is outside the region " + shape);
+
+		origin = newOrigin;
+
+		if (isLeaf()) {
+			children = IntStream.range(0, 1 << nd)
+			           .mapToObj(i -> new QTNode(getChildShape(i), this))
+			           .collect(Collectors.toList());
+			ret.addAll(children);
+		} else
+			for (int i = 0; i < children.size(); i++)
+				children.get(i).reshape(getChildShape(i));
+
+		return ret;
+	}
+
+	// Merge all the children and make this node a leaf node
+	// return all the nodes that are merged
+	public List<QTNode> merge() {
+		List<QTNode> ret = new ArrayList<QTNode>();
+
+		if (!isLeaf()) {
+			for (QTNode child : children) {
+				ret.addAll(child.merge());
+				ret.add(child);
+			}
+
+			children.clear();
+			origin = null;
+		}
+
+		return ret;
+	}
+
+	// Print the current QTNode only
+	public String toString() {
+		String s = String.format("ID %2d PID %2d L%1d %s", id, proc, level, shape.toString());
+
+		if (origin != null)
+			s += " Origin " + origin;
+
+		return s;
+	}
+
+	// Print the QTNode and all its children
+	public String toStringAll() {
+		return toStringRecursive(new StringBuffer("Quad Tree\n"), "", true).toString();
+	}
+
+	protected StringBuffer toStringRecursive(StringBuffer buf, String prefix, boolean isTail) {
+		buf.append(prefix + (isTail ? "└── " : "├── ") + this + "\n");
+
+		for (int i = 0; i < children.size() - 1; i++)
+			children.get(i).toStringRecursive(buf, prefix + (isTail ? "    " : "│   "), false);
+
+		if (children.size() > 0)
+			children.get(children.size() - 1).toStringRecursive(buf, prefix + (isTail ? "    " : "│   "), true);
+
+		return buf;
+	}
+
+	// Change my shape as well as all my children's
 	protected void reshape(IntHyperRect newShape) {
 		shape = newShape;
 		for (int i = 0; i < children.size(); i++)
 			children.get(i).reshape(getChildShape(i));
 	}
 
+	// Construct the child's shape based the given id and the origin
 	protected IntHyperRect getChildShape(int childId) {
 		int[] ul = shape.ul().getArray();
 		int[] br = origin.getArray();
@@ -183,6 +206,7 @@ public class QTNode {
 		return new IntHyperRect(-1, new IntPoint(ul), new IntPoint(br));
 	}
 
+	// Find the index of my immediate child that contains the given point
 	protected int toChildIdx(IntPoint p) {
 		if (!shape.contains(p))
 			throw new IllegalArgumentException("p " + p + " must be inside the shape " + shape);
@@ -192,64 +216,5 @@ public class QTNode {
 		return IntStream.range(0, nd)
 		       .map(i -> pc[i] < oc[i] ? 0 : 1)
 		       .reduce(0, (r, x) -> r << 1 | x);
-	}
-
-	public String toString() {
-		return toStringRecursive(new StringBuffer("QTNode\n"), "", true).toString();
-	}
-
-	protected StringBuffer toStringRecursive(StringBuffer buf, String prefix, boolean isTail) {
-		buf.append(prefix +
-		           (isTail ? "└── " : "├── ") + "ID " + id + " " + shape +
-		           (origin == null ? "\n" : (" Origin " + origin + "\n"))
-		          );
-
-		for (int i = 0; i < children.size() - 1; i++)
-			children.get(i).toStringRecursive(buf, prefix + (isTail ? "    " : "│   "), false);
-
-		if (children.size() > 0)
-			children.get(children.size() - 1).toStringRecursive(buf, prefix + (isTail ? "    " : "│   "), true);
-
-		return buf;
-	}
-
-	public static void main(String[] args) {
-		IntHyperRect field = new IntHyperRect(-1, new IntPoint(0, 0), new IntPoint(100, 100));
-		QTNode root = new QTNode(field, 7);
-
-		root.split(new IntPoint(40, 60));
-		System.out.println(root);
-
-		root.children.get(1).split(new IntPoint(10, 80));
-		System.out.println(root);
-
-		IntPoint p1 = new IntPoint(50, 50);
-		System.out.println("Point " + p1 + " is in node id " + root.getLeafNode(p1).id);
-
-		root.split(new IntPoint(60, 70));
-		System.out.println(root);
-
-		System.out.println("Point " + p1 + " is in node id " + root.getLeafNode(p1).id);
-
-		System.out.println("------------");
-		System.out.println(root.availIds);
-		for (QTNode node : root.allNodes.values())
-			System.out.println(node.id);
-
-		System.out.println("Merge one of root's children");
-		root.children.get(1).merge();
-		System.out.println(root.availIds);
-		for (QTNode node : root.getAllNodes())
-			System.out.println("Node " + node.id);
-		for (QTNode node : root.getAllLeaves())
-			System.out.println("Leaf " + node.id);
-
-		System.out.println("Merge root");
-		root.merge();
-		System.out.println(root.availIds);
-		for (QTNode node : root.getAllNodes())
-			System.out.println("Node " + node.id);
-		for (QTNode node : root.getAllLeaves())
-			System.out.println("Leaf " + node.id);
 	}
 }

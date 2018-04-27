@@ -97,7 +97,8 @@ public class MPIUtil {
 		return MPIUtil.<T>deserialize(buf, 0, count[0]);
 	}
 
-	// TODO new api?
+	// TODO refactor this or the one above
+	// Currently used by init() in RemoteProxy() to broadcast the host ip address
 	public static <T extends Serializable> T bcast(T obj, int root) throws MPIException {
 		byte[] buf = null;
 
@@ -137,6 +138,28 @@ public class MPIUtil {
 		return MPIUtil.<T>deserialize(dstBuf, 0, dstCount);
 	}
 
+	// TODO refactor this or the one above
+	// Currently used by collectGroup() and distributedGroup() in HaloField
+	public static <T extends Serializable> T scatter(Comm comm, T[] sendObjs, int root) throws MPIException {
+		int pid = comm.getRank(), np = comm.getSize(), dstCount;
+		int[] srcDispl = null, srcCount = new int[np];
+		byte[] srcBuf = null, dstBuf;
+
+		if (pid == root) {
+			srcBuf = serialize(sendObjs, srcCount);
+			srcDispl = getDispl(srcCount);
+		}
+
+		comm.scatter(srcCount, 1, MPI.INT, root);
+		
+		dstCount = srcCount[0];
+		dstBuf = new byte[dstCount];
+
+		comm.scatterv(srcBuf, srcCount, srcDispl, MPI.BYTE, dstBuf, dstCount, MPI.BYTE, root);
+
+		return MPIUtil.<T>deserialize(dstBuf, 0, dstCount);
+	}
+
 	// Each LP sends the sendObj to dst
 	// dst will return an ArrayList of np objects of type T
 	// others will return an empty ArrayList
@@ -155,6 +178,34 @@ public class MPIUtil {
 		dstDispl = getDispl(dstCount);
 
 		p.getCommunicator().gatherv(srcBuf, srcBuf.length, MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE, dst);
+
+		if (pid == dst)
+			for (int i = 0; i < np; i++)
+				if (i == pid)
+					recvObjs.add(sendObj);
+				else
+					recvObjs.add(MPIUtil.<T>deserialize(dstBuf, dstDispl[i], dstCount[i]));
+
+		return recvObjs;
+	}
+
+	// TODO refactor this or the one above
+	// Currently used by collectGroup() and distributedGroup() in HaloField
+	public static <T extends Serializable> ArrayList<T> gather(Comm comm, T sendObj, int dst) throws MPIException {
+		int np = comm.getSize();
+		int pid = comm.getRank();
+		int[] dstDispl, dstCount = new int[np];
+		byte[] dstBuf, srcBuf;
+		ArrayList<T> recvObjs = new ArrayList();
+
+		srcBuf = serialize(sendObj);
+
+		comm.gather(new int[] {srcBuf.length}, 1, MPI.INT, dstCount, 1, MPI.INT, dst);
+
+		dstBuf = new byte[Arrays.stream(dstCount).sum()];
+		dstDispl = getDispl(dstCount);
+
+		comm.gatherv(srcBuf, srcBuf.length, MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE, dst);
 
 		if (pid == dst)
 			for (int i = 0; i < np; i++)

@@ -8,11 +8,7 @@ import java.util.stream.IntStream;
 import mpi.*;
 
 import sim.field.storage.GridStorage;
-import sim.util.IntHyperRect;
-import sim.util.IntPoint;
-import sim.util.IntPointGenerator;
-import sim.util.MPIParam;
-import sim.util.MPIUtil;
+import sim.util.*;
 
 // TODO refactor HaloField to accept
 // continuous: double, int, object
@@ -196,6 +192,49 @@ public abstract class HaloField implements RemoteField {
 		field.unpack(new MPIParam(origPart, haloPart, MPIBaseType), recvObj);
 
 		// Sync the halo
+		sync();
+	}
+
+	public void collectGroup(int level, GridStorage groupField) throws MPIException {
+		if (!(ps instanceof DQuadTreePartition))
+			throw new UnsupportedOperationException("Can only collect from group with DQuadTreePartition, got " + ps.getClass().getSimpleName());
+
+		DQuadTreePartition qt = (DQuadTreePartition)ps;
+		GroupComm gc = qt.getGroupComm(level);
+
+		if (gc != null) {
+			Serializable sendObj = field.pack(new MPIParam(origPart, haloPart, MPIBaseType));
+			
+			ArrayList<Serializable> recvObjs = MPIUtil.<Serializable>gather(gc.comm, sendObj, gc.groupRoot);
+			
+			if (qt.isGroupMaster(gc))
+				for (int i = 0; i < recvObjs.size(); i++)
+					groupField.unpack(new MPIParam(gc.leaves.get(i).getShape(), gc.master.getShape(), MPIBaseType), recvObjs.get(i));
+		}
+
+		MPI.COMM_WORLD.barrier();
+	}
+
+	public void distributeGroup(int level, GridStorage groupField) throws MPIException {
+		if (!(ps instanceof DQuadTreePartition))
+			throw new UnsupportedOperationException("Can only distribute to group with DQuadTreePartition, got " + ps.getClass().getSimpleName());
+
+		DQuadTreePartition qt = (DQuadTreePartition)ps;
+		GroupComm gc = qt.getGroupComm(level);
+		Serializable[] sendObjs = null;
+
+		if (gc != null) {
+			if (qt.isGroupMaster(gc)) {
+				sendObjs = new Serializable[gc.leaves.size()];
+				for (int i = 0; i < gc.leaves.size(); i++)
+					sendObjs[i] = groupField.pack(new MPIParam(gc.leaves.get(i).getShape(), gc.master.getShape(), MPIBaseType));
+			}
+
+			Serializable recvObj = MPIUtil.<Serializable>scatter(gc.comm, sendObjs, gc.groupRoot);
+
+			field.unpack(new MPIParam(origPart, haloPart, MPIBaseType), recvObj);
+		}
+
 		sync();
 	}
 
