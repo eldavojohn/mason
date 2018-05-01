@@ -17,7 +17,7 @@ JAVAC = javac
 
 # GeoMason supports Java 5; note that MASON proper only supports Java 4.
 JAVACFLAGS = -target 1.8 -source 1.8 ${FLAGS}
-FLAGS = -g -nowarn -cp ".:../../mason/:lib/jts-1.13.jar:lib/HaitiData.jar"
+FLAGS = -g -nowarn -cp ".:../../mason/:lib/jts-1.13.jar:lib/ecj.24.jar:lib/csv4j-0.4.0.jar"
 
 
 VERSION = 1.5
@@ -51,11 +51,12 @@ sim/app/geo/waterworld/*.java \
 sim/app/geo/sillypeds/*.java \
 sim/app/geo/sickStudents/*.java	\
 sim/app/geo/turkana/*.java \
-sim/app/geo/haiti/*.java \
+sim/app/geo/dadaab/*.java \
+sim/app/geo/dadaab/dadaabData/*.java \
+# sim/app/geo/haiti/*.java \
 # sim/app/geo/acequias/*.java \
 # sim/app/geo/cityMigration/*.java \
 # sim/app/geo/conflictdiamonds/*.java \
-# sim/app/geo/dadaab/*.java \
 # sim/app/geo/ebola/*.java \
 # sim/app/geo/kibera/*.java \
 # sim/app/geo/refugee/*.java \

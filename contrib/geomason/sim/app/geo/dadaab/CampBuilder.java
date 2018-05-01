@@ -12,7 +12,6 @@ package sim.app.geo.dadaab;
 import java.io.*;
 import java.util.ArrayList;
 
-import dadaabData.DadaabData;
 import sim.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,6 +29,7 @@ import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.LineString;
 import com.vividsolutions.jts.geom.MultiLineString;
 
+import sim.app.geo.dadaab.dadaabData.*;
 import sim.field.geo.GeomVectorField;
 import sim.field.network.Edge;
 import sim.io.geo.ShapeFileImporter;
@@ -50,6 +50,7 @@ public class CampBuilder {
         try {
 
             // buffer reader - read ascii file
+        	System.out.println(campfile);
             BufferedReader camp = new BufferedReader(new InputStreamReader(DadaabData.class.getResourceAsStream(campfile)));
             String line;
 
@@ -129,7 +130,7 @@ public class CampBuilder {
             // read elev and change camp locations id to elev
            
 
-            InputStream inputStream = Dadaab.class.getResourceAsStream("d_camp_a.txt");
+            InputStream inputStream = Dadaab.class.getResourceAsStream("/sim/app/geo/dadaab/dadaabData/d_camp_a.txt");
             ArcInfoASCGridImporter.read(inputStream, GridDataType.INTEGER, dadaab.allCampGeoGrid);
             // overwrite the file and make 100
            
@@ -244,7 +245,7 @@ public class CampBuilder {
                 }
             }
             
-            BufferedReader dailyRainfall =  new BufferedReader(new InputStreamReader(DadaabData.class.getResourceAsStream("/dadaab/dadaabData/dadaabDailyRain.csv")));
+            BufferedReader dailyRainfall =  new BufferedReader(new InputStreamReader(DadaabData.class.getResourceAsStream("/sim/app/geo/dadaab/dadaabData/dadaabDailyRain.csv")));
 
             for (int curr_row = 0; curr_row < height; ++curr_row) {
              
@@ -259,7 +260,7 @@ public class CampBuilder {
             
             // now read elev file and store in bag
 
-           BufferedReader elev = new BufferedReader(new InputStreamReader(DadaabData.class.getResourceAsStream("/dadaab/dadaabData/d_dem_n.txt")));
+           BufferedReader elev = new BufferedReader(new InputStreamReader(DadaabData.class.getResourceAsStream("/sim/app/geo/dadaab/dadaabData/d_dem_n.txt")));
 
             // skip the irrelevant metadata
             for (int i = 0; i < 6; i++) {
@@ -290,14 +291,14 @@ public class CampBuilder {
              Bag maskedCamp = new Bag();
              maskedCamp.add("CAMPID");
 
-            URL campShapUL = getUrl("/dadaab/dadaabData/Road/Camp_n.shp");
+            URL campShapUL = getUrl("/sim/app/geo/dadaab/dadaabData/Road/Camp_n.shp");
            
             ShapeFileImporter.read(campShapUL, dadaab.campShape, maskedCamp);
 
             Bag masked = new Bag();
            
             //ShapeFileImporter importer = new ShapeFileImporter();
-            URL roadLinkUL = getUrl("/dadaab/dadaabData/Road/dadaab_road_f_node.shp");
+            URL roadLinkUL = getUrl("/sim/app/geo/dadaab/dadaabData/Road/dadaab_road_f_node.shp");
             ShapeFileImporter.read(roadLinkUL, dadaab.roadLinks,masked);
                  
             extractFromRoadLinks(dadaab.roadLinks, dadaab); // construct a network of roads
@@ -312,7 +313,10 @@ public class CampBuilder {
             
         } catch (IOException ex) {
             Logger.getLogger(CampBuilder.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        } catch (Exception e)
+		{
+			e.printStackTrace();
+		}
 
         populate(random,dadaab);
          // random

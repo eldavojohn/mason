@@ -136,7 +136,7 @@ public class Dadaab extends SimState {
 
         super.start();
         // accessing inpt files
-        CampBuilder.create("/dadaab/dadaabData/d_camp_a.txt", "/dadaab/dadaabData/d_faci_a.txt", "/dadaab/dadaabData/d_costp_a.txt", this, this.random);
+        CampBuilder.create("/sim/app/geo/dadaab/dadaabData/d_camp_a.txt", "/sim/app/geo/dadaab/dadaabData/d_faci_a.txt", "/sim/app/geo/dadaab/dadaabData/d_costp_a.txt", this, this.random);
 
 
         schedule.scheduleRepeating(rainfall, rainfall.ORDERING, 1);
