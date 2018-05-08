@@ -12,6 +12,8 @@ public class DObjectMigrator implements Iterable<Object> {
 	int nc; // number of direct neighbors
 	int[] src_count, src_displ, dst_count, dst_displ;
 
+	HashMap<Object, Integer> sendingCatelog;
+	HashMap<Integer, Object> receivingCatelog;
 	HashMap<Integer, AgentOutputStream> dstMap;
 	AgentOutputStream[] outputStreams;
 

@@ -12,7 +12,10 @@ package sim.app.geo.dadaab;
 import java.io.*;
 import java.util.ArrayList;
 
+import sim.app.geo.dadaab.dadaabData.DadaabData;
 import sim.util.*;
+
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import sim.field.grid.ObjectGrid2D;
@@ -29,7 +32,6 @@ import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.LineString;
 import com.vividsolutions.jts.geom.MultiLineString;
 
-import sim.app.geo.dadaab.dadaabData.*;
 import sim.field.geo.GeomVectorField;
 import sim.field.network.Edge;
 import sim.io.geo.ShapeFileImporter;
@@ -50,7 +52,6 @@ public class CampBuilder {
         try {
 
             // buffer reader - read ascii file
-        	System.out.println(campfile);
             BufferedReader camp = new BufferedReader(new InputStreamReader(DadaabData.class.getResourceAsStream(campfile)));
             String line;
 
@@ -311,12 +312,9 @@ public class CampBuilder {
             
             
             
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(CampBuilder.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (Exception e)
-		{
-			e.printStackTrace();
-		}
+        }
 
         populate(random,dadaab);
          // random
@@ -846,9 +844,15 @@ public class CampBuilder {
                     // reproduce
                     Bag neighbors = new Bag();
 
-                    dadaab.allCamps.getNeighborsHamiltonianDistance(c.location.getX(), c.location.getY(),
-                            1, false, neighbors, null, null);
-
+                    //dadaab.allCamps.getNeighborsHamiltonianDistance(c.location.getX(), c.location.getY(),
+                    //        1, false, neighbors, null, null);
+                   // getVonNeumannNeighbors(x, y, dist, toroidal ? 2 : 0, true, result, xPos, yPos);
+                    IntBag xPos = new IntBag();
+                    xPos.add(c.location.getX());
+                    IntBag yPos = new IntBag();
+                    yPos.add(c.location.getY());
+                    getVonNeumannLocations(c.location.getX(),c.location.getY(),1,0,true,new IntBag(),new IntBag(),dadaab);
+                    getObjectsAtLocations(xPos, yPos, neighbors,dadaab);
                     for (Object o : neighbors) {
                         FieldUnit l = (FieldUnit) o;
                         //Location l = (Location) o;
@@ -865,6 +869,175 @@ public class CampBuilder {
         }
         return closestNodes;
     }
-    
-   
+
+
+
+    public static void getVonNeumannLocations(int x, int y, int dist, int mode, boolean includeOrigin, IntBag xPos, IntBag yPos,Dadaab dadaab) {
+        boolean toroidal = mode == 2;
+        boolean bounded = mode == 0;
+        if (mode != 0 && mode != 1 && mode != 2) {
+            throw new RuntimeException("Mode must be either Grid2D.BOUNDED, Grid2D.UNBOUNDED, or Grid2D.TOROIDAL");
+        } else if (dist < 0) {
+            throw new RuntimeException("Distance must be positive");
+        } else if (xPos != null && yPos != null) {
+            if ((x < 0 || x >=  gridWidth || y < 0 || y >= gridHeight) && !bounded) {
+                throw new RuntimeException("Invalid initial position");
+            } else {
+                xPos.clear();
+                yPos.clear();
+                int height = gridHeight;
+                int width = gridWidth;
+                int xmax;
+                int xmin;
+                int sz;
+                int x_0;
+                int i;
+                int y0;
+                if (toroidal) {
+                    xmax = x + dist;
+                    xmin = x - dist;
+
+                    for(sz = xmin; sz <= xmax; ++sz) {
+                        x_0 = tx(sz, width, width * 2, sz + width, sz - width);
+                        i = y + (dist - (sz - x >= 0 ? sz - x : x - sz));
+                        y0 = y - (dist - (sz - x >= 0 ? sz - x : x - sz));
+
+                        for(y0 = y0; y0 <= i; ++y0) {
+                            int y_0 = ty(y0, height, height * 2, y0 + height, y0 - height);
+                            xPos.add(x_0);
+                            yPos.add(y_0);
+                        }
+                    }
+
+                    if (dist * 2 >= width || dist * 2 >= height) {
+                        sz = xPos.size();
+                        Map map =  dadaab.allCamps.buildMap(sz);
+
+                        for(i = 0; i < sz; ++i) {
+                            Double2D elem = new Double2D((double)xPos.get(i), (double)yPos.get(i));
+                            if (map.containsKey(elem)) {
+                                xPos.remove(i);
+                                yPos.remove(i);
+                                --i;
+                                --sz;
+                            } else {
+                                map.put(elem, elem);
+                            }
+                        }
+                    }
+
+                    if (!includeOrigin) {
+                        removeOriginToroidal(x, y, xPos, yPos);
+                    }
+                } else {
+                    xmax = x + dist > width - 1 && bounded ? width - 1 : x + dist;
+                    xmin = x - dist < 0 && bounded ? 0 : x - dist;
+
+                    for(sz = xmin; sz <= xmax; ++sz) {
+                        x_0 = y + (dist - (sz - x >= 0 ? sz - x : x - sz)) > height - 1 && bounded ? height - 1 : y + (dist - (sz - x >= 0 ? sz - x : x - sz));
+                        i = y - (dist - (sz - x >= 0 ? sz - x : x - sz)) < 0 && bounded ? 0 : y - (dist - (sz - x >= 0 ? sz - x : x - sz));
+
+                        for(y0 = i; y0 <= x_0; ++y0) {
+                            xPos.add(sz);
+                            yPos.add(y0);
+                        }
+                    }
+
+                    if (!includeOrigin) {
+                        removeOrigin(x, y, xPos, yPos);
+                    }
+                }
+
+            }
+        } else {
+            throw new RuntimeException("xPos and yPos should not be null");
+        }
+    }
+    static int tx(int x, int width, int widthtimestwo, int xpluswidth, int xminuswidth) {
+        if (x >= -width && x < widthtimestwo) {
+            if (x < 0) {
+                return xpluswidth;
+            } else {
+                return x < width ? x : xminuswidth;
+            }
+        } else {
+            return tx2(x, width);
+        }
+    }
+    static int tx2(int x, int width) {
+        x %= width;
+        if (x < 0) {
+            x += width;
+        }
+
+        return x;
+    }
+    static int ty(int y, int height, int heighttimestwo, int yplusheight, int yminusheight) {
+        if (y >= -height && y < heighttimestwo) {
+            if (y < 0) {
+                return yplusheight;
+            } else {
+                return y < height ? y : yminusheight;
+            }
+        } else {
+            return ty2(y, height);
+        }
+    }
+
+    static int ty2(int y, int height) {
+        y %= height;
+        if (y < 0) {
+            y += height;
+        }
+
+        return y;
+    }
+
+    static void removeOriginToroidal(int x, int y, IntBag xPos, IntBag yPos) {
+        int size = xPos.size();
+        x = tx(x, gridWidth, gridWidth * 2, x + gridWidth, x - gridWidth);
+        y = ty(y, gridHeight, gridHeight * 2, y + gridHeight, y - gridHeight);
+
+        for(int i = 0; i < size; ++i) {
+            if (tx(xPos.get(i), gridWidth, gridWidth * 2, x + gridWidth, x - gridWidth) == x && ty(yPos.get(i), gridHeight, gridHeight * 2, y + gridHeight, y - gridHeight) == y) {
+                xPos.remove(i);
+                yPos.remove(i);
+                return;
+            }
+        }
+
+    }
+    static void removeOrigin(int x, int y, IntBag xPos, IntBag yPos) {
+        int size = xPos.size();
+
+        for(int i = 0; i < size; ++i) {
+            if (xPos.get(i) == x && yPos.get(i) == y) {
+                xPos.remove(i);
+                yPos.remove(i);
+                return;
+            }
+        }
+
+    }
+    static Bag getObjectsAtLocations(IntBag xPos, IntBag yPos, Bag result, Dadaab dadaab) {
+        if (result == null) {
+            result = new Bag();
+        } else {
+            result.clear();
+        }
+
+        for(int i = 0; i < xPos.numObjs; ++i) {
+            //assert LocationLog.it(this, new Int2D(xPos.objs[i], yPos.objs[i]));
+
+            Object val = dadaab.allCamps.field[xPos.objs[i]][yPos.objs[i]];
+            if (val != null) {
+                result.add(val);
+            }
+        }
+
+        return result;
+    }
 }
+
+
+

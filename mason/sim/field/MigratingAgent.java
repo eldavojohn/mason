@@ -10,6 +10,7 @@ public class MigratingAgent implements Serializable
 	public boolean migrate;
 	public Object wrappedAgent;
 	public Double2D loc;
+	public int identityHashcode;
 
 	public MigratingAgent(final int dst, final Object agent, final Double2D loc, final boolean migrate) {
 		this.destination = dst;
