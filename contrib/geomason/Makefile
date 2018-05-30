@@ -53,6 +53,7 @@ sim/app/geo/sickStudents/*.java	\
 sim/app/geo/turkana/*.java \
 sim/app/geo/dadaab/*.java \
 sim/app/geo/schellingspace/*.java \
+sim/app/geo/dschellingspace/*.java \
 # sim/app/geo/dadaab/dadaabData/*.java \
 # sim/app/geo/haiti/*.java \
 # sim/app/geo/acequias/*.java \
