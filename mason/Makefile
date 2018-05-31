@@ -14,9 +14,10 @@ VERSION = 19
 
 # Main java files, not including the 3D stuff
 DIRS = \
-sim/app/heatbugs/*.java \
-sim/app/dheatbugs/*.java \
-sim/app/dheatbugsrma/*.java \
+sim/app/heatbugs/*.java\
+sim/app/dheatbugs/*.java\
+sim/app/dheatbugsrma/*.java\
+sim/app/nheatbugs/*.java\
 sim/app/hexabugs/*.java \
 sim/app/asteroids/*.java \
 sim/app/antsforage/*.java \
@@ -57,6 +58,7 @@ sim/field/*.java \
 sim/field/grid/*.java \
 sim/field/continuous/*.java \
 sim/field/network/*.java \
+sim/field/storage/*.java \
 sim/portrayal/*.java \
 sim/portrayal/grid/*.java \
 sim/portrayal/continuous/*.java \
