@@ -151,7 +151,7 @@ public class DFlocker implements Steppable, sim.portrayal.Orientable2D {
             	// Need to migrate to other partition, 
             	// remove from current partition 
                 flock.flockers.removeObject(this);
-                flock.queue.migrate(this, dst);           
+                flock.queue.migrate(this, dst, loc);           
             } else {
             	// Set to new location in current partition
                 flock.flockers.setLocation(this, loc);

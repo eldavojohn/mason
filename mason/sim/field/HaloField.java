@@ -198,6 +198,15 @@ public abstract class HaloField implements RemoteField {
 	{
 		return toToroidalDiff(y1, y2, 1);
 	}
+	
+	public int getWidth()
+	{
+		return fieldSize[0];
+	}
+	public int getHeight()
+	{
+		return fieldSize[1];
+	}
 
 	public void sync() throws MPIException {
 		Serializable[] sendObjs = new Serializable[numNeighbors];

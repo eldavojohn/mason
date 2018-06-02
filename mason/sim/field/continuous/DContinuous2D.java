@@ -50,14 +50,14 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 			sched.scheduleOnce((Steppable)obj, 1);
 			for (int dst : f.toNeighbors(loc_arr))
 			{
-				MigratingAgent agent = new MigratingAgent(dst, obj, loc);
+				MigratingAgent agent = new MigratingAgent(dst, obj, new DoublePoint(loc.x, loc.y));
 				m.migrate(agent, dst);
 			}
 		} else if (f.inHalo(loc_arr)) {
 			futureGhosts.add(obj);
 			try {
 				int dst = p.toPartitionId(loc_arr);
-				MigratingAgent agent = new MigratingAgent(dst, obj, loc, true);
+				MigratingAgent agent = new MigratingAgent(dst, obj, new DoublePoint(loc.x, loc.y), true);
 				m.migrate(agent, dst);
 			} catch (MPIException e) {
 				e.printStackTrace();

@@ -55,14 +55,13 @@ public class DFlockers extends SimState {
 			e.printStackTrace(System.out);
 			System.exit(-1);
 		}
+		myPart = partition.getPartition();
 
 	}
 
     public void start() {
         super.start();
-        
         int[] size = myPart.getSize();
-
         for (int x = 0; x < numFlockers / partition.np; x++) {
         	double px, py;
         	px = random.nextDouble() * size[0] + myPart.ul().getArray()[0];
@@ -90,7 +89,7 @@ public class DFlockers extends SimState {
 
         public void step(SimState state) {
         	DFlockers dflockers = (DFlockers) state;
-//        	Timing.stop(Timing.LB_RUNTIME);
+        	Timing.stop(Timing.LB_RUNTIME);
 //        	Timing.start(Timing.MPI_SYNC_OVERHEAD);
             try {
             	// Sync agents in halo area
