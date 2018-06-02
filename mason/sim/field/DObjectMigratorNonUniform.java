@@ -119,6 +119,11 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 	public int size() {
 		return objects.size();
 	}
+	
+	public void clear()
+	{
+		objects.clear();
+	}
 
 	public void writeHeader(AgentOutputStream aos, MigratingAgent wrapper) throws IOException
 	{

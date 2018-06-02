@@ -105,6 +105,7 @@ public class NHeatBug implements Steppable {
                 hb.queue.migrate(this, dst);
                 hb.privBugCount--;
             } else {
+            	hb.bugs.set(old_x, old_y, null);
                 hb.bugs.set(loc_x, loc_y, this);
                 hb.schedule.scheduleOnce(this, 1);
             }
