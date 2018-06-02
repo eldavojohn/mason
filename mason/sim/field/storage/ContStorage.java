@@ -11,7 +11,7 @@ import sim.field.storage.GridStorage;
 public class ContStorage<T extends Serializable> extends GridStorage {
 
 	int[] discretizations, dsize;
-	HashMap<T, NdPoint> m;
+	public HashMap<T, NdPoint> m;
 
 	public ContStorage(IntHyperRect shape, int[] discretizations) {
 		super(shape);
@@ -19,7 +19,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		this.discretizations = discretizations;
 		this.storage = allocate(shape.getArea());
 	}
-
+	
 	protected Object allocate(int size) {
 		this.dsize = IntStream.range(0, shape.getNd()).map(i -> shape.getSize()[i] / discretizations[i]).toArray();
 		// Overwrite the original stride with the new stride of dsize;
