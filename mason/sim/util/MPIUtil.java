@@ -1,6 +1,7 @@
 package sim.util;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.IntStream;
@@ -9,12 +10,56 @@ import mpi.*;
 
 import sim.field.DPartition;
 
+//TODO Reuse ByteBuffers to minimize allocate/de-allocate overhead
+//TODO Use ByteBuffer-back output/input streams - need to dynamically adjust the size of backing buffer.
+
+// class ByteBufferOutputStream extends OutpuStream {
+// 	ByteBuffer buf;
+
+// 	public ByteBufferOutputStream(ByteBuffer buf) {
+// 		this.buf = buf;
+// 	}
+
+// 	public void write(int b) throws IOException {
+// 		buf.put((byte) b);
+// 	}
+
+// 	public void write(byte[] bytes, int off, int len) throws IOException {
+// 		buf.put(bytes, off, len);
+// 	}
+// }
+
+// class ByteBufferInputStream extends InputStream {
+// 	ByteBuffer buf;
+
+// 	public ByteBufferInputStream(ByteBuffer buf) {
+// 		this.buf = buf;
+// 	}
+
+// 	public int read() throws IOException {
+// 		if (!buf.hasRemaining()) {
+// 			return -1;
+// 		}
+// 		return buf.get() & 0xFF;
+// 	}
+
+// 	public int read(byte[] bytes, int off, int len) throws IOException {
+// 		if (!buf.hasRemaining()) {
+// 			return -1;
+// 		}
+
+// 		len = Math.min(len, buf.remaining());
+// 		buf.get(bytes, off, len);
+// 		return len;
+// 	}
+// }
+
 // Utility class that serialize/exchange/deserialize objects using MPI
 public class MPIUtil {
 
-	// Serialize a Serializable using Java's builtin serialization and return the byte array
-	private static byte[] serialize(Serializable obj) {
-		byte[] buf = null;
+	// Serialize a Serializable using Java's builtin serialization and return the ByteBuffer
+	private static ByteBuffer serialize(Serializable obj) {
+		ByteBuffer buf = null;
 
 		try (
 			    ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -22,7 +67,10 @@ public class MPIUtil {
 			) {
 			os.writeObject(obj);
 			os.flush();
-			buf = out.toByteArray();
+			byte[] data = out.toByteArray();
+
+			buf = ByteBuffer.allocateDirect(data.length);
+			buf.put(data).flip();
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.exit(-1);
@@ -32,34 +80,39 @@ public class MPIUtil {
 	}
 
 	// Serialize each Serializable in objs using Java's builtin serialization
-	// Concatenate their individual byte array together and return the final byte array
-	// The length of each byte array will be returned through count array
-	private static byte[] serialize(Serializable[] objs, int[] count) {
-		byte[] buf = null;
+	// Concatenate their individual ByteBuffer together and return the final ByteBuffer
+	// The length of each byte array will be writtern into the count array
+	private static ByteBuffer serialize(Serializable[] objs, int[] count) {
+		int total = 0;
+		ByteBuffer buf = null;
 
-		byte[][] objsBuf = Arrays.stream(objs).map(obj -> serialize(obj)).toArray(s -> new byte[s][]);
-		for (int i = 0; i < objs.length; i++)
-			count[i] = objsBuf[i].length;
-
-		try (ByteArrayOutputStream concat = new ByteArrayOutputStream()) {
-			for (byte[] objBuf : objsBuf)
-				concat.write(objBuf);
-			concat.flush();
-			buf = concat.toByteArray();
-		} catch (IOException e) {
-			e.printStackTrace();
-			System.exit(-1);
+		ByteBuffer[] objBufs = new ByteBuffer[objs.length];
+		for(int i = 0; i < objs.length; i++) {
+			objBufs[i] = serialize(objs[i]);
+			count[i] = objBufs[i].capacity();
+			total += count[i];
 		}
+
+		buf = ByteBuffer.allocateDirect(total);
+		for (ByteBuffer b : objBufs)
+			buf.put(b);
+
+		buf.flip();
 
 		return buf;
 	}
 
 	// Deserialize the object of given type T that is stored in [pos, pos + len) in buf
-	private static <T extends Serializable> T deserialize(byte[] buf, int pos, int len) {
+	private static <T extends Serializable> T deserialize(ByteBuffer buf, int pos, int len) {
 		T obj = null;
 
+		// Get the data in buf[pos : pos + len] into the byte array
+		byte[] data = new byte[len];
+		buf.position(pos);
+		buf.get(data);
+
 		try (
-			    ByteArrayInputStream in = new ByteArrayInputStream(buf, pos, len);
+			    ByteArrayInputStream in = new ByteArrayInputStream(data);
 			    ObjectInputStream is = new ObjectInputStream(in);
 			) {
 			obj = (T)is.readObject();
@@ -80,17 +133,17 @@ public class MPIUtil {
 
 	// LP root broadcasts a Serializable object to all other LPs
 	public static <T extends Serializable> T bcast(DPartition p, T obj, int root) throws MPIException {
-		byte[] buf = null;
+		ByteBuffer buf = null;
 
 		if (p.getPid() == root)
 			buf = serialize(obj);
 
-		int[] count = new int[] {buf == null ? 0 : buf.length};
+		int[] count = new int[] {buf == null ? 0 : buf.capacity()};
 
 		p.getCommunicator().bcast(count, 1, MPI.INT, root);
 
 		if (p.getPid() != root)
-			buf = new byte[count[0]];
+			buf = ByteBuffer.allocateDirect(count[0]);
 
 		p.getCommunicator().bcast(buf, count[0], MPI.BYTE, root);
 
@@ -100,17 +153,17 @@ public class MPIUtil {
 	// TODO refactor this or the one above
 	// Currently used by init() in RemoteProxy() to broadcast the host ip address
 	public static <T extends Serializable> T bcast(T obj, int root) throws MPIException {
-		byte[] buf = null;
+		ByteBuffer buf = null;
 
 		if (MPI.COMM_WORLD.getRank() == root)
 			buf = serialize(obj);
 
-		int[] count = new int[] {buf == null ? 0 : buf.length};
+		int[] count = new int[] {buf == null ? 0 : buf.capacity()};
 
 		MPI.COMM_WORLD.bcast(count, 1, MPI.INT, root);
 
 		if (MPI.COMM_WORLD.getRank() != root)
-			buf = new byte[count[0]];
+			buf = ByteBuffer.allocateDirect(count[0]);
 
 		MPI.COMM_WORLD.bcast(buf, count[0], MPI.BYTE, root);
 
@@ -121,7 +174,7 @@ public class MPIUtil {
 	public static <T extends Serializable> T scatter(DPartition p, T[] sendObjs, int root) throws MPIException {
 		int pid = p.getPid(), np = p.getNumProc(), dstCount;
 		int[] srcDispl = null, srcCount = new int[np];
-		byte[] srcBuf = null, dstBuf;
+		ByteBuffer dstBuf, srcBuf = null;
 
 		if (pid == root) {
 			srcBuf = serialize(sendObjs, srcCount);
@@ -129,9 +182,9 @@ public class MPIUtil {
 		}
 
 		p.getCommunicator().scatter(srcCount, 1, MPI.INT, root);
-		
+
 		dstCount = srcCount[0];
-		dstBuf = new byte[dstCount];
+		dstBuf = ByteBuffer.allocateDirect(dstCount);
 
 		p.getCommunicator().scatterv(srcBuf, srcCount, srcDispl, MPI.BYTE, dstBuf, dstCount, MPI.BYTE, root);
 
@@ -141,9 +194,9 @@ public class MPIUtil {
 	// TODO refactor this or the one above
 	// Currently used by collectGroup() and distributedGroup() in HaloField
 	public static <T extends Serializable> T scatter(Comm comm, T[] sendObjs, int root) throws MPIException {
-		int pid = comm.getRank(), np = comm.getSize(), dstCount;
+		int pid =  comm.getRank(), np =  comm.getSize(), dstCount;
 		int[] srcDispl = null, srcCount = new int[np];
-		byte[] srcBuf = null, dstBuf;
+		ByteBuffer dstBuf, srcBuf = null;
 
 		if (pid == root) {
 			srcBuf = serialize(sendObjs, srcCount);
@@ -151,9 +204,9 @@ public class MPIUtil {
 		}
 
 		comm.scatter(srcCount, 1, MPI.INT, root);
-		
+
 		dstCount = srcCount[0];
-		dstBuf = new byte[dstCount];
+		dstBuf = ByteBuffer.allocateDirect(dstCount);
 
 		comm.scatterv(srcBuf, srcCount, srcDispl, MPI.BYTE, dstBuf, dstCount, MPI.BYTE, root);
 
@@ -166,25 +219,26 @@ public class MPIUtil {
 	public static <T extends Serializable> ArrayList<T> gather(DPartition p, T sendObj, int dst) throws MPIException {
 		int np = p.getNumProc();
 		int pid = p.getPid();
-		int[] dstDispl, dstCount = new int[np];
-		byte[] dstBuf, srcBuf;
-		ArrayList<T> recvObjs = new ArrayList();
+		int[] dstDispl = null, dstCount = new int[np];
+		ByteBuffer srcBuf, dstBuf;
+		ArrayList<T> recvObjs = new ArrayList();;
 
 		srcBuf = serialize(sendObj);
 
-		p.getCommunicator().gather(new int[] {srcBuf.length}, 1, MPI.INT, dstCount, 1, MPI.INT, dst);
+		p.getCommunicator().gather(new int[] {srcBuf.capacity()}, 1, MPI.INT, dstCount, 1, MPI.INT, dst);
 
-		dstBuf = new byte[Arrays.stream(dstCount).sum()];
+		dstBuf = ByteBuffer.allocateDirect(Arrays.stream(dstCount).sum());
 		dstDispl = getDispl(dstCount);
 
-		p.getCommunicator().gatherv(srcBuf, srcBuf.length, MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE, dst);
+		p.getCommunicator().gatherv(srcBuf, srcBuf.capacity(), MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE, dst);
 
-		if (pid == dst)
+		if (pid == dst) {
 			for (int i = 0; i < np; i++)
 				if (i == pid)
 					recvObjs.add(sendObj);
 				else
 					recvObjs.add(MPIUtil.<T>deserialize(dstBuf, dstDispl[i], dstCount[i]));
+		}
 
 		return recvObjs;
 	}
@@ -195,17 +249,17 @@ public class MPIUtil {
 		int np = comm.getSize();
 		int pid = comm.getRank();
 		int[] dstDispl, dstCount = new int[np];
-		byte[] dstBuf, srcBuf;
+		ByteBuffer dstBuf, srcBuf;
 		ArrayList<T> recvObjs = new ArrayList();
 
 		srcBuf = serialize(sendObj);
 
-		comm.gather(new int[] {srcBuf.length}, 1, MPI.INT, dstCount, 1, MPI.INT, dst);
+		comm.gather(new int[] {srcBuf.capacity()}, 1, MPI.INT, dstCount, 1, MPI.INT, dst);
 
-		dstBuf = new byte[Arrays.stream(dstCount).sum()];
+		dstBuf = ByteBuffer.allocateDirect(Arrays.stream(dstCount).sum());
 		dstDispl = getDispl(dstCount);
 
-		comm.gatherv(srcBuf, srcBuf.length, MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE, dst);
+		comm.gatherv(srcBuf, srcBuf.capacity(), MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE, dst);
 
 		if (pid == dst)
 			for (int i = 0; i < np; i++)
@@ -223,19 +277,18 @@ public class MPIUtil {
 		int np = p.getNumProc();
 		int pid = p.getPid();
 		int[] dstDispl, dstCount = new int[np];
-		byte[] dstBuf, srcBuf;
+		ByteBuffer dstBuf, srcBuf;
 		ArrayList<T> recvObjs = new ArrayList();
 
 		srcBuf = serialize(sendObj);
-		dstCount[pid] = srcBuf.length;
+		dstCount[pid] = srcBuf.capacity();
 
 		p.getCommunicator().allGather(dstCount, 1, MPI.INT);
 
-		dstBuf = new byte[Arrays.stream(dstCount).sum()];
+		dstBuf = ByteBuffer.allocateDirect(Arrays.stream(dstCount).sum());
 		dstDispl = getDispl(dstCount);
 
-		p.getCommunicator().allGatherv(srcBuf, srcBuf.length, MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE);
-
+		p.getCommunicator().allGatherv(srcBuf, srcBuf.capacity(), MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE);
 		for (int i = 0; i < np; i++)
 			if (i == pid)
 				recvObjs.add(sendObj);
@@ -251,7 +304,7 @@ public class MPIUtil {
 		int nc = sendObjs.length;
 		int[] srcDispl, srcCount = new int[nc];
 		int[] dstDispl, dstCount = new int[nc];
-		byte[] srcBuf, dstBuf;
+		ByteBuffer srcBuf, dstBuf;
 		ArrayList<T> recvObjs = new ArrayList();
 
 		srcBuf = serialize(sendObjs, srcCount);
@@ -259,7 +312,7 @@ public class MPIUtil {
 
 		p.getCommunicator().neighborAllToAll(srcCount, 1, MPI.INT, dstCount, 1, MPI.INT);
 
-		dstBuf = new byte[Arrays.stream(dstCount).sum()];
+		dstBuf = ByteBuffer.allocateDirect(Arrays.stream(dstCount).sum());
 		dstDispl = getDispl(dstCount);
 
 		p.getCommunicator().neighborAllToAllv(srcBuf, srcCount, srcDispl, MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE);
@@ -345,6 +398,50 @@ public class MPIUtil {
 			for (Integer i : res3)
 				System.out.println(i);
 		}, 100);
+
+		int size = 100 * 1024 * 1024; // 100 x 4 MB (int array)
+		MPITest.execOnlyIn(0, x -> {
+			System.out.println("Large Dataset Test for scatterv");
+		});
+
+		int[][] sendData = new int[p.getNumProc()][];
+		if (p.getPid() == dst) {
+			for (int i = 0; i < p.getNumProc(); i++) {
+				sendData[i] = new int[size];
+				Arrays.fill(sendData[i], i + 1);
+			}
+		}
+
+		int[] recvData = MPIUtil.<int[]>scatter(p, sendData, dst);
+		for (int i = 0; i < size; i++)
+			if (recvData[i] != p.getPid() + 1) {
+				System.out.printf("PID %d VerifyError index %d want %d got %d\n", p.getPid(), i, p.getPid() + 1, recvData[i]);
+				System.exit(-1);
+			}
+
+		MPITest.execOnlyIn(0, x -> {
+			System.out.println("Pass");
+		});
+
+		MPITest.execOnlyIn(0, x -> {
+			System.out.println("Large Dataset Test for gatherv");
+		});
+
+		int[] sendData2 = new int[size];
+		Arrays.fill(sendData2, p.getPid() + 1);
+
+		ArrayList<int[]> recvData2 = MPIUtil.<int[]>gather(p, sendData2, dst);
+		if (dst == p.getPid())
+			for (int i = 0; i < p.getNumProc(); i++)
+				for (int j = 0; j < size; j++)
+					if (recvData2.get(i)[j] != i + 1) {
+						System.out.printf("VerifyError index [%d][%d] want %d got %d\n", i, j, i + 1, recvData2.get(i)[j]);
+						System.exit(-1);
+					}
+
+		MPITest.execOnlyIn(0, x -> {
+			System.out.println("Pass");
+		});
 
 		MPI.Finalize();
 	}
