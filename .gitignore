@@ -6,3 +6,6 @@
 
 bin/
 exp/
+lib/
+
+contrib/geomason/lib/

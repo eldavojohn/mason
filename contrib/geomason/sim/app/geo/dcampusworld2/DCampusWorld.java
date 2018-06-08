@@ -56,7 +56,7 @@ public class DCampusWorld extends SimState
 	public static final int HEIGHT = 300;
 
 	/** How many agents in the simulation */
-	public int numAgents = 10;
+	public int numAgents = 40000;
 
 	/** Fields to hold the associated GIS information */
 	public GeomVectorField walkways = new GeomVectorField(WIDTH, HEIGHT);
@@ -173,71 +173,40 @@ public class DCampusWorld extends SimState
 		ShapeFileExporter.write("agents", agents);
 	}
 
-	public void start()
-	{
-		super.start();
-		agents.clear();
-		try
-		{
-			// add all agents into agents field in processor 0
-			ContStorage<DAgent> packgeField = new ContStorage<DAgent>(partition.getField(), discretizations);
-			if (partition.getPid() == 0)
-			{
-				for (int i = 0; i < numAgents; ++i)
-				{
-					DAgent agent = new DAgent(this);
-					// Do not add to agents field, we will add that later
-					// after distribution
-					packgeField.setLocation(agent, agent.position);
-				}
-			}
-			// After distribute is called, communicator will have agents
-			communicator.field.distribute(0, packgeField);
-
-			// Then each processor access these agents, put them in 
-			// agents field and schedule them
-			Set<DAgent> receivedAgents = ((ContStorage)communicator.field.getStorage()).m.keySet();
-			for (DAgent agent : receivedAgents)
-			{
-				agents.addGeometry(agent.getGeometry());
-				schedule.scheduleOnce(agent);
-			}
-		} catch (MPIException e)
-		{
-			e.printStackTrace();
-		}
-
-		agents.setMBR(buildings.getMBR());
-		schedule.scheduleRepeating(Schedule.EPOCH, 2, new Synchronizer(), 1);
-
-		// Ensure that the spatial index is made aware of the new agent
-		// positions. Scheduled to guaranteed to run after all agents moved.
-		schedule.scheduleRepeating(agents.scheduleSpatialIndexUpdater(), Integer.MAX_VALUE, 1.0);
-	}
-
-//	void addAgents() throws MPIException
-//	{
-//		for (int i = 0; i < numAgents / partition.np; i++)
-//		{
-//			DAgent a = new DAgent(this);
-//			agents.addGeometry(a.getGeometry());
-//			communicator.setLocation(a, a.position);
-//			schedule.scheduleOnce(a);
-//		}
-//	}
-//
-//	@Override
 //	public void start()
 //	{
 //		super.start();
-//		agents.clear(); // clear any existing agents from previous runs
+//		agents.clear();
 //		try
 //		{
-//			addAgents();
+//			// add all agents into agents field in processor 0
+//			ContStorage<DAgent> packgeField = new ContStorage<DAgent>(partition.getField(), discretizations);
+//			if (partition.getPid() == 0)
+//			{
+//				for (int i = 0; i < numAgents; ++i)
+//				{
+//					DAgent agent = new DAgent(this);
+//					// Do not add to agents field, we will add that later
+//					// after distribution
+//					packgeField.setLocation(agent, agent.position);
+//				}
+//			}
+//			// After distribute is called, communicator will have agents
+//			communicator.field.distribute(0, packgeField);
+//
+//			// Then each processor access these agents, put them in 
+//			// agents field and schedule them
+//			Set<DAgent> receivedAgents = ((ContStorage)communicator.field.getStorage()).m.keySet();
+//			for (DAgent agent : receivedAgents)
+//			{
+//				agents.addGeometry(agent.getGeometry());
+//				schedule.scheduleOnce(agent);
+//			}
 //		} catch (MPIException e)
 //		{
 //			e.printStackTrace();
 //		}
+//
 //		agents.setMBR(buildings.getMBR());
 //		schedule.scheduleRepeating(Schedule.EPOCH, 2, new Synchronizer(), 1);
 //
@@ -245,6 +214,37 @@ public class DCampusWorld extends SimState
 //		// positions. Scheduled to guaranteed to run after all agents moved.
 //		schedule.scheduleRepeating(agents.scheduleSpatialIndexUpdater(), Integer.MAX_VALUE, 1.0);
 //	}
+
+	void addAgents() throws MPIException
+	{
+		for (int i = 0; i < numAgents / partition.np; i++)
+		{
+			DAgent a = new DAgent(this);
+			agents.addGeometry(a.getGeometry());
+			communicator.setLocation(a, a.position);
+			schedule.scheduleOnce(a);
+		}
+	}
+
+	@Override
+	public void start()
+	{
+		super.start();
+		agents.clear(); // clear any existing agents from previous runs
+		try
+		{
+			addAgents();
+		} catch (MPIException e)
+		{
+			e.printStackTrace();
+		}
+		agents.setMBR(buildings.getMBR());
+		schedule.scheduleRepeating(Schedule.EPOCH, 2, new Synchronizer(), 1);
+
+		// Ensure that the spatial index is made aware of the new agent
+		// positions. Scheduled to guaranteed to run after all agents moved.
+		schedule.scheduleRepeating(agents.scheduleSpatialIndexUpdater(), Integer.MAX_VALUE, 1.0);
+	}
 
 	/**
 	 * adds nodes corresponding to road intersections to GeomVectorField
@@ -292,7 +292,7 @@ public class DCampusWorld extends SimState
 			// Timing.start(Timing.MPI_SYNC_OVERHEAD);
 			try
 			{
-				world.communicator.sync();
+				//world.communicator.sync();
 				world.queue.sync();
 				// String s = String.format("PID %d Steps %d Number of Agents
 				// %d\n", partition.pid, schedule.getSteps(), flockers.size() -

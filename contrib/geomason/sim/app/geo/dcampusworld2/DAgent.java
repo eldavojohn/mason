@@ -73,28 +73,28 @@ public class DAgent implements Steppable
         location = new MasonGeometry(fact.createPoint(new Coordinate(10, 10))); // magic numbers
         location.isMovable = true;
         
-//        while(true)
-//        {
-//        	int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
-//            MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
-//        	setNewRoute((LineString) mg.getGeometry(), true);
-//        	double x = state.communicator.toXCoord(position.c[0]);
-//        	double y = state.communicator.toYCoord(position.c[1]);
-//        	//System.out.println("position is " + x + "," + y);
-//        	if (state.partition.toPartitionId(new double[]{x, y}) == state.partition.pid)
-//        	{
-//        		position = new DoublePoint(x, y);
-//        		break;
-//        	}
-//        }
+        while(true)
+        {
+        	int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
+            MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
+        	setNewRoute((LineString) mg.getGeometry(), true);
+        	double x = state.communicator.toXCoord(position.c[0]);
+        	double y = state.communicator.toYCoord(position.c[1]);
+        	//System.out.println("position is " + x + "," + y);
+        	if (state.partition.toPartitionId(new double[]{x, y}) == state.partition.pid)
+        	{
+        		position = new DoublePoint(x, y);
+        		break;
+        	}
+        }
      // Find the first line segment and set our position over the start coordinate.
-        int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
-        MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
-        setNewRoute((LineString) mg.getGeometry(), true);
-    	double x = state.communicator.toXCoord(position.c[0]);
-    	double y = state.communicator.toYCoord(position.c[1]);
-//    	System.out.println("position is " + x + "," + y);
-    	position = new DoublePoint(x, y);
+//        int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
+//        MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
+//        setNewRoute((LineString) mg.getGeometry(), true);
+//    	double x = state.communicator.toXCoord(position.c[0]);
+//    	double y = state.communicator.toYCoord(position.c[1]);
+////    	System.out.println("position is " + x + "," + y);
+//    	position = new DoublePoint(x, y);
 
 
         // Now set up attributes for this agent
