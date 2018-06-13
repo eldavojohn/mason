@@ -87,12 +87,13 @@ public class DCampusWorld extends SimState
 			communicator = new NContinuous2D<DAgent>(partition, aoi, discretizations);
 			queue = new DObjectMigratorNonUniform(partition);
 			myPart = partition.getPartition();
-			int length = 1000;
+			int length = 0;
 			content = new int[length];
 			for(int i = 0;i<length;++i)
 			{
 				content[i] = i;
 			}
+			System.out.println("content length is " + content.length);
 	
 		} catch (Exception ex)
 		{

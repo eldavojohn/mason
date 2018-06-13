@@ -9,3 +9,6 @@ exp/
 lib/
 
 contrib/geomason/lib/
+
+*.class
+*.log

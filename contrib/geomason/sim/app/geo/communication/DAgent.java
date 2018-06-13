@@ -65,6 +65,8 @@ public class DAgent implements Steppable
         System.arraycopy(state.content, 0, content, 0, state.content.length);
         
         
+        
+        
     }
 
     public void step(SimState state)
@@ -78,11 +80,16 @@ public class DAgent implements Steppable
         }
         
         // update position to coordinate in pixels (see pixelwidth method in GeomGridField)
-        double x = state.random.nextDouble() * campState.WIDTH;
-        double y = state.random.nextDouble() * campState.HEIGHT;
-        DoublePoint loc = new DoublePoint(x, y);
-        this.position = loc;
-        
+//        double deltaX = state.random.nextDouble() * 20 - 10;
+//        double deltaY = state.random.nextDouble() * 20 - 10;
+        // TODO, if Math.abs and modulo is not used, will throw Exception
+//        DoublePoint loc = new DoublePoint(Math.abs(position.c[0] + deltaX) % campState.WIDTH, 
+//        		Math.abs(position.c[1] + deltaY) % campState.HEIGHT);
+//        double x = state.random.nextDouble() * campState.WIDTH;
+//        double y = state.random.nextDouble() * campState.HEIGHT;
+//        DoublePoint loc = new DoublePoint(x, y);
+//        this.position = loc;
+        	DoublePoint loc = this.position;
         try {
             int dst = campState.partition.toPartitionId(new double[] {loc.c[0], loc.c[1]});
             if (dst != campState.partition.getPid()) {
