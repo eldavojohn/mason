@@ -7,7 +7,7 @@
  *
  * $Id: BuildingLabelPortrayal.java 677 2012-06-24 20:28:55Z mcoletti $
  */
-package sim.app.geo.dcampusworld;
+package sim.app.geo.dcampusworld2;
 
 import java.awt.Paint;
 import sim.portrayal.DrawInfo2D;

@@ -7,7 +7,7 @@
  *
  * $Id: Agent.java 846 2013-01-08 21:47:51Z mcoletti $
  */
-package sim.app.geo.dcampusworld;
+package sim.app.geo.dcampusworld2;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -18,7 +18,6 @@ import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;
 import com.vividsolutions.jts.geom.Point;
-import com.vividsolutions.jts.geom.prep.PreparedGeometryFactory;
 import com.vividsolutions.jts.linearref.LengthIndexedLine;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Node;
@@ -26,9 +25,7 @@ import com.vividsolutions.jts.planargraph.Node;
 import mpi.MPIException;
 import sim.engine.SimState;
 import sim.engine.Steppable;
-import sim.field.DObjectMigrator.AgentOutputStream;
-import sim.field.SelfStreamedAgent;
-import sim.util.Double2D;
+import sim.util.DoublePoint;
 import sim.util.geo.GeomPlanarGraphDirectedEdge;
 import sim.util.geo.GeomPlanarGraphEdge;
 import sim.util.geo.MasonGeometry;
@@ -42,13 +39,13 @@ import sim.util.geo.PointMoveTo;
  * it continues in a random direction.
  *
  */
-public class DAgent implements Steppable, SelfStreamedAgent
+public class DAgent implements Steppable
 {
 
     private static final long serialVersionUID = 1L;
     // point that denotes agent's position
     private MasonGeometry location;
-    public Double2D position;
+    public DoublePoint position;
     // The base speed of the agent.
     private double basemoveRate = 1.0;
     // How much to move the agent by in each step(); may become negative if
@@ -74,30 +71,30 @@ public class DAgent implements Steppable, SelfStreamedAgent
     public DAgent(DCampusWorld state) throws MPIException
     {
         location = new MasonGeometry(fact.createPoint(new Coordinate(10, 10))); // magic numbers
-
         location.isMovable = true;
         
-                // Find the first line segment and set our position over the start coordinate.
-        int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
-        MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
 //        while(true)
 //        {
+//        	int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
+//            MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
 //        	setNewRoute((LineString) mg.getGeometry(), true);
-//        	double x = state.communicator.toXCoord(position.x);
-//        	double y = state.communicator.toYCoord(position.y);
-////        	System.out.println("position is " + x + "," + y);
+//        	double x = state.communicator.toXCoord(position.c[0]);
+//        	double y = state.communicator.toYCoord(position.c[1]);
+//        	//System.out.println("position is " + x + "," + y);
 //        	if (state.partition.toPartitionId(new double[]{x, y}) == state.partition.pid)
 //        	{
-//        		position = new Double2D(x, y);
+//        		position = new DoublePoint(x, y);
 //        		break;
 //        	}
 //        }
-        
+     // Find the first line segment and set our position over the start coordinate.
+        int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
+        MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
         setNewRoute((LineString) mg.getGeometry(), true);
-    	double x = state.communicator.toXCoord(position.x);
-    	double y = state.communicator.toYCoord(position.y);
+    	double x = state.communicator.toXCoord(position.c[0]);
+    	double y = state.communicator.toYCoord(position.c[1]);
 //    	System.out.println("position is " + x + "," + y);
-    	position = new Double2D(x, y);
+    	position = new DoublePoint(x, y);
 
 
         // Now set up attributes for this agent
@@ -257,7 +254,8 @@ public class DAgent implements Steppable, SelfStreamedAgent
 
 	private void updatePosition(Coordinate c)
 	{
-		position = new Double2D(c.x, c.y);
+		// record the original coordinates
+		position = new DoublePoint(c.x, c.y);
 	}
 
 
@@ -265,10 +263,30 @@ public class DAgent implements Steppable, SelfStreamedAgent
     {
         DCampusWorld campState = (DCampusWorld) state;
         move(campState);
-        double x = campState.communicator.toXCoord(position.x);
-        double y = campState.communicator.toYCoord(position.y);
-//        System.out.println("in steppable, position is " + x + "," + y);
-        campState.communicator.setObjectLocation(this, new Double2D(x, y));
+        
+        // update position to coordinate in pixels (see pixelwidth method in GeomGridField)
+        double x = campState.communicator.toXCoord(position.c[0]);
+        double y = campState.communicator.toYCoord(position.c[1]);
+        DoublePoint loc = new DoublePoint(x, y);
+        this.position = loc;
+        
+        try {
+            int dst = campState.partition.toPartitionId(new double[] {loc.c[0], loc.c[1]});
+            if (dst != campState.partition.getPid()) {
+            	// Need to migrate to other partition, 
+            	// remove from current partition 
+            	campState.agents.removeGeometry(this.getGeometry());
+            	campState.communicator.removeObject(this);
+            	campState.queue.migrate(this, dst, loc);           
+            } else {        
+            	// Set to new location in current partition
+            	campState.communicator.setLocation(this, loc);
+            	campState.schedule.scheduleOnce(this, 1);
+            }
+        } catch (Exception e) {
+            e.printStackTrace(System.out);
+            System.exit(-1);
+        }
     }
 
 
@@ -319,52 +337,4 @@ public class DAgent implements Steppable, SelfStreamedAgent
 
         moveTo(currentPos);
     }
-
-
-
-	@Override
-	public void writeStream(AgentOutputStream out)
-	{
-		try
-		{
-			out.os.writeObject(location);
-			out.os.writeObject(position);
-			out.os.writeDouble(basemoveRate);
-			out.os.writeDouble(moveRate);
-			out.os.writeObject(segmentGeometry);
-			out.os.writeDouble(startIndex);
-			out.os.writeDouble(endIndex);
-			out.os.writeDouble(currentIndex);
-			out.os.writeObject(pointMoveTo);
-		} catch (IOException e)
-		{
-			e.printStackTrace();
-			System.exit(-1);
-		}
-		
-	}
-
-	@Override
-	public void readStream(ObjectInputStream in)
-	{
-		try
-		{
-			location = (MasonGeometry)in.readObject();
-			position = (Double2D)in.readObject();
-			basemoveRate = in.readDouble();
-			moveRate = in.readDouble();
-			segmentGeometry = (Geometry)in.readObject();
-			segment = new LengthIndexedLine(segmentGeometry);
-			startIndex = in.readDouble();
-			endIndex = in.readDouble();
-			currentIndex = in.readDouble();
-			pointMoveTo = (PointMoveTo)in.readObject();
-		}
-		catch (IOException|ClassNotFoundException e)
-		{
-			e.printStackTrace();
-			System.exit(-1);
-		} 
-	}
-
 }
