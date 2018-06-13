@@ -1,6 +1,7 @@
 package sim.field;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.*;
 
 import sim.util.*;
@@ -188,7 +189,8 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 		ByteArrayOutputStream objstream = new ByteArrayOutputStream();
 		for (int i = 0; i < nc; i++)
 			objstream.write(outputStreams[i].toByteArray());
-		byte[] sendbuf = objstream.toByteArray();
+		ByteBuffer sendbuf = ByteBuffer.allocateDirect(objstream.size());
+		sendbuf.put(objstream.toByteArray()).flip();
 
 		// First exchange count[] of the send byte buffers with neighbors so that we can setup recvbuf
 		partition.comm.neighborAllToAll(src_count, 1, MPI.INT, dst_count, 1, MPI.INT);
@@ -196,7 +198,7 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 			dst_displ[i] = total;
 			total += dst_count[i];
 		}
-		byte[] recvbuf = new byte[dst_displ[nc - 1] + dst_count[nc - 1]];
+		ByteBuffer recvbuf = ByteBuffer.allocateDirect(dst_displ[nc - 1] + dst_count[nc - 1]);
 
 		// exchange the actual object bytes
 		partition.comm.neighborAllToAllv(sendbuf, src_count, src_displ, MPI.BYTE, recvbuf, dst_count, dst_displ, MPI.BYTE);
@@ -204,7 +206,10 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 		// read and handle incoming objects
 		ArrayList<MigratingAgent> bufferList = new ArrayList<MigratingAgent>();
 		for (int i = 0; i < nc; i++) {
-			ByteArrayInputStream in = new ByteArrayInputStream(Arrays.copyOfRange(recvbuf, dst_displ[i], dst_displ[i] + dst_count[i]));
+			byte[] data = new byte[dst_count[i]];
+			recvbuf.position(dst_displ[i]);
+			recvbuf.get(data);
+			ByteArrayInputStream in = new ByteArrayInputStream(data);
 			ObjectInputStream is = new ObjectInputStream(in);
 			boolean more = true;
 			while (more) {
