@@ -86,6 +86,19 @@ public class QTNode {
 		return false;
 	}
 
+	// Return siblings (not including the node itself) if exist, empty list otherwise
+	public List<QTNode> getSiblings() {
+		List<QTNode> ret = new ArrayList<QTNode>();
+
+		if (isRoot())
+			return ret;
+
+		ret.addAll(parent.getChildren());
+		ret.remove(this);
+
+		return ret;
+	}
+
 	// Get the immediate child node that contains the given point
 	public QTNode getChildNode(IntPoint p) {
 		return children.get(toChildIdx(p));
@@ -157,6 +170,18 @@ public class QTNode {
 		return ret;
 	}
 
+	private int getIndexInSiblings() {
+		if (isRoot())
+			throw new IllegalArgumentException("root node does not have position");
+
+		return parent.getChildren().indexOf(this);
+	}
+
+	// Return the direction (forward/backward) on the given dimension
+	public boolean getDir(int dim) {
+		return ((getIndexInSiblings() >> (nd - dim - 1)) & 0x1) == 0x1;
+	}
+
 	// Print the current QTNode only
 	public String toString() {
 		String s = String.format("ID %2d PID %2d L%1d %s", id, proc, level, shape.toString());
@@ -187,9 +212,12 @@ public class QTNode {
 	// Change my shape as well as all my children's
 	protected void reshape(IntHyperRect newShape) {
 		shape = newShape;
+		if (isLeaf())
+			return;
+
 		if (!newShape.contains(origin))
 			origin = newShape.getCenter();
-		
+
 		for (int i = 0; i < children.size(); i++)
 			children.get(i).reshape(getChildShape(i));
 	}
