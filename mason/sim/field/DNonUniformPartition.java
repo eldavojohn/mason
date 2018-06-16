@@ -33,14 +33,6 @@ public class DNonUniformPartition extends DPartition {
 
 		ps = new HashMap<Integer, IntHyperRect>();
 
-		try {
-			pid = MPI.COMM_WORLD.getRank();
-			np = MPI.COMM_WORLD.getSize();
-		} catch (MPIException e) {
-			e.printStackTrace();
-			System.exit(-1);
-		}
-
 		updates = new ArrayList<UpdateAction>();
 	}
 

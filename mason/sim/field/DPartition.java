@@ -21,9 +21,29 @@ public abstract class DPartition {
 		this.size = Arrays.copyOf(size, nd);
 		this.isToroidal = isToroidal;
 
+		try {
+			pid = MPI.COMM_WORLD.getRank();
+			np = MPI.COMM_WORLD.getSize();
+		} catch (MPIException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+
 		preCallbacks = new ArrayList<Runnable>();
 		postCallbacks = new ArrayList<Runnable>();
 	}
+
+	// TODO move the neighbor comm init to here
+	// protected void setNeighborComm() {
+	// 	int[] nids = getNeighborIds();
+
+	// 	try {
+	// 		comm = MPI.COMM_WORLD.createDistGraphAdjacent(ns, ns, new Info(), false);
+	// 	} catch (MPIException e) {
+	// 		e.printStackTrace();
+	// 		System.exit(-1);
+	// 	}
+	// }
 
 	public int getPid() {
 		return pid;
