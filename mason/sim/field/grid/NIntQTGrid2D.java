@@ -63,7 +63,7 @@ public class NIntQTGrid2D extends HaloField {
 
 		int[] aoi = new int[] {2, 2};
 
-		DQuadTreePartition p = new DQuadTreePartition(new int[] {100, 100}, false);
+		DQuadTreePartition p = new DQuadTreePartition(new int[] {100, 100}, false, aoi);
 
 		IntPoint[] splitPoints = new IntPoint[] {
 		    new IntPoint(50, 50),
@@ -74,7 +74,7 @@ public class NIntQTGrid2D extends HaloField {
 		};
 
 		p.initQuadTree(java.util.Arrays.asList(splitPoints));
-		p.commit();
+		//p.commit();
 
 		NIntQTGrid2D f = new NIntQTGrid2D(p, aoi, p.getPid());
 
