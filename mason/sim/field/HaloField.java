@@ -32,26 +32,22 @@ public abstract class HaloField implements RemoteField {
 		this.aoi = aoi;
 		this.field = stor;
 
-		ps.registerPreCommit(new Runnable() {
-			public void run() {
-				try {
-					sync();
-				} catch (Exception e) {
-					e.printStackTrace();
-					System.exit(-1);
-				}
+		ps.registerPreCommit(arg -> {
+			try {
+				sync();
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.exit(-1);
 			}
 		});
 
-		ps.registerPostCommit(new Runnable() {
-			public void run() {
-				try {
-					reload();
-					sync();
-				} catch (Exception e) {
-					e.printStackTrace();
-					System.exit(-1);
-				}
+		ps.registerPostCommit(arg -> {
+			try {
+				reload();
+				sync();
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.exit(-1);
 			}
 		});
 
@@ -204,9 +200,9 @@ public abstract class HaloField implements RemoteField {
 
 		if (gc != null) {
 			Serializable sendObj = field.pack(new MPIParam(origPart, haloPart, MPIBaseType));
-			
+
 			ArrayList<Serializable> recvObjs = MPIUtil.<Serializable>gather(gc.comm, sendObj, gc.groupRoot);
-			
+
 			if (qt.isGroupMaster(gc))
 				for (int i = 0; i < recvObjs.size(); i++)
 					groupField.unpack(new MPIParam(gc.leaves.get(i).getShape(), gc.master.getShape(), MPIBaseType), recvObjs.get(i));

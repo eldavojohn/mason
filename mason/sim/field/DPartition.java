@@ -2,6 +2,7 @@ package sim.field;
 
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import mpi.*;
 
 import sim.util.IntHyperRect;
@@ -14,7 +15,7 @@ public abstract class DPartition {
 	boolean isToroidal;
 	public Comm comm;
 
-	ArrayList<Runnable> preCallbacks, postCallbacks;
+	ArrayList<Consumer> preCallbacks, postCallbacks;
 
 	DPartition(int[] size, boolean isToroidal) {
 		this.nd = size.length;
@@ -29,8 +30,8 @@ public abstract class DPartition {
 			System.exit(-1);
 		}
 
-		preCallbacks = new ArrayList<Runnable>();
-		postCallbacks = new ArrayList<Runnable>();
+		preCallbacks = new ArrayList<Consumer>();
+		postCallbacks = new ArrayList<Consumer>();
 	}
 
 	// TODO move the neighbor comm init to here
@@ -83,11 +84,11 @@ public abstract class DPartition {
 	public abstract int toPartitionId(IntPoint p);
 
 	// TODO let other classes who depend on the partition scheme to register proper actions when partiton changes
-	public void registerPreCommit(Runnable r) {
+	public void registerPreCommit(Consumer r) {
 		preCallbacks.add(r);
 	}
 
-	public void registerPostCommit(Runnable r) {
+	public void registerPostCommit(Consumer r) {
 		postCallbacks.add(r);
 	}
 }

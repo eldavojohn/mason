@@ -32,10 +32,8 @@ public class LoadBalancer {
 
 		reload();
 
-		p.registerPostCommit(new Runnable() {
-			public void run() {
-				gc.color();
-			}
+		p.registerPostCommit(arg -> {
+			gc.color();
 		});
 	}
 

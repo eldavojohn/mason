@@ -1,6 +1,7 @@
 package sim.field;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 import sim.util.*;
@@ -292,8 +293,8 @@ public class DNonUniformPartition extends DPartition {
 		if (!isDirty)
 			return 0;
 
-		for (Runnable r : preCallbacks)
-			r.run();
+		for (Consumer r : preCallbacks)
+			r.accept(null);
 
 		int count = updates.size();
 
@@ -301,8 +302,8 @@ public class DNonUniformPartition extends DPartition {
 		setMPITopo();
 		isDirty = false;
 
-		for (Runnable r : postCallbacks)
-			r.run();
+		for (Consumer r : postCallbacks)
+			r.accept(null);
 
 		return count;
 	}
