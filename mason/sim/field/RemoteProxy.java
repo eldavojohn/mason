@@ -110,7 +110,7 @@ public class RemoteProxy {
 
 		Init(0);
 
-		sim.field.DNonUniformPartition p = sim.field.DNonUniformPartition.getPartitionScheme(new int[] {10, 10});
+		sim.field.DNonUniformPartition p = sim.field.DNonUniformPartition.getPartitionScheme(new int[] {10, 10}, false, new int[] {1, 1});
 		p.initUniformly(null);
 		p.commit();
 

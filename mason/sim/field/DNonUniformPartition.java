@@ -21,13 +21,12 @@ public class DNonUniformPartition extends DPartition {
 	boolean isDirty = false;
 	ArrayList<UpdateAction> updates;
 
-	protected DNonUniformPartition(int size[]) {
-		this(size, false);
-	}
+	int[] aoi;
 
-	protected DNonUniformPartition(int size[], boolean isToroidal) {
+	protected DNonUniformPartition(int size[], boolean isToroidal, int[] aoi) {
 		super(size, isToroidal);
 
+		this.aoi = aoi;
 		this.st = new AugmentedSegmentTree[nd];
 		for (int i = 0; i < nd; i++)
 			this.st[i] = new AugmentedSegmentTree(isToroidal);
@@ -37,19 +36,19 @@ public class DNonUniformPartition extends DPartition {
 		updates = new ArrayList<UpdateAction>();
 	}
 
-	public static DNonUniformPartition getPartitionScheme(int size[]) {
+	// public static DNonUniformPartition getPartitionScheme(int size[]) {
+	// 	if (instance == null)
+	// 		instance = new DNonUniformPartition(size);
+
+	// 	if (instance.isToroidal == true)
+	// 		throw new IllegalArgumentException("DNonUniformPartition has already been initialized to be Toroidal");
+
+	// 	return instance;
+	// }
+
+	public static DNonUniformPartition getPartitionScheme(int size[], boolean isToroidal, int[] aoi) {
 		if (instance == null)
-			instance = new DNonUniformPartition(size);
-
-		if (instance.isToroidal == true)
-			throw new IllegalArgumentException("DNonUniformPartition has already been initialized to be Toroidal");
-
-		return instance;
-	}
-
-	public static DNonUniformPartition getPartitionScheme(int size[], boolean isToroidal) {
-		if (instance == null)
-			instance = new DNonUniformPartition(size, isToroidal);
+			instance = new DNonUniformPartition(size, isToroidal, aoi);
 
 		if (instance.isToroidal != isToroidal)
 			throw new IllegalArgumentException("DNonUniformPartition has already been initialized to be " + (instance.isToroidal ? "Toroidal" : "non-Toroidal"));
@@ -191,15 +190,15 @@ public class DNonUniformPartition extends DPartition {
 	}
 
 	public int[] getNeighborIds(int id) {
-		IntHyperRect rect = getPartition(id);
+		IntHyperRect rect = getPartition(id).resize(aoi);
 
-		// TODO Better way?
-		// Expanded all dimensions by epsilon
-		double[] exp_ul = Arrays.stream(rect.ul().getArray()).mapToDouble(x -> (double)x - epsilon).toArray();
-		double[] exp_br = Arrays.stream(rect.br().getArray()).mapToDouble(x -> (double)x + epsilon).toArray();
+		// // TODO Better way?
+		// // Expanded all dimensions by epsilon
+		// double[] exp_ul = Arrays.stream(rect.ul().getArray()).mapToDouble(x -> (double)x - epsilon).toArray();
+		// double[] exp_br = Arrays.stream(rect.br().getArray()).mapToDouble(x -> (double)x + epsilon).toArray();
 
 		// Remove self
-		return coveredPartitionIds(exp_ul, exp_br).stream()
+		return coveredPartitionIds(rect.ul().c, rect.br().c).stream()
 		       .filter(i -> i != id).mapToInt(i -> i).toArray();
 	}
 
@@ -243,10 +242,14 @@ public class DNonUniformPartition extends DPartition {
 		double[] exp_ul = rect.ul().getArrayInDouble();
 		double[] exp_br = rect.br().getArrayInDouble();
 
+		// if (dir >= 0)
+		// 	exp_br[dim] += epsilon;
+		// else
+		// 	exp_ul[dim] -= epsilon;
 		if (dir >= 0)
-			exp_br[dim] += epsilon;
+			exp_br[dim] += aoi[dim];
 		else
-			exp_ul[dim] -= epsilon;
+			exp_ul[dim] -= aoi[dim];
 
 		return coveredPartitionIds(exp_ul, exp_br).stream()
 		       .filter(i -> i != pid).mapToInt(i -> i).toArray();
@@ -328,7 +331,7 @@ public class DNonUniformPartition extends DPartition {
 	}
 
 	public static void testUpdate() throws MPIException, InterruptedException {
-		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20});
+		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20}, false, new int[] {1, 1});
 		assert p.np == 5;
 
 		p.initUniformly(new int[] {0, 0});
@@ -353,7 +356,7 @@ public class DNonUniformPartition extends DPartition {
 	}
 
 	public static void testInitUniformly() {
-		DNonUniformPartition p = new DNonUniformPartition(new int[] {12, 24});
+		DNonUniformPartition p = new DNonUniformPartition(new int[] {12, 24}, false, new int[] {1, 1});
 
 		p.initUniformly(new int[] {0, 0});
 		p.commit();
@@ -365,7 +368,7 @@ public class DNonUniformPartition extends DPartition {
 	}
 
 	public static void testNonUniformToroidal() throws MPIException, InterruptedException {
-		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20}, true);
+		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20}, true, new int[] {1, 1});
 		assert p.np == 5;
 
 		/**
@@ -440,7 +443,7 @@ public class DNonUniformPartition extends DPartition {
 	}
 
 	public static void testNonUniform() throws MPIException {
-		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20});
+		DNonUniformPartition p = new DNonUniformPartition(new int[] {10, 20}, false, new int[] {1, 1});
 		assert p.np == 5;
 
 		/**

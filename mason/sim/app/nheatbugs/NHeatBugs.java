@@ -82,7 +82,7 @@ public class NHeatBugs extends SimState {
 		this.aoi = new int[] {aoi, aoi};
 
 		try {
-			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height}, true);
+			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height}, true, this.aoi);
 			assert p.np == 4;
 			p.insertPartition(new IntHyperRect(0, new IntPoint(0, 0), new IntPoint(100, 100)));
 			p.insertPartition(new IntHyperRect(1, new IntPoint(0, 100), new IntPoint(100, 1000)));

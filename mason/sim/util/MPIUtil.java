@@ -380,7 +380,7 @@ public class MPIUtil {
 	public static void main(String[] args) throws MPIException, IOException {
 		MPI.Init(args);
 
-		sim.field.DNonUniformPartition p = sim.field.DNonUniformPartition.getPartitionScheme(new int[] {10, 10}, true);
+		sim.field.DNonUniformPartition p = sim.field.DNonUniformPartition.getPartitionScheme(new int[] {10, 10}, true, new int[] {1, 1});
 		p.initUniformly(null);
 		p.commit();
 

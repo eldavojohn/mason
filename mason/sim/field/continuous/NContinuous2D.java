@@ -68,7 +68,7 @@ public class NContinuous2D<T extends Serializable> extends HaloField {
 		int[] size = new int[] {1000, 1000};
 		int[] discretizations = new int[] {10, 10};
 
-		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
+		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true, aoi);
 		p.initUniformly(null);
 		p.commit();
 

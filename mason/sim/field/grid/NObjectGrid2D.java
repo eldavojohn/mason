@@ -68,7 +68,7 @@ public class NObjectGrid2D<T extends Serializable> extends HaloField {
 		int[] aoi = new int[] {2, 2};
 		int[] size = new int[] {8, 8};
 
-		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
+		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true, aoi);
 		p.initUniformly(null);
 		p.commit();
 

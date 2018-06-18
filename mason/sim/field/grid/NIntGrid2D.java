@@ -64,7 +64,7 @@ public class NIntGrid2D extends HaloField {
 		int[] aoi = new int[] {2, 2};
 		int[] size = new int[] {10, 10};
 
-		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
+		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true, aoi);
 		p.initUniformly(null);
 		p.commit();
 
