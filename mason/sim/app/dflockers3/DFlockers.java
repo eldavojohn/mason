@@ -42,7 +42,7 @@ public class DFlockers extends SimState {
 			int[] size = new int[] { (int) width, (int) height };
 			int[] discretizations = new int[] { (int) (neighborhood / 1.5), (int) (neighborhood / 1.5) };
 
-			partition = DNonUniformPartition.getPartitionScheme(size, true);
+			partition = DNonUniformPartition.getPartitionScheme(size, true, aoi);
 			partition.initUniformly(null);
 			partition.commit();
 
