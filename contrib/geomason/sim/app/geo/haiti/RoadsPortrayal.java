@@ -5,9 +5,6 @@
 */
 
 package sim.app.geo.haiti;
-
-
-
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.Rectangle2D;
@@ -15,8 +12,6 @@ import sim.portrayal.DrawInfo2D;
 import sim.portrayal.simple.RectanglePortrayal2D;
 import sim.util.MutableDouble;
 import sim.util.gui.ColorMap;
-
-
 
 public class RoadsPortrayal extends RectanglePortrayal2D
 {

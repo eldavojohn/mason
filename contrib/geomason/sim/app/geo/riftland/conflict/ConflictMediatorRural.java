@@ -1,17 +1,11 @@
+package sim.app.geo.riftland.conflict;
 
-        /*
-         * ConflictMediatorRural.java
-         *
-         * $Id$
-         */
-        package riftland.conflict;
-
-import riftland.household.Herding;
-import riftland.household.Activity;
-import riftland.parcel.GrazableArea;
+import sim.app.geo.riftland.household.Herding;
+import sim.app.geo.riftland.household.Activity;
+import sim.app.geo.riftland.parcel.GrazableArea;
 import java.util.Iterator;
-import riftland.World;
-import riftland.World;
+import sim.app.geo.riftland.World;
+import sim.app.geo.riftland.World;
 import sim.engine.SimState;
 import sim.util.Bag;
 

@@ -12,6 +12,8 @@ public class DObjectMigrator implements Iterable<Object> {
 	int nc; // number of direct neighbors
 	int[] src_count, src_displ, dst_count, dst_displ;
 
+	HashMap<Object, Integer> sendingCatelog;
+	HashMap<Integer, Object> receivingCatelog;
 	HashMap<Integer, AgentOutputStream> dstMap;
 	AgentOutputStream[] outputStreams;
 
@@ -101,8 +103,8 @@ public class DObjectMigrator implements Iterable<Object> {
 		aos.os.writeObject(className);
 		aos.os.writeInt(wrapper.destination);
 		aos.os.writeBoolean(wrapper.migrate);
-		aos.os.writeDouble(wrapper.loc.x);
-		aos.os.writeDouble(wrapper.loc.y);
+		aos.os.writeDouble(wrapper.loc.c[0]);
+		aos.os.writeDouble(wrapper.loc.c[1]);
 		aos.os.flush();
 	}
 	
@@ -124,7 +126,7 @@ public class DObjectMigrator implements Iterable<Object> {
 			e.printStackTrace();
 		}
 		// read in the data
-		MigratingAgent wrapper = new MigratingAgent(dst, newAgent, new Double2D(x, y), migrate);
+		MigratingAgent wrapper = new MigratingAgent(dst, newAgent, new DoublePoint(x, y), migrate);
 		return wrapper;
 	}
 	

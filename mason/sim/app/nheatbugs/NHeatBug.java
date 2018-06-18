@@ -102,9 +102,10 @@ public class NHeatBug implements Steppable {
             int dst = hb.p.toPartitionId(new int[] {loc_x, loc_y});
             if (dst != hb.p.getPid()) {
                 hb.bugs.set(old_x, old_y, null);
-                hb.queue.migrate(this, dst);
+                hb.queue.migrate(this, dst, new DoublePoint(loc_x, loc_y));
                 hb.privBugCount--;
             } else {
+            	hb.bugs.set(old_x, old_y, null);
                 hb.bugs.set(loc_x, loc_y, this);
                 hb.schedule.scheduleOnce(this, 1);
             }

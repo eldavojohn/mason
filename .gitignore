@@ -1,0 +1,14 @@
+# eclipse
+.DS_Store
+.classpath
+.project
+.settings/
+
+bin/
+exp/
+lib/
+
+contrib/geomason/lib/
+
+*.class
+*.log

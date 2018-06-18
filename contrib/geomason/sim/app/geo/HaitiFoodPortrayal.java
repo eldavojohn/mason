@@ -1,4 +1,4 @@
-package haiti;
+package sim.app.geo.haiti;
 
 import java.awt.Color;
 import java.awt.Graphics2D;

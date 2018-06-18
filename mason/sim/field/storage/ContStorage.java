@@ -11,7 +11,7 @@ import sim.field.storage.GridStorage;
 public class ContStorage<T extends Serializable> extends GridStorage {
 
 	int[] discretizations, dsize;
-	HashMap<T, NdPoint> m;
+	public HashMap<T, NdPoint> m;
 
 	public ContStorage(IntHyperRect shape, int[] discretizations) {
 		super(shape);
@@ -99,8 +99,9 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 
 	// Put the object to the given point
 	public void setLocation(final T obj, final NdPoint p) {
-		if (m.put(obj, p) != null)
-			getCell(p).remove(obj);
+		NdPoint old = m.put(obj, p);
+		if (old != null)
+			getCell(old).remove(obj);
 		getCell(p).add(obj);
 	}
 

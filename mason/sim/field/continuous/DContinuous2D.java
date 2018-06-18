@@ -1,7 +1,6 @@
 package sim.field.continuous;
 
 import java.util.*;
-
 import sim.field.*;
 import sim.util.*;
 import sim.engine.*;
@@ -14,7 +13,7 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 	public HaloFieldContinuous f;
 	DObjectMigrator m;
 	Schedule sched;
-
+	
 	public List<Object> ghosts;
 	List<Object> futureGhosts;
 
@@ -40,8 +39,8 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 	public boolean setObjectLocation(Object obj, final Double2D loc) {
 		double[] loc_arr = new double[] {loc.x, loc.y};
 		
-		// if (!f.inLocalAndHalo(loc_arr))
-		// 	throw new IllegalArgumentException(String.format("New location outside local partition and its halo area"));
+		 if (!f.inLocalAndHalo(loc_arr))
+		 	throw new IllegalArgumentException(String.format("New location outside local partition and its halo area"));
 
 		super.setObjectLocation(obj, loc);
 
@@ -51,14 +50,14 @@ public /*strictfp*/ class DContinuous2D extends Continuous2D {
 			sched.scheduleOnce((Steppable)obj, 1);
 			for (int dst : f.toNeighbors(loc_arr))
 			{
-				MigratingAgent agent = new MigratingAgent(dst, obj, loc);
+				MigratingAgent agent = new MigratingAgent(dst, obj, new DoublePoint(loc.x, loc.y));
 				m.migrate(agent, dst);
 			}
 		} else if (f.inHalo(loc_arr)) {
 			futureGhosts.add(obj);
 			try {
 				int dst = p.toPartitionId(loc_arr);
-				MigratingAgent agent = new MigratingAgent(dst, obj, loc, true);
+				MigratingAgent agent = new MigratingAgent(dst, obj, new DoublePoint(loc.x, loc.y), true);
 				m.migrate(agent, dst);
 			} catch (MPIException e) {
 				e.printStackTrace();

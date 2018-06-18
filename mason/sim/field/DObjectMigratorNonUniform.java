@@ -82,6 +82,7 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 	}
 
 	public void reload() {
+		// TODO cannot work with one node?
 		neighbors = partition.getNeighborIds();
 		nc = neighbors.length;
 
@@ -116,6 +117,11 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 	public int size() {
 		return objects.size();
 	}
+	
+	public void clear()
+	{
+		objects.clear();
+	}
 
 	public void writeHeader(AgentOutputStream aos, MigratingAgent wrapper) throws IOException
 	{
@@ -123,8 +129,9 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 		aos.os.writeObject(className);
 		aos.os.writeInt(wrapper.destination);
 		aos.os.writeBoolean(wrapper.migrate);
-		aos.os.writeDouble(wrapper.loc.x);
-		aos.os.writeDouble(wrapper.loc.y);
+		// TODO, so far assume loc is Double Point 2D
+		aos.os.writeDouble(wrapper.loc.c[0]);
+		aos.os.writeDouble(wrapper.loc.c[1]);
 		aos.os.flush();
 	}
 	
@@ -134,6 +141,7 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 		int dst = is.readInt();
 		// read Wrapper data
 		boolean migrate = is.readBoolean();
+		// TODO, so far assume loc is Double Point 2D
 		double x = is.readDouble();
 		double y = is.readDouble();
 		// create the new agent
@@ -146,12 +154,14 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 			e.printStackTrace();
 		}
 		// read in the data
-		MigratingAgent wrapper = new MigratingAgent(dst, newAgent, new Double2D(x, y), migrate);
+		MigratingAgent wrapper = new MigratingAgent(dst, newAgent, new DoublePoint(x, y), migrate);
 		return wrapper;
 	}
 	
-	public void migrate(final Object obj, final int dst) {
-		MigratingAgent wrapper = (MigratingAgent) obj;
+	public void migrate(final Object obj, final int dst, DoublePoint loc) {
+		// Wrap the agent, this is important because we want to keep track of
+		// dst, which could be the diagonal processor
+		MigratingAgent wrapper = new MigratingAgent(dst, obj, loc);
 		assert dstMap.containsKey(dst);
 		try {
 			if(wrapper.wrappedAgent instanceof SelfStreamedAgent)
@@ -226,7 +236,7 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 						assert dstMap.containsKey(wrapper.destination);
 						bufferList.add(wrapper);
 					} else
-						objects.add(wrapper);
+						objects.add(wrapper.wrappedAgent);
 				} catch (EOFException e) {
 					more = false;
 				}
