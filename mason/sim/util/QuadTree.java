@@ -34,7 +34,7 @@ public class QuadTree {
 		return allNodes.get(id);
 	}
 
-	public QTNode getLeafNode(IntPoint p) {
+	public QTNode getLeafNode(NdPoint p) {
 		return root.getLeafNode(p);
 	}
 

@@ -100,12 +100,12 @@ public class QTNode {
 	}
 
 	// Get the immediate child node that contains the given point
-	public QTNode getChildNode(IntPoint p) {
+	public QTNode getChildNode(NdPoint p) {
 		return children.get(toChildIdx(p));
 	}
 
 	// Get the leaf node that contains the given point
-	public QTNode getLeafNode(IntPoint p) {
+	public QTNode getLeafNode(NdPoint p) {
 		QTNode curr = this;
 
 		while (!curr.isLeaf())
@@ -238,7 +238,7 @@ public class QTNode {
 	}
 
 	// Find the index of my immediate child that contains the given point
-	protected int toChildIdx(IntPoint p) {
+	protected int toChildIdx(NdPoint p) {
 		if (!shape.contains(p))
 			throw new IllegalArgumentException("p " + p + " must be inside the shape " + shape);
 

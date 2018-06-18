@@ -40,8 +40,16 @@ public class DQuadTreePartition extends DPartition {
 		return qt.getNeighborPids(myLeafNode, aoi);
 	}
 
-	public int toPartitionId(IntPoint p) {
+	public int toPartitionId(NdPoint p) {
 		return qt.getLeafNode(p).getProc();
+	}
+
+	public int toPartitionId(int[] c) {
+		return toPartitionId(new IntPoint(c));
+	}
+
+	public int toPartitionId(double[] c) {
+		return toPartitionId(new DoublePoint(c));
 	}
 
 	protected void setMPITopo() {

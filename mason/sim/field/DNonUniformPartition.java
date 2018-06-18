@@ -155,8 +155,8 @@ public class DNonUniformPartition extends DPartition {
 		return toPartitionId(Arrays.stream(c).mapToDouble(x -> (double)x).toArray());
 	}
 
-	public int toPartitionId(IntPoint p) {
-		return toPartitionId(p.c);
+	public int toPartitionId(NdPoint p) {
+		return toPartitionId(p.getArrayInDouble());
 	}
 
 	public int toPartitionId(final double[] c) {

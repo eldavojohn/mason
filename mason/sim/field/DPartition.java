@@ -7,6 +7,7 @@ import mpi.*;
 
 import sim.util.IntHyperRect;
 import sim.util.IntPoint;
+import sim.util.NdPoint;
 
 public abstract class DPartition {
 
@@ -81,7 +82,9 @@ public abstract class DPartition {
 	public abstract int[] getNeighborIds();
 	//public abstract int[][] getNeighborIdsInOrder();
 
-	public abstract int toPartitionId(IntPoint p);
+	public abstract int toPartitionId(NdPoint p);
+	public abstract int toPartitionId(int[] c);
+	public abstract int toPartitionId(double[] c);
 
 	// TODO let other classes who depend on the partition scheme to register proper actions when partiton changes
 	public void registerPreCommit(Consumer r) {
