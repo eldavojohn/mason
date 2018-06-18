@@ -298,6 +298,31 @@ public class MPIUtil {
 		return recvObjs;
 	}
 
+	public static <T extends Serializable> ArrayList<T> allGather(Comm comm, T sendObj) throws MPIException {
+		int np = comm.getSize();
+		int pid = comm.getRank();
+		int[] dstDispl, dstCount = new int[np];
+		ByteBuffer dstBuf, srcBuf;
+		ArrayList<T> recvObjs = new ArrayList();
+
+		srcBuf = serialize(sendObj);
+		dstCount[pid] = srcBuf.capacity();
+
+		comm.allGather(dstCount, 1, MPI.INT);
+
+		dstBuf = ByteBuffer.allocateDirect(Arrays.stream(dstCount).sum());
+		dstDispl = getDispl(dstCount);
+
+		comm.allGatherv(srcBuf, srcBuf.capacity(), MPI.BYTE, dstBuf, dstCount, dstDispl, MPI.BYTE);
+		for (int i = 0; i < np; i++)
+			if (i == pid)
+				recvObjs.add(sendObj);
+			else
+				recvObjs.add(MPIUtil.<T>deserialize(dstBuf, dstDispl[i], dstCount[i]));
+
+		return recvObjs;
+	}
+
 	// Each LP sends and receives one object to/from each of its neighbors
 	// in the order that is defined in partition scheme
 	public static <T extends Serializable> ArrayList<T> neighborAllToAll(DPartition p, T[] sendObjs) throws MPIException {

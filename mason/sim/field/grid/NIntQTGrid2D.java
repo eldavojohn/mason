@@ -61,7 +61,7 @@ public class NIntQTGrid2D extends HaloField {
 	public static void main(String[] args) throws MPIException, IOException {
 		MPI.Init(args);
 
-		int[] aoi = new int[] {2, 2};
+		int[] aoi = new int[] {1, 1};
 
 		DQuadTreePartition p = new DQuadTreePartition(new int[] {100, 100}, false, aoi);
 
@@ -74,7 +74,6 @@ public class NIntQTGrid2D extends HaloField {
 		};
 
 		p.initQuadTree(java.util.Arrays.asList(splitPoints));
-		//p.commit();
 
 		NIntQTGrid2D f = new NIntQTGrid2D(p, aoi, p.getPid());
 
@@ -96,6 +95,13 @@ public class NIntQTGrid2D extends HaloField {
 		f.distributeGroup(level, s);
 
 		MPITest.printInOrder(f.toString());
+
+		java.util.Random rand = new java.util.Random();
+		double myRt = rand.nextDouble() * 10;
+
+		p.balance(myRt, 2);
+		p.balance(myRt, 1);
+		p.balance(myRt, 0);
 
 		MPI.Finalize();
 	}

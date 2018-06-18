@@ -17,6 +17,10 @@ public class IntGridStorage extends GridStorage {
 		storage = allocate(shape.getArea());
 		Arrays.fill((int[])storage, initVal);
 	}
+	
+	public GridStorage getNewStorage(IntHyperRect shape) {
+		return new IntGridStorage(shape, 0);
+	}
 
 	public byte[] pack(MPIParam mp) throws MPIException {
 		byte[] buf = new byte[MPI.COMM_WORLD.packSize(mp.size, baseType)];

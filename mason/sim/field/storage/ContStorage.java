@@ -20,6 +20,10 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		this.storage = allocate(shape.getArea());
 	}
 
+	public GridStorage getNewStorage(IntHyperRect shape) {
+		return new ContStorage(shape, discretizations);
+	}
+
 	protected Object allocate(int size) {
 		this.dsize = IntStream.range(0, shape.getNd()).map(i -> shape.getSize()[i] / discretizations[i]).toArray();
 		// Overwrite the original stride with the new stride of dsize;

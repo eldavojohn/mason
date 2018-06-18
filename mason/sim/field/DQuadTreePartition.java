@@ -1,6 +1,7 @@
 package sim.field;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.*;
 
 import mpi.*;
@@ -156,6 +157,10 @@ public class DQuadTreePartition extends DPartition {
 		return gc != null && gc.master.getProc() == pid;
 	}
 
+	public boolean isGroupMaster(int level) {
+		return isGroupMaster(getGroupComm(level));
+	}
+
 	// return the GroupComm instance if the calling pid should be involved
 	// in the group communication of the given level
 	// return null otherwise
@@ -203,8 +208,47 @@ public class DQuadTreePartition extends DPartition {
 		MPI.COMM_WORLD.barrier();
 	}
 
-	public static void main(String[] args) throws MPIException {
-		MPI.Init(args);
+	public void balance(double myRt, int level) throws MPIException {
+		GroupComm gc = groups.get(level);
+
+		Object[] sendCentroids = new Object[] {null};
+
+		if (gc != null) {
+			IntPoint ctr = myLeafNode.getShape().getCenter();
+			double[] sendData = new double[ctr.getNd() + 1], recvData = new double[ctr.getNd() + 1];
+			sendData[0] = myRt;
+			for (int i = 1; i < sendData.length; i++)
+				sendData[i] = ctr.c[i - 1] * myRt;
+
+			gc.comm.reduce(sendData, recvData, recvData.length, MPI.DOUBLE, MPI.SUM, gc.groupRoot);
+
+			if (isGroupMaster(gc))
+				sendCentroids = new Object[] {gc.master.getId(),
+				                              new IntPoint(Arrays.stream(recvData).skip(1).mapToInt(x -> (int)(x / recvData[0])).toArray())
+				                             };
+		}
+
+		// broadcast to all nodes
+		ArrayList<Object[]> newCentroids = MPIUtil.<Object[]>allGather(MPI.COMM_WORLD, sendCentroids);
+
+		// call precommit
+		for (Consumer r : preCallbacks)
+			r.accept(level);
+
+		// apply changes
+		for (Object[] obj : newCentroids)
+			if (obj[0] != null)
+				qt.moveOrigin((int)obj[0], (IntPoint)obj[1]);
+
+		setMPITopo();
+
+		// call postcommit
+		for (Consumer r : postCallbacks)
+			r.accept(level);
+	}
+
+	private static void testBalance() throws MPIException {
+		MPITest.printOnlyIn(0, "Testing balance()......");
 
 		DQuadTreePartition p = new DQuadTreePartition(new int[] {100, 100}, false, new int[] {1, 1});
 
@@ -217,12 +261,54 @@ public class DQuadTreePartition extends DPartition {
 		};
 
 		p.initQuadTree(Arrays.asList(splitPoints));
-		//p.initUniformly();
+
+		Random rand = new Random();
+		double myRt = rand.nextDouble() * 10;
+
+		p.balance(myRt, 0);
+
+		MPITest.printOnlyIn(0, p.qt.toString());
+	}
+
+	private static void testInitWithPoints() throws MPIException {
+		MPITest.printOnlyIn(0, "Testing init with points......");
+
+		DQuadTreePartition p = new DQuadTreePartition(new int[] {100, 100}, false, new int[] {1, 1});
+
+		IntPoint[] splitPoints = new IntPoint[] {
+		    new IntPoint(50, 50),
+		    new IntPoint(25, 25),
+		    new IntPoint(75, 75),
+		    new IntPoint(60, 90),
+		    new IntPoint(10, 10)
+		};
+
+		p.initQuadTree(Arrays.asList(splitPoints));
 
 		for (int i = 0; i < 3; i++) {
 			p.testIntraGroupComm(i);
 			p.testInterGroupComm(i);
 		}
+	}
+
+	private static void testInitUniformly() throws MPIException {
+		MPITest.printOnlyIn(0, "Testing init uniformly......");
+
+		DQuadTreePartition p = new DQuadTreePartition(new int[] {100, 100}, false, new int[] {1, 1});
+		p.initUniformly();
+
+		for (int i = 0; i < 3; i++) {
+			p.testIntraGroupComm(i);
+			p.testInterGroupComm(i);
+		}
+	}
+
+	public static void main(String[] args) throws MPIException {
+		MPI.Init(args);
+
+		testInitWithPoints();
+		testInitUniformly();
+		testBalance();
 
 		MPI.Finalize();
 	}

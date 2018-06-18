@@ -32,33 +32,80 @@ public abstract class HaloField implements RemoteField {
 		this.aoi = aoi;
 		this.field = stor;
 
-		ps.registerPreCommit(arg -> {
-			try {
-				sync();
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.exit(-1);
-			}
-		});
-
-		ps.registerPostCommit(arg -> {
-			try {
-				reload();
-				sync();
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.exit(-1);
-			}
-		});
-
 		// init variables that don't change with the partition scheme
 		nd = ps.getNumDim();
 		world = ps.getField();
 		fieldSize = ps.getFieldSize();
 		MPIBaseType = field.getMPIBaseType();
 
+		registerCallbacks();
+
 		// init variables that may change with the partition scheme
 		reload();
+	}
+
+	protected void registerCallbacks() {
+		if (ps instanceof DNonUniformPartition) {
+			ps.registerPreCommit(arg -> {
+				try {
+					sync();
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			});
+
+			ps.registerPostCommit(arg -> {
+				try {
+					reload();
+					sync();
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			});
+		} else if (ps instanceof DQuadTreePartition) {
+			// Used for temporarily storing data when the underlying partition changes
+			// The list is used to hold the refernece to the temporary GridStorage
+			// because Java's lambda expression limits the variable to final.
+			final List<GridStorage> tempStor = new ArrayList<GridStorage>();
+			final DQuadTreePartition q = (DQuadTreePartition)ps;
+
+			ps.registerPreCommit(arg -> {
+				int level = (int)arg;
+				GridStorage s = null;
+
+				if (q.isGroupMaster(level))
+					s = field.getNewStorage(q.getNodeShapeAtLevel(level));
+
+				try {
+					collectGroup(level, s);
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+
+				if (q.isGroupMaster(level))
+					tempStor.add(s);
+			});
+
+			ps.registerPostCommit(arg -> {
+				int level = (int)arg;
+				GridStorage s = null;
+
+				reload();
+
+				if (q.isGroupMaster(level))
+					s = tempStor.remove(0);
+
+				try {
+					distributeGroup(level, s);
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			});
+		}
 	}
 
 	public void reload() {
