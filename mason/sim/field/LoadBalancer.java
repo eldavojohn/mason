@@ -113,7 +113,7 @@ public class LoadBalancer {
 				final int currDim = dim;
 				IntHyperRect[] group = Arrays.stream(nids).mapToObj(i -> p.getPartition(i).reduceDim(currDim)).toArray(s -> new IntHyperRect[s]);
 				IntHyperRect bbox = IntHyperRect.getBoundingRect(group);
-				if (!bbox.equals(myPart.reduceDim(dim)))
+				if (group.length == 0 || !bbox.equals(myPart.reduceDim(dim)))
 					continue; // skip if the group of the neighbors doesn't align with me
 				double avgRt = Arrays.stream(nids).mapToDouble(i -> rts.get(i)).sum() / nids.length;
 				double delta = (myrt - avgRt) * offsets[dim] / size[dim];
