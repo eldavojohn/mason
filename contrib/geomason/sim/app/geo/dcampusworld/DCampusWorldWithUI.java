@@ -8,7 +8,7 @@
  * $Id: CampusWorldWithUI.java 846 2013-01-08 21:47:51Z mcoletti $
  */
 
-package sim.app.geo.dcampusworld2;
+package sim.app.geo.dcampusworld;
 
 import com.vividsolutions.jts.io.ParseException;
 import java.awt.Color;

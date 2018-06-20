@@ -75,43 +75,41 @@ public class DFlockers extends SimState {
             flockers.setLocation(flocker, location);
             schedule.scheduleOnce(flocker, 1);
         }
-        schedule.scheduleRepeating(Schedule.EPOCH, 2, new Synchronizer(), 1);
+//        schedule.scheduleRepeating(Schedule.EPOCH, 2, new Synchronizer(), 1);
+        schedule.addAfter(new Steppable()
+		{
+        	public void step(SimState state) {
+            	DFlockers dflockers = (DFlockers) state;
+            	Timing.stop(Timing.LB_RUNTIME);
+//            	Timing.start(Timing.MPI_SYNC_OVERHEAD);
+                try {
+                	// Sync agents in halo area
+                	dflockers.flockers.sync();
+                	// Actual migration of agents
+                	dflockers.queue.sync();
+//                    String s = String.format("PID %d Steps %d Number of Agents %d\n", partition.pid, schedule.getSteps(), flockers.size() - flockers.ghosts.size());
+//                    System.out.print(s);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.exit(-1);
+                }
+                
+                // Retrieve the migrated agents from queue and schedule them 
+                for (Object obj : dflockers.queue) {
+    				DFlocker flocker = (DFlocker)obj;
+    				dflockers.flockers.setLocation(flocker, flocker.loc);
+    				schedule.scheduleOnce(flocker, 1);
+    			}
+                // Clear the queue
+    			dflockers.queue.clear();
+//    			Timing.stop(Timing.MPI_SYNC_OVERHEAD);
+            }
+		});
     }
 
     public static void main(String[] args) throws MPIException {
     	Timing.setWindow(20);
     	doLoopMPI(DFlockers.class, args);
         System.exit(0);
-    }
-
-    private class Synchronizer implements Steppable {
-        private static final long serialVersionUID = 1;
-
-        public void step(SimState state) {
-        	DFlockers dflockers = (DFlockers) state;
-        	Timing.stop(Timing.LB_RUNTIME);
-//        	Timing.start(Timing.MPI_SYNC_OVERHEAD);
-            try {
-            	// Sync agents in halo area
-            	dflockers.flockers.sync();
-            	// Actual migration of agents
-            	dflockers.queue.sync();
-//                String s = String.format("PID %d Steps %d Number of Agents %d\n", partition.pid, schedule.getSteps(), flockers.size() - flockers.ghosts.size());
-//                System.out.print(s);
-            } catch (Exception e) {
-                e.printStackTrace();
-                System.exit(-1);
-            }
-            
-            // Retrieve the migrated agents from queue and schedule them 
-            for (Object obj : dflockers.queue) {
-				DFlocker flocker = (DFlocker)obj;
-				dflockers.flockers.setLocation(flocker, flocker.loc);
-				schedule.scheduleOnce(flocker, 1);
-			}
-            // Clear the queue
-			dflockers.queue.clear();
-//			Timing.stop(Timing.MPI_SYNC_OVERHEAD);
-        }
     }
 }

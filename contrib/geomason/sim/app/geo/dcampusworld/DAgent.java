@@ -7,7 +7,7 @@
  *
  * $Id: Agent.java 846 2013-01-08 21:47:51Z mcoletti $
  */
-package sim.app.geo.dcampusworld2;
+package sim.app.geo.dcampusworld;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -73,27 +73,12 @@ public class DAgent implements Steppable
         location = new MasonGeometry(fact.createPoint(new Coordinate(10, 10))); // magic numbers
         location.isMovable = true;
         
-//        while(true)
-//        {
-//        	int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
-//            MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
-//        	setNewRoute((LineString) mg.getGeometry(), true);
-//        	double x = state.communicator.toXCoord(position.c[0]);
-//        	double y = state.communicator.toYCoord(position.c[1]);
-//        	//System.out.println("position is " + x + "," + y);
-//        	if (state.partition.toPartitionId(new double[]{x, y}) == state.partition.pid)
-//        	{
-//        		position = new DoublePoint(x, y);
-//        		break;
-//        	}
-//        }
-     // Find the first line segment and set our position over the start coordinate.
+        // Find the first line segment and set our position over the start coordinate.
         int walkway = state.random.nextInt(state.walkways.getGeometries().numObjs);
         MasonGeometry mg = (MasonGeometry) state.walkways.getGeometries().objs[walkway];
         setNewRoute((LineString) mg.getGeometry(), true);
     	double x = state.communicator.toXCoord(position.c[0]);
     	double y = state.communicator.toYCoord(position.c[1]);
-//    	System.out.println("position is " + x + "," + y);
     	position = new DoublePoint(x, y);
 
 
@@ -143,8 +128,6 @@ public class DAgent implements Steppable
         return location;
     }
 
-
-    
     /** true if the agent has arrived at the target intersection
      */
     private boolean arrived()
@@ -159,8 +142,6 @@ public class DAgent implements Steppable
 
         return false;
     }
-
-
 
     /** @return string indicating whether we are "FACULTY" or a "STUDENT" */
     public String getType()

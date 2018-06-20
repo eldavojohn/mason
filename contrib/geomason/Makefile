@@ -39,8 +39,7 @@ sim/util/geo/*.java \
 sim/io/geo/ShapeFileExporter.java	\
 sim/app/geo/campusworld/*.java \
 sim/app/geo/dcampusworld/*.java \
-sim/app/geo/dcampusworld2/*.java \
-sim/app/geo/communication/*.java \
+sim/app/geo/dschellingspace/*.java \
 sim/app/geo/colorworld/*.java \
 sim/app/geo/nearbyworld/*.java \
 sim/app/geo/networkworld/*.java	\

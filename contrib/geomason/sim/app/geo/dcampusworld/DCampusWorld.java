@@ -7,7 +7,7 @@
  *
  * $Id: CampusWorld.java 848 2013-01-08 22:56:43Z mcoletti $
 */
-package sim.app.geo.dcampusworld2;
+package sim.app.geo.dcampusworld;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
@@ -215,36 +215,6 @@ public class DCampusWorld extends SimState
 		schedule.scheduleRepeating(agents.scheduleSpatialIndexUpdater(), Integer.MAX_VALUE, 1.0);
 	}
 
-//	void addAgents() throws MPIException
-//	{
-//		for (int i = 0; i < numAgents / partition.np; i++)
-//		{
-//			DAgent a = new DAgent(this);
-//			agents.addGeometry(a.getGeometry());
-//			communicator.setLocation(a, a.position);
-//			schedule.scheduleOnce(a);
-//		}
-//	}
-//
-//	@Override
-//	public void start()
-//	{
-//		super.start();
-//		agents.clear(); // clear any existing agents from previous runs
-//		try
-//		{
-//			addAgents();
-//		} catch (MPIException e)
-//		{
-//			e.printStackTrace();
-//		}
-//		agents.setMBR(buildings.getMBR());
-//		schedule.scheduleRepeating(Schedule.EPOCH, 2, new Synchronizer(), 1);
-//
-//		// Ensure that the spatial index is made aware of the new agent
-//		// positions. Scheduled to guaranteed to run after all agents moved.
-//		schedule.scheduleRepeating(agents.scheduleSpatialIndexUpdater(), Integer.MAX_VALUE, 1.0);
-//	}
 
 	/**
 	 * adds nodes corresponding to road intersections to GeomVectorField
