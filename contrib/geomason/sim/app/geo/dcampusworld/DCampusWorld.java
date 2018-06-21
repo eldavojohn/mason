@@ -122,7 +122,7 @@ public class DCampusWorld extends SimState
 
 			// Each agent move independently, seems neighborhood is not really
 			// playing any role here
-			int[] aoi = new int[] { 10, 10 };
+			int[] aoi = new int[] { 0, 0 };
 			int[] size = new int[] { (int) WIDTH, (int) HEIGHT };
 			discretizations = new int[] { 7, 7 };
 			partition = DNonUniformPartition.getPartitionScheme(size, true);
