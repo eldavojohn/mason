@@ -76,7 +76,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	protected IntPoint discretize(final NdPoint p) {
 		final double[] offsets = shape.ul().getOffsetsDouble(p);
 		return new IntPoint(IntStream.range(0, offsets.length)
-		                    .map(i -> -(int)offsets[i] / discretizations[i])
+		                    .map(i -> -((int)offsets[i]) / discretizations[i])
 		                    .toArray());
 	}
 
