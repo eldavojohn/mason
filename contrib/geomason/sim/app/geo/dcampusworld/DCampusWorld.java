@@ -258,7 +258,7 @@ public class DCampusWorld extends SimState
 		public void step(SimState state)
 		{
 			DCampusWorld world = (DCampusWorld) state;
-			Timing.stop(Timing.LB_RUNTIME);
+			//Timing.stop(Timing.LB_RUNTIME);
 			// Timing.start(Timing.MPI_SYNC_OVERHEAD);
 			try
 			{

@@ -761,7 +761,7 @@ public class SimState implements java.io.Serializable
                         
                         while((_for == -1 || steps < _for) && schedule.getTime() <= until)
                             {
-                            Timing.start(Timing.LB_RUNTIME);
+                            // Timing.start(Timing.LB_RUNTIME);
                             boolean ret = schedule.step(state);
                             // Start the timer here for every step but stop it in one of the steppables
                             // Timing.stop(Timing.LB_RUNTIME);

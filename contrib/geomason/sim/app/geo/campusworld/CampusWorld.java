@@ -7,7 +7,7 @@
  *
  * $Id$
 */
-package campusworld;
+package sim.app.geo.campusworld;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.GeometryFactory;
@@ -40,8 +40,8 @@ public class CampusWorld extends SimState
     public static final int HEIGHT = 300; 
     
     /** How many agents in the simulation */ 
-	public int numAgents = 1000;
-
+	//public int numAgents = 1000;
+    public int numAgents = 400000;
     /** Fields to hold the associated GIS information */ 
     public GeomVectorField walkways = new GeomVectorField(WIDTH, HEIGHT);
     public GeomVectorField roads = new GeomVectorField(WIDTH, HEIGHT);
@@ -55,7 +55,6 @@ public class CampusWorld extends SimState
     // easy selection of new waypoints for the agents.  
     public GeomPlanarGraph network = new GeomPlanarGraph();
     public GeomVectorField junctions = new GeomVectorField(WIDTH, HEIGHT); // nodes for intersections
-
 
 
     public CampusWorld(long seed)
