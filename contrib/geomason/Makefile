@@ -17,7 +17,7 @@ JAVAC = javac
 
 # GeoMason supports Java 5; note that MASON proper only supports Java 4.
 JAVACFLAGS = -target 1.8 -source 1.8 ${FLAGS}
-FLAGS = -g -nowarn -cp ".:../../mason/:lib/jts-1.13.jar:lib/ecj.24.jar:lib/csv4j-0.4.0.jar"
+FLAGS = -g -nowarn -cp ".:../../mason/:lib/jts-1.13.jar:lib/ecj.24.jar:lib/csv4j-0.4.0.jar:../../mason/library/bsh-2.0b4.jar:../../mason/library/itext-1.2.jar:../../mason/library/jcommon-1.0.21.jar:../../mason/library/jfreechart-1.0.17.jar:../../mason/library/jmf.jar:../../mason/library/portfolio.jar:../../mason/library/mpi.jar"
 
 
 VERSION = 1.5
@@ -165,13 +165,14 @@ GEOTOOL_FILES = sim/io/geo/GeoToolsImporter.java
 OGR_FILES = sim/io/geo/OGRImporter.java	
 
 # Add GDAL_FILES, GEOTOOL_FILES and/or OGR_FILES if you want support for those
-${JARFILE} : $(BASE_FILES) # $(GDAL_FILES) $(GEOTOOL_FILES) $(OGR_FILES)
+# ${JARFILE} : $(BASE_FILES) # $(GDAL_FILES) $(GEOTOOL_FILES) $(OGR_FILES)
+${JARFILE} : ${ALL_FILES}
 	@echo "Creating ${JARFILE}..."
 	@touch /tmp/manifest.add
 	@rm /tmp/manifest.add
 	@echo "Main-Class: sim.display.Console" > /tmp/manifest.add
 	@javac ${JAVACFLAGS} $^
-	@jar -cvmf /tmp/manifest.add $@ `find sim/field sim/io sim/portrayal sim/util -name "*.class" -or -name "*.jpg" -or -name "*.png" -or -name "index.html"`
+	@jar -cvmf /tmp/manifest.add $@ `find sim/field sim/io sim/portrayal sim/util sim/app -name "*.class" -or -name "*.jpg" -or -name "*.png" -or -name "index.html"`
 	@rm /tmp/manifest.add
 
 
