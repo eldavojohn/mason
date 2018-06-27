@@ -20,16 +20,15 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		this.storage = allocate(shape.getArea());
 	}
 	
-	// exp code, need to revert to previous commit for merging
 	protected Object allocate(int size) {
-		this.dsize = IntStream.range(0, shape.getNd()).map(i -> shape.getSize()[i] / discretizations[i] + 1).toArray();
+		this.dsize = IntStream.range(0, shape.getNd()).map(i -> shape.getSize()[i] / discretizations[i]).toArray();
 		// Overwrite the original stride with the new stride of dsize;
 		// so that getFlatIdx() can correctly get the cell index of a discretized point
 		// TODO better approach?
 		this.stride = getStride(dsize);
 		this.m = new HashMap<T, NdPoint>();
-		return IntStream.range(0, Arrays.stream(this.dsize).reduce(1, (x, y) -> x * y))
-								.mapToObj(i -> new HashSet()).toArray(s -> new HashSet[s]);
+		return IntStream.range(0, size / Arrays.stream(discretizations).reduce(1, (x, y) -> x * y))
+		       .mapToObj(i -> new HashSet()).toArray(s -> new HashSet[s]);
 	}
 
 	public String toString() {
@@ -76,7 +75,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	protected IntPoint discretize(final NdPoint p) {
 		final double[] offsets = shape.ul().getOffsetsDouble(p);
 		return new IntPoint(IntStream.range(0, offsets.length)
-		                    .map(i -> -((int)offsets[i]) / discretizations[i])
+		                    .map(i -> -(int)offsets[i] / discretizations[i])
 		                    .toArray());
 	}
 

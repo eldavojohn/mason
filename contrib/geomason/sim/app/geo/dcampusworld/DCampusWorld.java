@@ -56,7 +56,7 @@ public class DCampusWorld extends SimState
 	public static final int HEIGHT = 300;
 
 	/** How many agents in the simulation */
-	public int numAgents = 40000;
+	public int numAgents = 400000;
 
 	/** Fields to hold the associated GIS information */
 	public GeomVectorField walkways = new GeomVectorField(WIDTH, HEIGHT);
@@ -122,7 +122,7 @@ public class DCampusWorld extends SimState
 
 			// Each agent move independently, seems neighborhood is not really
 			// playing any role here
-			int[] aoi = new int[] { 2, 2 };
+			int[] aoi = new int[] { 10, 10 };
 			int[] size = new int[] { (int) WIDTH, (int) HEIGHT };
 			discretizations = new int[] { 7, 7 };
 			partition = DNonUniformPartition.getPartitionScheme(size, true);
@@ -258,7 +258,7 @@ public class DCampusWorld extends SimState
 		public void step(SimState state)
 		{
 			DCampusWorld world = (DCampusWorld) state;
-			//Timing.stop(Timing.LB_RUNTIME);
+			Timing.stop(Timing.LB_RUNTIME);
 			// Timing.start(Timing.MPI_SYNC_OVERHEAD);
 			try
 			{

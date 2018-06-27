@@ -52,6 +52,7 @@ sim/app/geo/waterworld/*.java \
 sim/app/geo/sillypeds/*.java \
 sim/app/geo/sickStudents/*.java	\
 sim/app/geo/turkana/*.java \
+sim/app/geo/dadaab/*.java \
 sim/app/geo/schellingspace/*.java \
 sim/app/geo/dschellingspace/*.java \
 # sim/app/geo/dadaab/dadaabData/*.java \
