@@ -52,7 +52,7 @@ public class GraphColoring {
 	public static void main(String[] args) throws MPIException {
 		MPI.Init(args);
 
-		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(new int[] {72, 72});
+		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(new int[] {72, 72}, false, new int[] {1, 1});
 
 		p.initUniformly(null);
 		GraphColoring gc = new GraphColoring(p);

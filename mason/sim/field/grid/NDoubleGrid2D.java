@@ -79,7 +79,7 @@ public class NDoubleGrid2D extends HaloField {
 		*
 		**/
 
-		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
+		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true, aoi);
 
 		assert p.np == 4;
 

@@ -61,26 +61,22 @@ public class DObjectMigratorNonUniform implements Iterable<Object> {
 		this.partition = partition;
 		reload();
 
-		partition.registerPreCommit(new Runnable() {
-			public void run() {
-				try {
-					sync();
-				} catch (MPIException | IOException | ClassNotFoundException e) {
-					e.printStackTrace();
-					System.exit(-1);
-				}
+		partition.registerPreCommit(arg -> {
+			try {
+				sync();
+			} catch (MPIException | IOException | ClassNotFoundException e) {
+				e.printStackTrace();
+				System.exit(-1);
 			}
 		});
 
-		partition.registerPostCommit(new Runnable() {
-			public void run() {
-				reload();
-				try {
-					sync();
-				} catch (MPIException | IOException | ClassNotFoundException e) {
-					e.printStackTrace();
-					System.exit(-1);
-				}
+		partition.registerPostCommit(arg -> {
+			reload();
+			try {
+				sync();
+			} catch (MPIException | IOException | ClassNotFoundException e) {
+				e.printStackTrace();
+				System.exit(-1);
 			}
 		});
 	}

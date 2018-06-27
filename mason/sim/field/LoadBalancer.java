@@ -32,10 +32,8 @@ public class LoadBalancer {
 
 		reload();
 
-		p.registerPostCommit(new Runnable() {
-			public void run() {
-				gc.color();
-			}
+		p.registerPostCommit(arg -> {
+			gc.color();
 		});
 	}
 
@@ -115,7 +113,7 @@ public class LoadBalancer {
 				final int currDim = dim;
 				IntHyperRect[] group = Arrays.stream(nids).mapToObj(i -> p.getPartition(i).reduceDim(currDim)).toArray(s -> new IntHyperRect[s]);
 				IntHyperRect bbox = IntHyperRect.getBoundingRect(group);
-				if (!bbox.equals(myPart.reduceDim(dim)))
+				if (group.length == 0 || !bbox.equals(myPart.reduceDim(dim)))
 					continue; // skip if the group of the neighbors doesn't align with me
 				double avgRt = Arrays.stream(nids).mapToDouble(i -> rts.get(i)).sum() / nids.length;
 				double delta = (myrt - avgRt) * offsets[dim] / size[dim];
@@ -193,7 +191,7 @@ public class LoadBalancer {
 
 		MPI.Init(args);
 
-		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true);
+		DNonUniformPartition p = DNonUniformPartition.getPartitionScheme(size, true, aoi);
 		assert p.np == 4;
 		p.initUniformly(null);
 		p.commit();

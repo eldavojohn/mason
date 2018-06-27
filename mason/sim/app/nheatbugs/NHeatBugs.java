@@ -62,12 +62,12 @@ public class NHeatBugs extends SimState {
 	public NDoubleGrid2D valgrid2;
 	public NObjectGrid2D bugs;
 
-	public DNonUniformPartition p;
+	public DPartition p;
 	public DObjectMigratorNonUniform queue;
 
 	public int bugCount, privBugCount;
 	public int[] aoi;
-	public IntHyperRect myPart;
+	//public IntHyperRect myPart;
 
 	LoadBalancer lb;
 
@@ -82,13 +82,17 @@ public class NHeatBugs extends SimState {
 		this.aoi = new int[] {aoi, aoi};
 
 		try {
-			p = DNonUniformPartition.getPartitionScheme(new int[] {width, height}, true);
-			assert p.np == 4;
-			p.insertPartition(new IntHyperRect(0, new IntPoint(0, 0), new IntPoint(100, 100)));
-			p.insertPartition(new IntHyperRect(1, new IntPoint(0, 100), new IntPoint(100, 1000)));
-			p.insertPartition(new IntHyperRect(2, new IntPoint(100, 0), new IntPoint(1000, 100)));
-			p.insertPartition(new IntHyperRect(3, new IntPoint(100, 100), new IntPoint(1000, 1000)));
-			p.commit();
+			// DNonUniformPartition ps = DNonUniformPartition.getPartitionScheme(new int[] {width, height}, true, this.aoi);
+			// assert ps.np == 4;
+			// ps.insertPartition(new IntHyperRect(0, new IntPoint(0, 0), new IntPoint(100, 100)));
+			// ps.insertPartition(new IntHyperRect(1, new IntPoint(0, 100), new IntPoint(100, 1000)));
+			// ps.insertPartition(new IntHyperRect(2, new IntPoint(100, 0), new IntPoint(1000, 100)));
+			// ps.insertPartition(new IntHyperRect(3, new IntPoint(100, 100), new IntPoint(1000, 1000)));
+			// ps.commit();
+
+			DQuadTreePartition ps = new DQuadTreePartition(new int[] {width, height}, true, this.aoi);
+			ps.initUniformly();
+			p = ps;
 
 			valgrid = new NDoubleGrid2D(p, this.aoi, 0);
 			valgrid2 = new NDoubleGrid2D(p, this.aoi, 0);
@@ -98,27 +102,27 @@ public class NHeatBugs extends SimState {
 
 			privBugCount = bugCount / p.np;
 
-			lb = new LoadBalancer(this.aoi, 8);
+			//lb = new LoadBalancer(this.aoi, 100);
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
 			System.exit(-1);
 		}
 
-		myPart = p.getPartition();
+		//myPart = p.getPartition();
 	}
 
 	public void start() {
 		super.start();
 
-		int[] size = myPart.getSize();
+		int[] size = p.getPartition().getSize();
 
 		for (int x = 0; x < privBugCount; x++) {
 			double idealTemp = random.nextDouble() * (maxIdealTemp - minIdealTemp) + minIdealTemp;
 			double heatOutput = random.nextDouble() * (maxOutputHeat - minOutputHeat) + minOutputHeat;
 			int px, py;
 			do {
-				px = random.nextInt(size[0]) + myPart.ul().getArray()[0];
-				py = random.nextInt(size[1]) + myPart.ul().getArray()[1];
+				px = random.nextInt(size[0]) + p.getPartition().ul().getArray()[0];
+				py = random.nextInt(size[1]) + p.getPartition().ul().getArray()[1];
 			} while (bugs.get(px, py) != null);
 			NHeatBug b = new NHeatBug(idealTemp, heatOutput, randomMovementProbability, px, py);
 			bugs.set(px, py, b);
@@ -172,10 +176,16 @@ public class NHeatBugs extends SimState {
 		public void step (final SimState state) {
 			NHeatBugs hb = (NHeatBugs)state;
 			try {
-				if (hb.lb.balance((int)hb.schedule.getSteps()) > 0) {
-					myPart = p.getPartition();
-					MPITest.execInOrder(x -> System.out.printf("[%d] Balanced at step %d new Partition %s\n", x, hb.schedule.getSteps(), p.getPartition()), 500);
-				}
+				DQuadTreePartition ps = (DQuadTreePartition)hb.p;
+				Double runtime = Timing.get(Timing.LB_RUNTIME).getMovingAverage();
+				Timing.start(Timing.LB_OVERHEAD);
+				ps.balance(runtime, 0);
+				Timing.stop(Timing.LB_OVERHEAD);
+
+				//if (hb.lb.balance((int)hb.schedule.getSteps()) > 0) {
+				//	myPart = p.getPartition();
+				//	MPITest.execInOrder(x -> System.out.printf("[%d] Balanced at step %d new Partition %s\n", x, hb.schedule.getSteps(), p.getPartition()), 500);
+				//}
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.exit(-1);

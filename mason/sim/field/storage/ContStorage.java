@@ -10,24 +10,29 @@ import sim.field.storage.GridStorage;
 
 public class ContStorage<T extends Serializable> extends GridStorage {
 
-	int[] discretizations, dsize;
+	int[] dsize;
+	double[] discretizations;
 	public HashMap<T, NdPoint> m;
 
-	public ContStorage(IntHyperRect shape, int[] discretizations) {
+	public ContStorage(IntHyperRect shape, double[] discretizations) {
 		super(shape);
 
 		this.discretizations = discretizations;
 		this.storage = allocate(shape.getArea());
 	}
-	
+
+	public GridStorage getNewStorage(IntHyperRect shape) {
+		return new ContStorage(shape, discretizations);
+	}
+
 	protected Object allocate(int size) {
-		this.dsize = IntStream.range(0, shape.getNd()).map(i -> shape.getSize()[i] / discretizations[i]).toArray();
+		this.dsize = IntStream.range(0, shape.getNd()).map(i -> (int)Math.ceil(shape.getSize()[i] / discretizations[i])).toArray();
 		// Overwrite the original stride with the new stride of dsize;
 		// so that getFlatIdx() can correctly get the cell index of a discretized point
 		// TODO better approach?
 		this.stride = getStride(dsize);
 		this.m = new HashMap<T, NdPoint>();
-		return IntStream.range(0, size / Arrays.stream(discretizations).reduce(1, (x, y) -> x * y))
+		return IntStream.range(0, Arrays.stream(this.dsize).reduce(1, (x, y) -> x * y))
 		       .mapToObj(i -> new HashSet()).toArray(s -> new HashSet[s]);
 	}
 
@@ -75,7 +80,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 	protected IntPoint discretize(final NdPoint p) {
 		final double[] offsets = shape.ul().getOffsetsDouble(p);
 		return new IntPoint(IntStream.range(0, offsets.length)
-		                    .map(i -> -(int)offsets[i] / discretizations[i])
+		                    .map(i -> -(int)(offsets[i] / discretizations[i]))
 		                    .toArray());
 	}
 
@@ -172,7 +177,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 		final ArrayList<T> objs = new ArrayList<T>();
 
 		// Calculate how many discretized cells we need to search
-		final int[] offsets = Arrays.stream(discretizations).map(x -> (int)Math.ceil(radius / x)).toArray();
+		final int[] offsets = Arrays.stream(discretizations).mapToInt(x -> (int)Math.ceil(radius / x)).toArray();
 
 		// Generate the start/end point subject to the boundaries
 		final IntPoint ul = new IntPoint(IntStream.range(0, shape.getNd()).map(i -> Math.max(dloc.c[i] - offsets[i], 0)).toArray());
@@ -192,7 +197,7 @@ public class ContStorage<T extends Serializable> extends GridStorage {
 
 		IntPoint ul = new IntPoint(10, 20), br = new IntPoint(50, 80);
 		IntHyperRect rect = new IntHyperRect(1, ul, br);
-		int[] discretize = new int[] {10, 10};
+		double[] discretize = new double[] {10, 10};
 
 		ContStorage<TestObj> f = new ContStorage<TestObj>(rect, discretize);
 

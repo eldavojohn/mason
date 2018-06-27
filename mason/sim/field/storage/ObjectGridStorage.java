@@ -22,6 +22,10 @@ public class ObjectGridStorage<T> extends GridStorage {
 		storage = allocate(shape.getArea());
 	}
 
+	public GridStorage getNewStorage(IntHyperRect shape) {
+		return new ObjectGridStorage(shape, alloc);
+	}
+
 	protected Object allocate(int size) {
 		return alloc.apply(size);
 	}

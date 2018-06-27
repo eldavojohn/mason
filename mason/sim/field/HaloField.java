@@ -32,19 +32,30 @@ public abstract class HaloField implements RemoteField {
 		this.aoi = aoi;
 		this.field = stor;
 
-		ps.registerPreCommit(new Runnable() {
-			public void run() {
+		// init variables that don't change with the partition scheme
+		nd = ps.getNumDim();
+		world = ps.getField();
+		fieldSize = ps.getFieldSize();
+		MPIBaseType = field.getMPIBaseType();
+
+		registerCallbacks();
+
+		// init variables that may change with the partition scheme
+		reload();
+	}
+
+	protected void registerCallbacks() {
+		if (ps instanceof DNonUniformPartition) {
+			ps.registerPreCommit(arg -> {
 				try {
 					sync();
 				} catch (Exception e) {
 					e.printStackTrace();
 					System.exit(-1);
 				}
-			}
-		});
+			});
 
-		ps.registerPostCommit(new Runnable() {
-			public void run() {
+			ps.registerPostCommit(arg -> {
 				try {
 					reload();
 					sync();
@@ -52,17 +63,49 @@ public abstract class HaloField implements RemoteField {
 					e.printStackTrace();
 					System.exit(-1);
 				}
-			}
-		});
+			});
+		} else if (ps instanceof DQuadTreePartition) {
+			// Used for temporarily storing data when the underlying partition changes
+			// The list is used to hold the refernece to the temporary GridStorage
+			// because Java's lambda expression limits the variable to final.
+			final List<GridStorage> tempStor = new ArrayList<GridStorage>();
+			final DQuadTreePartition q = (DQuadTreePartition)ps;
 
-		// init variables that don't change with the partition scheme
-		nd = ps.getNumDim();
-		world = ps.getField();
-		fieldSize = ps.getFieldSize();
-		MPIBaseType = field.getMPIBaseType();
+			ps.registerPreCommit(arg -> {
+				int level = (int)arg;
+				GridStorage s = null;
 
-		// init variables that may change with the partition scheme
-		reload();
+				if (q.isGroupMaster(level))
+					s = field.getNewStorage(q.getNodeShapeAtLevel(level));
+
+				try {
+					collectGroup(level, s);
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+
+				if (q.isGroupMaster(level))
+					tempStor.add(s);
+			});
+
+			ps.registerPostCommit(arg -> {
+				int level = (int)arg;
+				GridStorage s = null;
+
+				reload();
+
+				if (q.isGroupMaster(level))
+					s = tempStor.remove(0);
+
+				try {
+					distributeGroup(level, s);
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			});
+		}
 	}
 
 	public void reload() {
@@ -252,9 +295,9 @@ public abstract class HaloField implements RemoteField {
 
 		if (gc != null) {
 			Serializable sendObj = field.pack(new MPIParam(origPart, haloPart, MPIBaseType));
-			
+
 			ArrayList<Serializable> recvObjs = MPIUtil.<Serializable>gather(gc.comm, sendObj, gc.groupRoot);
-			
+
 			if (qt.isGroupMaster(gc))
 				for (int i = 0; i < recvObjs.size(); i++)
 					groupField.unpack(new MPIParam(gc.leaves.get(i).getShape(), gc.master.getShape(), MPIBaseType), recvObjs.get(i));

@@ -66,7 +66,7 @@ public class DCampusWorld extends SimState
 	// where all the agents live
 	public GeomVectorField agents = new GeomVectorField(WIDTH, HEIGHT);
 
-	int[] discretizations;
+	double[] discretizations;
 	public GeomNContinuous2D<DAgent> communicator;
 	DNonUniformPartition partition;
 	public IntHyperRect myPart;
@@ -124,8 +124,8 @@ public class DCampusWorld extends SimState
 			// playing any role here
 			int[] aoi = new int[] { 10, 10 };
 			int[] size = new int[] { (int) WIDTH, (int) HEIGHT };
-			discretizations = new int[] { 7, 7 };
-			partition = DNonUniformPartition.getPartitionScheme(size, true);
+			discretizations = new double[] { 7, 7 };
+			partition = DNonUniformPartition.getPartitionScheme(size, true, aoi);
 			partition.initUniformly(null);
 			partition.commit();
 			NContinuous2D<DAgent> continuousField = new NContinuous2D<DAgent>(partition, aoi, discretizations);

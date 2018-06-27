@@ -71,7 +71,7 @@ public class DSchellingSpace extends SimState
     
     public double minDist = 100.0;
     
-    int[] discretizations;
+    double[] discretizations;
 	public GeomNContinuous2D<DAgent> communicator;
 	DNonUniformPartition partition;
 	public IntHyperRect myPart;
@@ -242,8 +242,8 @@ public class DSchellingSpace extends SimState
 		int width =  (int) Math.ceil(agents.getWidth());
         int height = (int) Math.ceil(agents.getHeight());
 		int[] size = new int[] { width, height };
-		discretizations = new int[] { 7, 7 };
-		partition = DNonUniformPartition.getPartitionScheme(size, true);
+		discretizations = new double[] { 7, 7 };
+		partition = DNonUniformPartition.getPartitionScheme(size, true, aoi);
 		partition.initUniformly(null);
 		partition.commit();
 		NContinuous2D<DAgent> continuousField = new NContinuous2D<DAgent>(partition, aoi, discretizations);

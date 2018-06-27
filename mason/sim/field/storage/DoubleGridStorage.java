@@ -18,6 +18,10 @@ public class DoubleGridStorage extends GridStorage {
 		Arrays.fill((double[])storage, initVal);
 	}
 
+	public GridStorage getNewStorage(IntHyperRect shape) {
+		return new DoubleGridStorage(shape, 0);
+	}
+
 	public byte[] pack(MPIParam mp) throws MPIException {
 		byte[] buf = new byte[MPI.COMM_WORLD.packSize(mp.size, baseType)];
 		MPI.COMM_WORLD.pack(slice((double[])storage, mp.idx), 1, mp.type, buf, 0);
