@@ -7,13 +7,13 @@
 
 JAVAC = javac ${FLAGS}
 
-FLAGS = -target 1.5 -source 1.5 -g -nowarn 
+CLASSROOT = target/classes
+FLAGS = -target 1.5 -source 1.5 -g -nowarn -d ${CLASSROOT}
 
 VERSION = 19
 
-
 # Main java files, not including the 3D stuff
-DIRS = \
+SRCS = \
 sim/app/heatbugs/*.java\
 sim/app/hexabugs/*.java \
 sim/app/asteroids/*.java \
@@ -62,7 +62,7 @@ ec/util/*.java \
 
 
 # The additional 3D java files
-3DDIRS = \
+3DSRCS = \
 sim/app/heatbugs3d/*.java \
 sim/app/woims3d/*.java \
 sim/app/mousetraps3d/*.java \
@@ -84,12 +84,19 @@ sim/portrayal3d/network/*.java \
 sim/display3d/*.java \
 
 
+RSRCROOT=src/main/resources/
+SRCROOT=src/main/java/
+DIRS=$(addprefix $(SRCROOT)/, $(SRCS))
+3DDIRS=$(addprefix $(SRCROOT)/, $(3DSRCS))
+
 # Make the main MASON code, not including 3D code
 all:
 	@ echo This makes the 2D MASON code.
 	@ echo To learn about other options, type 'make help'
-	@ echo 
+	@ echo
+	mkdir -p ${CLASSROOT}
 	${JAVAC} ${DIRS}
+	tar -C ${RSRCROOT} -c sim ec | tar -C ${CLASSROOT} -x
 
 # Make the main MASON code AND the 3D code
 3d:
