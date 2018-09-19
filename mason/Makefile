@@ -96,11 +96,13 @@ all:
 	@ echo
 	mkdir -p ${CLASSROOT}
 	${JAVAC} ${DIRS}
-	tar -C ${RSRCROOT} -c sim ec | tar -C ${CLASSROOT} -x
+	tar -C ${RSRCROOT} -c sim ec | tar -C ${CLASSROOT} -x # Hack to combine resources with class files
 
 # Make the main MASON code AND the 3D code
 3d:
+	mkdir -p ${CLASSROOT}
 	${JAVAC} ${DIRS} ${3DDIRS}
+	tar -C ${RSRCROOT} -c sim ec | tar -C ${CLASSROOT} -x # Hack to combine resources with class files
 
 
 # Delete all jmf gunk, checkpoints, backup emacs gunk classfiles,
@@ -112,8 +114,9 @@ clean:
 	find . -name "*.checkpoint" -exec rm -f {} \;
 	find . -name "*.java*~" -exec rm -f {} \;
 	find . -name ".#*" -exec rm -rf {} \;
-	rm -rf jar/*.jar docs/classdocs/resources docs/classdocs/ec docs/classdocs/sim docs/classdocs/*.html docs/classdocs/*.css docs/classdocs/package*
-
+	rm -rf target/*.jar docs/classdocs/resources docs/classdocs/ec docs/classdocs/sim docs/classdocs/*.html docs/classdocs/*.css docs/classdocs/package*
+	rm -rf ${CLASSROOT}
+	rm -rf target/
 
 # Build the class docs.  They're located in docs/classdocs
 doc:
@@ -127,7 +130,7 @@ jar: 3d
 	touch /tmp/manifest.add
 	rm /tmp/manifest.add
 	echo "Main-Class: sim.display.Console" > /tmp/manifest.add
-	jar -cvfm jar/mason.${VERSION}.jar /tmp/manifest.add `find . -name "*.class"` `find sim -name "*.jpg"` `find sim -name "*.png"` `find sim -name "*.pbm"` `find sim -name "index.html"` sim/display/simulation.classes sim/portrayal/inspector/propertyinspector.classes
+	jar -cvfm target/mason.${VERSION}.jar /tmp/manifest.add -C ${CLASSROOT} .
 
 # Build a distribution.  Cleans, builds 3d, then builds docs, then
 # removes SVN directories
@@ -148,7 +151,7 @@ dist: clean 3d indent doc jar
 # Anyway, beware that this is quite slow.  But it works!
 indent: 
 	touch ${HOME}/.emacs
-	find . -name "*.java" -print -exec emacs --batch --load ~/.emacs --eval='(progn (find-file "{}") (mark-whole-buffer) (setq indent-tabs-mode nil) (untabify (point-min) (point-max)) (indent-region (point-min) (point-max) nil) (save-buffer))' \;
+	find ${SRCROOT} -name "*.java" -print -exec emacs --batch --load ~/.emacs --eval='(progn (find-file "{}") (mark-whole-buffer) (setq indent-tabs-mode nil) (untabify (point-min) (point-max)) (indent-region (point-min) (point-max) nil) (save-buffer))' \;
 
 
 # Print a help message
