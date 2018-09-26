@@ -9,7 +9,7 @@ import java.awt.*;
 import javax.vecmath.*;
 import javax.media.j3d.*;
 import sim.portrayal.*;
-import com.sun.j3d.utils.geometry.*;
+import com.sun.j3d.utils.geometry.*; // Find JOGL equivalent
 import sim.portrayal3d.simple.*;
 import sim.util.*;
 import sim.field.network.*;
