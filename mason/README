@@ -1,7 +1,11 @@
+# Mason
+## About
+
 Welcome to MASON, a simulator designed for simple-multiagent simulations,
 or to be used as a core library inside more sophisticated multiagent
 simulators. 
 
+### Credits
 MASON was written by Sean Luke, Gabriel Catalin Balan, and Liviu Panait. 
 Additional code and apps were written by Daniel Kuebrich and Sean Paus. 
 Much help was provided by Claudio Cioffi-Revilla and Ken De Jong.  MASON
@@ -9,6 +13,7 @@ is a joint effort of George Mason University's Evolutionary Computation
 Laboratory (in the Computer Science Department), and GMU's Center for
 Social Complexity. 
 
+### Important Files
 Here are files you should know about. 
 
 LICENSE.  MASON largely uses the Academic Free License version 3.0.
@@ -19,20 +24,23 @@ INSTALLATION AND INTRODUCTION.  Installation information, and the root
 
 CHANGES.  The changes from previous versions are listed in the CHANGES file. 
 
+### Contacts
 If you have any questions, you have two routes.  First, check out the
 MASON-INTEREST-L discussion group on the MASON website.  Second, the MASON
 website also lists a help email address you can send mail to if you get
 desperate.  The website URL is http://cs.gmu.edu/~eclab/projects/mason/
 Please do NOT mail the developers directly.  Post to the discussion group. 
 
+### Other README files
 Note that most of the subdirectories contain README files describing the
 classes and basic files in those directories.  This might or might not be
 useful to you when poking around.
 
 ---------------------------------------------------------------------------
 
+## Quick Start
 
-Quick Start: In the same directory as this file there is a directory
+In the same directory as this file there is a directory
 called 'start'.  Inside this directory there are scripts to fire up MASON. 
 
 	Windows:	double-click on 'mason.bat'
@@ -52,7 +60,7 @@ drop them in the 'mason' directory.
 
 ---------------------------------------------------------------------------
 
-Using the Jar File:
+## Using the Jar File
 
 1. Install Java3D.
 
@@ -75,7 +83,7 @@ Using the Jar File:
 
 --------------------------------------------------------------------------
 
-Not So Quick Start With Full Source:
+## Compiling from Source
 
 1. Install Java3D.
 
@@ -108,7 +116,7 @@ Not So Quick Start With Full Source:
 
 ---------------------------------------------------------------------------
 
-Where to go from here?:
+## Where to go from here?:
 
 1. Play with the demos.
 2. Poke around in the docs.
