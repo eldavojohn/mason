@@ -10,6 +10,12 @@
 			<id>local-repo</id>
 			<url>file:///${project.basedir}/local-repo</url>
 		</repository>
+		<repository>
+			<id>jogamp-remote</id>
+			<name>jogamp test mirror</name>
+			<url>http://www.jogamp.org/deployment/maven/</url>
+			<layout>default</layout>
+		</repository>
 	</repositories>
 
 	<dependencies>
@@ -17,6 +23,11 @@
 			<groupId>portfolio</groupId>
 			<artifactId>portfolio</artifactId>
 			<version>22</version>
+		</dependency>
+		<dependency>
+			<groupId>mpi</groupId>
+			<artifactId>mpi</artifactId>
+			<version>9999</version>
 		</dependency>
 		<dependency>
 			<groupId>com.jcraft</groupId>
@@ -59,7 +70,7 @@
 <!-- https://mvnrepository.com/artifact/org.jogamp.libgdx/gdx-backend-jogamp -->
 <dependency>
 	<groupId>org.jogamp.jogl</groupId>
-	<artifactId>jogl-all-main</artifactId>
+	<artifactId>jogl-all</artifactId>
 	<version>2.3.2</version>
 </dependency>
 <dependency>
@@ -77,22 +88,43 @@
 	<artifactId>gluegen-rt</artifactId>
 	<version>2.3.2</version>
 </dependency>
-<dependency>
-	<groupId>org.jogamp.gluegen</groupId>
-	<artifactId>gluegen</artifactId>
-	<version>2.3.2</version>
-</dependency>
 	</dependencies>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
+		<maven.compiler.fork>true</maven.compiler.fork>
+		<maven.compiler.forceJavacCompilerUse>true</maven.compiler.forceJavacCompilerUse>
+		<maven.compiler.executable>${MPIJAVAC}</maven.compiler.executable>
+		<maven.compiler.maxmem>200M</maven.compiler.maxmem>
 	</properties>
 	<build>
-
 		<plugins>
 			<plugin>
 				<!-- Set main class in the Jar. -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.2.0</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<transformers>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<manifestEntries>
+										<mainClass>sim.display.Console</mainClass>
+										<Build-Number>19</Build-Number>
+									</manifestEntries>
+								</transformer>
+							</transformers>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
 				<configuration>
@@ -103,9 +135,8 @@
 							<classpathPrefix>dependency/</classpathPrefix>
 						</manifest>
 					</archive>
-				</configuration>
-			</plugin>
-			<!-- Copy dependency jars into the target directory. -->
+				</configuration> 
+			</plugin> 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>

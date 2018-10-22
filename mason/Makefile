@@ -5,86 +5,91 @@
 #### To see all your make options:  type   make help
 #### To add flags (like -O) to javac:  change the FLAGS variable below
 LIBS=`function join() { local IFS=$$1; shift; echo "$$*"; }; join ":" library/* `
-FLAGS = -target 1.8 -source 1.8 -g -nowarn -cp ${LIBS}:$$CLASSPATH
+CLASSROOT = target/classes
+FLAGS = -target 1.8 -source 1.8 -g -d ${CLASSROOT} -nowarn -cp ${LIBS}:$$CLASSPATH
 JAVAC = mpijavac ${FLAGS}
 BUILDDIR=$$(pwd)
 VERSION = 19
 
 
 # Main java files, not including the 3D stuff
-DIRS = \
-src/main/java/ec/util/*.java \
-src/main/java/sim/app/heatbugs/*.java\
-src/main/java/sim/app/dheatbugs/*.java\
-src/main/java/sim/app/hexabugs/*.java \
-src/main/java/sim/app/asteroids/*.java \
-src/main/java/sim/app/antsforage/*.java \
-src/main/java/sim/app/virus/*.java \
-src/main/java/sim/app/cto/*.java \
-src/main/java/sim/app/woims/*.java \
-src/main/java/sim/app/mav/*.java \
-src/main/java/sim/app/mousetraps/*.java \
-src/main/java/sim/app/networktest/*.java \
-src/main/java/sim/app/keepaway/*.java \
-src/main/java/sim/app/lsystem/*.java \
-src/main/java/sim/app/lightcycles/*.java \
-src/main/java/sim/app/swarmgame/*.java \
-src/main/java/sim/app/flockers/*.java \
-src/main/java/sim/app/dflockers/*.java \
-src/main/java/sim/app/tutorial1and2/*.java \
-src/main/java/sim/app/tutorial3/*.java \
-src/main/java/sim/app/tutorial4/*.java \
-src/main/java/sim/app/tutorial5/*.java \
-src/main/java/sim/app/schelling/*.java \
-src/main/java/sim/app/pacman/*.java \
-src/main/java/sim/app/pso/*.java \
-src/main/java/sim/app/wcss/tutorial0*/*.java \
-src/main/java/sim/app/wcss/tutorial10/*.java \
-src/main/java/sim/app/wcss/tutorial11/*.java \
-src/main/java/sim/app/wcss/tutorial12/*.java \
-src/main/java/sim/app/wcss/tutorial13/*.java \
-src/main/java/sim/display/*.java \
-src/main/java/sim/engine/*.java \
-src/main/java/sim/util/*.java \
-src/main/java/sim/util/media/*.java \
-src/main/java/sim/util/media/chart/*.java \
-src/main/java/sim/util/gui/*.java \
-src/main/java/sim/util/distribution/*.java \
-src/main/java/sim/field/*.java \
-src/main/java/sim/field/grid/*.java \
-src/main/java/sim/field/continuous/*.java \
-src/main/java/sim/field/network/*.java \
-src/main/java/sim/field/storage/*.java \
-src/main/java/sim/portrayal/*.java \
-src/main/java/sim/portrayal/grid/*.java \
-src/main/java/sim/portrayal/continuous/*.java \
-src/main/java/sim/portrayal/network/*.java \
-src/main/java/sim/portrayal/simple/*.java \
-src/main/java/sim/portrayal/inspector/*.java 
+SRCS = \
+ec/util/*.java \
+sim/app/heatbugs/*.java\
+sim/app/dheatbugs/*.java\
+sim/app/hexabugs/*.java \
+sim/app/asteroids/*.java \
+sim/app/antsforage/*.java \
+sim/app/virus/*.java \
+sim/app/cto/*.java \
+sim/app/woims/*.java \
+sim/app/mav/*.java \
+sim/app/mousetraps/*.java \
+sim/app/networktest/*.java \
+sim/app/keepaway/*.java \
+sim/app/lsystem/*.java \
+sim/app/lightcycles/*.java \
+sim/app/swarmgame/*.java \
+sim/app/flockers/*.java \
+sim/app/dflockers/*.java \
+sim/app/tutorial1and2/*.java \
+sim/app/tutorial3/*.java \
+sim/app/tutorial4/*.java \
+sim/app/tutorial5/*.java \
+sim/app/schelling/*.java \
+sim/app/pacman/*.java \
+sim/app/pso/*.java \
+sim/app/wcss/tutorial0*/*.java \
+sim/app/wcss/tutorial10/*.java \
+sim/app/wcss/tutorial11/*.java \
+sim/app/wcss/tutorial12/*.java \
+sim/app/wcss/tutorial13/*.java \
+sim/display/*.java \
+sim/engine/*.java \
+sim/util/*.java \
+sim/util/media/*.java \
+sim/util/media/chart/*.java \
+sim/util/gui/*.java \
+sim/util/distribution/*.java \
+sim/field/*.java \
+sim/field/grid/*.java \
+sim/field/continuous/*.java \
+sim/field/network/*.java \
+sim/field/storage/*.java \
+sim/portrayal/*.java \
+sim/portrayal/grid/*.java \
+sim/portrayal/continuous/*.java \
+sim/portrayal/network/*.java \
+sim/portrayal/simple/*.java \
+sim/portrayal/inspector/*.java 
 
 
 # The additional 3D java files
-3DDIRS = \
-src/main/java/sim/app/heatbugs3d/*.java \
-src/main/java/sim/app/woims3d/*.java \
-src/main/java/sim/app/mousetraps3d/*.java \
-src/main/java/sim/app/crowd3d/*.java \
-src/main/java/sim/app/balls3d/*.java \
-src/main/java/sim/app/celegans/*.java \
-src/main/java/sim/app/particles3d/*.java \
-src/main/java/sim/app/pso3d/*.java \
-src/main/java/sim/app/tutorial6/*.java \
-src/main/java/sim/app/tutorial7/*.java \
-src/main/java/sim/app/celegans/*.java \
-src/main/java/sim/app/wcss/tutorial14/*.java \
-src/main/java/sim/portrayal3d/*.java \
-src/main/java/sim/portrayal3d/simple/*.java \
-src/main/java/sim/portrayal3d/grid/*.java \
-src/main/java/sim/portrayal3d/grid/quad/*.java \
-src/main/java/sim/portrayal3d/continuous/*.java \
-src/main/java/sim/portrayal3d/network/*.java \
-src/main/java/sim/display3d/*.java 
+3DSRCS = \
+sim/app/heatbugs3d/*.java \
+sim/app/woims3d/*.java \
+sim/app/mousetraps3d/*.java \
+sim/app/crowd3d/*.java \
+sim/app/balls3d/*.java \
+sim/app/celegans/*.java \
+sim/app/particles3d/*.java \
+sim/app/pso3d/*.java \
+sim/app/tutorial6/*.java \
+sim/app/tutorial7/*.java \
+sim/app/celegans/*.java \
+sim/app/wcss/tutorial14/*.java \
+sim/portrayal3d/*.java \
+sim/portrayal3d/simple/*.java \
+sim/portrayal3d/grid/*.java \
+sim/portrayal3d/grid/quad/*.java \
+sim/portrayal3d/continuous/*.java \
+sim/portrayal3d/network/*.java \
+sim/display3d/*.java  \
 
+RESOURCE=src/main/resources/
+SRC=src/main/java/
+DIRS=$(addprefix $(SRC), $(SRCS))
+3DDIRS=$(addprefix $(SRC), $(3DSRCS))
 
 # Make the main MASON code, not including 3D code
 all: SHELL=/bin/bash
@@ -92,12 +97,16 @@ all:
 	@ echo This makes the 2D MASON code.
 	@ echo To learn about other options, type 'make help'
 	@ echo 
+	mkdir -p ${CLASSROOT}
 	${JAVAC} ${DIRS}
+	tar -C ${RESOURCE} -c sim ec | tar -C ${SRC} -x
 
 # Make the main MASON code AND the 3D code
 3d: SHELL=/bin/bash
 3d:
+	mkdir -p ${CLASSROOT}
 	${JAVAC} ${DIRS} ${3DDIRS}
+	tar -C ${RESOURCE} -c sim ec | tar -C ${SRC} -x
 
 
 # Delete all jmf gunk, checkpoints, backup emacs gunk classfiles,
@@ -109,12 +118,13 @@ clean:
 	find . -name "*.checkpoint" -exec rm -f {} \;
 	find . -name "*.java*~" -exec rm -f {} \;
 	find . -name ".#*" -exec rm -rf {} \;
-	rm -rf jar/*.jar docs/classdocs/resources docs/classdocs/ec docs/classdocs/src/main/java/sim docs/classdocs/*.html docs/classdocs/*.css docs/classdocs/package*
+	rm -rf target/*.jar docs/classdocs/resources docs/classdocs/ec docs/classdocs/src/main/java/sim docs/classdocs/*.html docs/classdocs/*.css docs/classdocs/package*
+	rm -rf ${CLASSROOT}
 
 
 # Build the class docs.  They're located in docs/classdocs
 doc:
-	javadoc -classpath . -protected -d docs/classdocs src/main/java/sim.display src/main/java/sim.engine src/main/java/sim.util src/main/java/sim.util.gui src/main/java/sim.util.media src/main/java/sim.util.media.chart src/main/java/sim.field src/main/java/sim.field.grid src/main/java/sim.field.continuous src/main/java/sim.field.network src/main/java/sim.portrayal src/main/java/sim.portrayal.grid src/main/java/sim.portrayal.continuous src/main/java/sim.portrayal.network src/main/java/sim.portrayal.src/main/java/simple ec.util src/main/java/sim.portrayal3d src/main/java/sim.portrayal3d.grid src/main/java/sim.portrayal3d.continuous src/main/java/sim.portrayal3d.src/main/java/simple src/main/java/sim.portrayal3d.grid.quad src/main/java/sim.display3d src/main/java/sim.util.distribution
+	javadoc -classpath . -protected -d docs/classdocs sim.display sim.engine sim.util sim.util.gui sim.util.media sim.util.media.chart sim.field sim.field.grid sim.field.continuous sim.field.network sim.portrayal sim.portrayal.grid sim.portrayal.continuous sim.portrayal.network sim.portrayal.simple sim.portrayal3d sim.portrayal3d.grid sim.portrayal3d.continuous sim.portrayal3d.simple sim.portrayal3d.grid.quad sim.display3d sim.util.distribution
 
 docs: doc
 
@@ -124,11 +134,10 @@ jar: SHELL=/bin/bash
 jar: 3d
 	touch /tmp/manifest.add
 	rm /tmp/manifest.add
-	echo "Main-Class: src/main/java/sim.display.Console" > /tmp/manifest.add
-	echo "" >> /tmp/manifest.add
-	echo $$(cat /tmp/manifest.add)
+	echo "Main-Class: sim.display.Console" > /tmp/manifest.add
 	#jar -cvfm jar/mason.${VERSION}.jar /tmp/manifest.add  `find library -name "*.jar"` `find . -name "*.class"` `find src/main/java/sim -name "*.jpg"` `find src/main/java/sim -name "*.png"` `find src/main/java/sim -name "*.pbm"` `find src/main/java/sim -name "index.html"` src/main/java/sim/display/src/main/java/simulation.classes src/main/java/sim/portrayal/inspector/propertyinspector.classes
-	jar -cvfm jar/mason.${VERSION}.jar /tmp/manifest.add library/* src/* docs/* start/* 
+	jar -cvfm target/mason.${VERSION}.jar /tmp/manifest.add library docs src start
+	#jar uf target/mason.${VERSION}.jar /tmp/manifest.add -C ${CLASSROOT}
 	rm /tmp/manifest.add
 
 
@@ -151,7 +160,7 @@ dist: clean 3d indent doc jar
 # Anyway, beware that this is quite slow.  But it works!
 indent: 
 	touch ${HOME}/.emacs
-	find . -name "*.java" -print -exec emacs --batch --load ~/.emacs --eval='(progn (find-file "{}") (mark-whole-buffer) (setq indent-tabs-mode nil) (untabify (point-min) (point-max)) (indent-region (point-min) (point-max) nil) (save-buffer))' \;
+	find ${SRC} -name "*.java" -print -exec emacs --batch --load ~/.emacs --eval='(progn (find-file "{}") (mark-whole-buffer) (setq indent-tabs-mode nil) (untabify (point-min) (point-max)) (indent-region (point-min) (point-max) nil) (save-buffer))' \;
 
 
 # Print a help message
