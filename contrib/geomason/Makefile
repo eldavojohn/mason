@@ -12,9 +12,10 @@
 #
 # See other make options:
 # make help
-JAVAC = mpijavac -target 1.8 -source 1.8 -nowarn
+CLASSROOT = target/classes
 LIBS=`function join() { local IFS=$$1; shift; echo "$$*"; }; join ":" library/* `
-FLAGS = -target 1.8 -source 1.8 -g -nowarn -cp ${LIBS}:$$CLASSPATH:.
+FLAGS = -d ${CLASSROOT} -target 1.8 -source 1.8 -g -nowarn -cp ${LIBS}:$$CLASSPATH:.
+JAVAC = mpijavac ${FLAGS}
 BUILDDIR=$$(pwd)
 # GeoMason supports Java 5; note that MASON proper only supports Java 4.
 
@@ -25,35 +26,32 @@ JARFILE = geomason.${VERSION}.jar
 SRC_DISTRO  = geomason.src.${VERSION}.tgz
 DEMO_DISTRO = geomason.demos.${VERSION}.tgz
 
-all: jar demos
-
-DEMOS = \
-	sim/app/geo/campusworld/*.java		\
-	sim/app/geo/colorworld/*.java		\
-	sim/app/geo/dcampusworld/*.java		\
-	sim/app/geo/dschellingspace/*.java	\
-	sim/app/geo/gridlock/*.java		\
-	sim/app/geo/masoncsc/gui/*.java		\
-	sim/app/geo/masoncsc/properties/*.java	\
-	sim/app/geo/masoncsc/submodel/*.java	\
-	sim/app/geo/masoncsc/submodel/flockersAndHeatBugs/*.java \
-	sim/app/geo/masoncsc/submodel/flockersAndHeatBugs/flockers/*.java \
-	sim/app/geo/masoncsc/submodel/flockersAndHeatBugs/heatBugs/*.java \
-	sim/app/geo/nearbyworld/*.java		\
-	sim/app/geo/networkworld/*.java		\
-	sim/app/geo/schellingpolygon/*.java	\
-	sim/app/geo/schellingspace/*.java	\
-	sim/app/geo/sickStudents/*.java		\
-	sim/app/geo/sillypeds/*.java		\
-	sim/app/geo/sleuth/*.java		\
-	sim/app/geo/touchingworld/*.java	\
-	sim/app/geo/turkana/*.java		\
-	sim/app/geo/waterworld/*.java		
-	# sim/app/geo/acequias/*.java		\
+DEMOLOC =  sim/app/geo/campusworld/*.java		\
+	   sim/app/geo/colorworld/*.java		\
+	   sim/app/geo/dcampusworld/*.java		\
+	   sim/app/geo/dschellingspace/*.java	\
+	   sim/app/geo/gridlock/*.java		\
+	   sim/app/geo/masoncsc/gui/*.java		\
+	   sim/app/geo/masoncsc/properties/*.java	\
+	   sim/app/geo/masoncsc/submodel/*.java	\
+	   sim/app/geo/masoncsc/submodel/flockersAndHeatBugs/*.java \
+	   sim/app/geo/masoncsc/submodel/flockersAndHeatBugs/flockers/*.java \
+	   sim/app/geo/masoncsc/submodel/flockersAndHeatBugs/heatBugs/*.java \
+	   sim/app/geo/nearbyworld/*.java		\
+	   sim/app/geo/networkworld/*.java		\
+	   sim/app/geo/schellingpolygon/*.java	\
+	   sim/app/geo/schellingspace/*.java	\
+	   sim/app/geo/sickStudents/*.java		\
+	   sim/app/geo/sillypeds/*.java		\
+	   sim/app/geo/sleuth/*.java		\
+	   sim/app/geo/touchingworld/*.java	\
+	   sim/app/geo/turkana/*.java		\
+	   sim/app/geo/waterworld/*.java		
+# sim/app/geo/acequias/*.java		\
 	# sim/app/geo/CDI/ # Not ready		\
 	# sim/app/geo/conflictdiamonds/*.java	\ 
-	# sim/app/geo/cityMigration/*.java	\ 
-	# sim/app/geo/dadaab/*.java		\
+# sim/app/geo/cityMigration/*.java	\ 
+# sim/app/geo/dadaab/*.java		\
 	# sim/app/geo/ebola/*.java		\
 	# sim/app/geo/riftland/*.java		\
 	# sim/app/geo/riftland/conflict/*.java	\
@@ -70,15 +68,24 @@ DEMOS = \
 	# sim/app/geo/refugee/*.java		\
 	# sim/app/geo/haiti/*.java		\
 
-
+RESOURCE=src/main/resources/
+SRC=src/main/java/
+DEMOS=$(addprefix $(SRC), $(DEMOLOC))
 # Note that we do not restrict demos to Java 1.4 as is this case with MASON
-demos : ${JARFILE}
+all: SHELL=/bin/bash
+all: jar demos
+	mkdir -p ${CLASSROOT}                       
+	${JAVAC} ${DEMOS}                           
+	tar -C ${RESOURCE} -c sim | tar -C ${SRC} -x
 	@echo "Compiling examples..."
-	@javac -cp ${CLASSPATH}:${JARFILE} $(DEMOS)
+	${JAVAC} -cp ${CLASSPATH}:${JARFILE} $(DEMOS)
 
-
+demos: SHELL=/bin/bash
+demos : ${JARFILE}
+dist: SHELL=/bin/bash
 dist : ${SRC_DISTRO} ${DEMO_DISTRO}
 
+${SRC_DISTRO}: SHELL=/bin/bash
 ${SRC_DISTRO} :
 	rm -rf geomason-${VERSION}
 	mkdir geomason-${VERSION}
@@ -103,8 +110,11 @@ clean:
 	find . -name "*.checkpoint" -exec rm -f {} \;
 	find . -name "*.java*~" -exec rm -f {} \;
 	find . -name ".#*" -exec rm -rf {} \;
+	rm -rf target/*jar
+	rm -rf ${CLASSROOT}
 
 #Build all the classdocs
+docs: SHELL=/bin/bash
 docs: doc
 
 doc:
@@ -119,45 +129,48 @@ indent:
 
 
 # All the main GeoMason source files
-BASE_FILES = ./sim/field/geo/GeomField.java		\
-	     ./sim/field/geo/GeomGridField.java			\
-	     ./sim/field/geo/GeomVectorField.java			\
-	     ./sim/io/geo/ArcInfoASCGridImporter.java		\
-	     ./sim/io/geo/ShapeFileImporter.java			\
-	     ./sim/io/geo/ArcInfoASCGridExporter.java		\
-	     ./sim/io/geo/ShapeFileExporter.java			\
-	     ./sim/portrayal/geo/GeomPortrayal.java			\
-	     ./sim/portrayal/geo/GeomVectorFieldPortrayal.java	\
-	     ./sim/portrayal/geo/GeomInfo2D.java			\
-	     ./sim/util/geo/AttributeValue.java			\
-	     ./sim/util/geo/GeometryUtilities.java			\
-	     ./sim/util/geo/GeomPlanarGraph.java			\
-	     ./sim/util/geo/GeomPlanarGraphDirectedEdge.java		\
-	     ./sim/util/geo/GeomPlanarGraphEdge.java			\
-	     ./sim/util/geo/MasonGeometry.java			\
-	     ./sim/util/geo/PointMoveTo.java				\
-	     ./sim/io/geo/ShapeFileExporter.java			
+BASE = sim/field/geo/GeomField.java		\
+       sim/field/geo/GeomGridField.java			\
+       sim/field/geo/GeomVectorField.java			\
+       sim/io/geo/ArcInfoASCGridImporter.java		\
+       sim/io/geo/ShapeFileImporter.java			\
+       sim/io/geo/ArcInfoASCGridExporter.java		\
+       sim/io/geo/ShapeFileExporter.java			\
+       sim/portrayal/geo/GeomPortrayal.java			\
+       sim/portrayal/geo/GeomVectorFieldPortrayal.java	\
+       sim/portrayal/geo/GeomInfo2D.java			\
+       sim/util/geo/AttributeValue.java			\
+       sim/util/geo/GeometryUtilities.java			\
+       sim/util/geo/GeomPlanarGraph.java			\
+       sim/util/geo/GeomPlanarGraphDirectedEdge.java		\
+       sim/util/geo/GeomPlanarGraphEdge.java			\
+       sim/util/geo/MasonGeometry.java			\
+       sim/util/geo/PointMoveTo.java				\
+       sim/io/geo/ShapeFileExporter.java			
+BASE_FILES=$(addprefix $(SRC), $(BASE))
 
 
 # Optional GDAL based importer
-GDAL_FILES = ./sim/io/geo/GDALImporter.java
+GDAL = ./sim/io/geo/GDALImporter.java
+GDAL_FILES = $(addprefix $(SRC), $(GDAL))
 
 # Optional GeoTool based importer
-GEOTOOL_FILES = sim/io/geo/GeoToolsImporter.java
+GEOTOOL = sim/io/geo/GeoToolsImporter.java
+GEOTOOL_FILES = $(addprefix $(SRC), $(GEOTOOL))
 
 # Optional GDAL/OGR based importer
-OGR_FILES = sim/io/geo/OGRImporter.java	
+OGR = sim/io/geo/OGRImporter.java	
+OGR_FILES = $(addprefix, $(SRC), $(OGR))
 
 # Add GDAL_FILES, GEOTOOL_FILES and/or OGR_FILES if you want support for those
-${JARFILE} : $(BASE_FILES) $(GDAL_FILES) $(GEOTOOL_FILES) $(OGR_FILES)
-	@echo "Creating ${JARFILE}..."
-	@touch /tmp/manifest.add
-	@rm /tmp/manifest.add
-	@echo "Main-Class: sim.display.Console" > /tmp/manifest.add
-	@echo "Class-Path: . library/*"
-	@javac ${JAVACFLAGS} $^
-	@jar -cvmf /tmp/manifest.add $@ `find sim/app sim/field sim/io sim/portrayal sim/util -name "*.class" -or -name "*.jpg" -or -name "*.png" -or -name "index.html"`
-	@rm /tmp/manifest.add
+${JARFILE}: $(BASE_FILES) $(GDAL_FILES) $(GEOTOOL_FILES) $(OGR_FILES)
+	echo "Creating ${JARFILE}..."
+	touch /tmp/manifest.add
+	rm /tmp/manifest.add
+	echo "Main-Class: sim.display.Console" > /tmp/manifest.add
+	${JAVAC} $^
+	jar -cvmf target/${JARFILE} /tmp/manifest.add $@ library local-repo dos src
+	rm /tmp/manifest.add
 
 
 jar : ${JARFILE}

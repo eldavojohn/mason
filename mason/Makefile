@@ -8,7 +8,6 @@ LIBS=`function join() { local IFS=$$1; shift; echo "$$*"; }; join ":" library/* 
 CLASSROOT = target/classes
 FLAGS = -target 1.8 -source 1.8 -g -d ${CLASSROOT} -nowarn -cp ${LIBS}:$$CLASSPATH
 JAVAC = mpijavac ${FLAGS}
-BUILDDIR=$$(pwd)
 VERSION = 19
 
 
@@ -144,15 +143,15 @@ jar: 3d
 # Build a distribution.  Cleans, builds 3d, then builds docs, then
 # removes SVN directories
 dist: clean 3d indent doc jar
-	@ echo If the version is being updated, change it here:
-	@ echo "1. sim.engine.SimState.version()"
-	@ echo "2. manual.tex frontmatter (including copyright year)"
-	@ echo "3. Makefile VERSION variable"
+	echo If the version is being updated, change it here:
+	echo "1. sim.engine.SimState.version()"
+	echo "2. manual.tex frontmatter (including copyright year)"
+	echo "3. Makefile VERSION variable"
 	touch TODO
 	rm TODO
 	find . -name ".svn" -exec rm -rf {} \;
-	@ echo "If there were SVN directories, expect this to end in an error."
-	@ echo "Don't worry about it, things are still fine."
+	echo "If there were SVN directories, expect this to end in an error."
+	echo "Don't worry about it, things are still fine."
 
 
 # Indent to your preferred brace format using emacs.  MASON's default
