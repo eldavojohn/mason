@@ -448,7 +448,7 @@ public class BoxPlotGenerator extends ChartGenerator
             public void stateChanged(ChangeEvent e)
                 {
                 BoxAndWhiskerRenderer renderer = ((BoxAndWhiskerRenderer)((CategoryPlot)(chart.getPlot())).getRenderer());
-                renderer.setUseOutlinePaintForWhiskers(!whiskersUseFillColorButton.isSelected());
+                // renderer.setUseOutlinePaintForWhiskers(!whiskersUseFillColorButton.isSelected());
                 }
             });
 
